@@ -1,0 +1,14 @@
+#pragma once
+
+#define BSP_CAPS_DISPLAY 1
+#define BSP_CAPS_TOUCH 1
+
+// #define BSP_FEATURE_LCD
+
+#define BSP_LCD_H_RES 320
+#define BSP_LCD_V_RES 480
+#define BSP_SD_SPI_HOST VSPI_HOST
+#define BSP_SD_SPI_MOSI GPIO_NUM_23
+#define BSP_SD_SPI_MISO GPIO_NUM_19
+#define BSP_SD_SPI_SCLK GPIO_NUM_18
+#define BSP_SD_SPI_CS GPIO_NUM_5
