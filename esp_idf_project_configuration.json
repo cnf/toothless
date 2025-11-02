@@ -3,11 +3,12 @@
     "build": {
       "compileArgs": [],
       "ninjaArgs": [],
-      "buildDirectoryPath": "",
+      "buildDirectoryPath": "${workspaceFolder}/build",
       "sdkconfigDefaults": [
-        "config/sdkconfig.ST7796"
+        "${workspaceFolder}/config/sdkconfig.lvgl",
+        "${workspaceFolder}/config/sdkconfig.dev"
       ],
-      "sdkconfigFilePath": ""
+      "sdkconfigFilePath": "${workspaceFolder}/sdkconfig"
     },
     "env": {},
     "flashBaudRate": "",
@@ -19,7 +20,7 @@
       "args": []
     },
     "tasks": {
-      "preBuild": "rm sdkconfig",
+      "preBuild": "rm -f sdkconfig",
       "preFlash": "",
       "postBuild": "",
       "postFlash": ""

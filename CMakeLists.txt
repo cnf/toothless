@@ -13,7 +13,7 @@ if (NOT CONFIG_COMPILER_OPTIMIZATION_DEBUG)
   idf_build_set_property(MINIMAL_BUILD ON)
 endif()
 
-project(TargetAutomaton LANGUAGES CXX)
+project(Toothless LANGUAGES CXX)
 
 idf_build_set_property(
   COMPILE_OPTIONS

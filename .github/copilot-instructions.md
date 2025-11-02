@@ -1,5 +1,5 @@
 # Code Style
-This codebase is for controlling various stepper motor and servo motor controlled devices over esp-now using msgpack.
+This codebase is for controlling reflow ovens, hot plates, and general temperature devices using ESP32 microcontrollers.
 - It is a in c++ 23 library
 - follows LLVM formatting
 - 120 line width limit
