@@ -6,20 +6,22 @@ extern "C" {
 
 #include "funlog.h"
 #include "heater/heater.hpp"
-#include "max6675.h"
 #include "sensors/sensors.hpp"
 #include "ui/user_interface.hpp"
+#include <QDispatch.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <esp_lib_utils.h>
 #include <esp_timer.h>
 #include <memory>
 
-#include <QDispatch.h>
-
 DynamicContextPool context_pool;
 TaskDispatcher main_dispatcher(&context_pool);
 // TaskDispatcher prio_dispatcher(&context_pool);
+
+// Declarations
+extern "C" void app_main(); // Function prototype
+void SetLogLevels();
 
 /// @brief Set the log levels for various components
 void SetLogLevels() {
@@ -42,6 +44,7 @@ void SetLogLevels() {
   // esp_log_level_set("efuse", ESP_LOG_ERROR);
   // esp_log_level_set("gpio", ESP_LOG_ERROR);
   esp_log_level_set("heater.cpp", ESP_LOG_INFO);
+  esp_log_level_set("lvgl_port.cpp", ESP_LOG_DEBUG);
 }
 
 // using namespace esp_panel::drivers;
@@ -93,8 +96,6 @@ extern "C" void app_main(void) {
   // gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
   // gpio_set_level(GPIO_NUM_13, 1);
   // bool lvl = 1;
-
-  ps_subscriber_t *sub = ps_new_subscriber(10, PS_STRLIST("sensor.chamber.temperature"));
 
   FLOG_INFO("Starting main thread");
   while (true) {

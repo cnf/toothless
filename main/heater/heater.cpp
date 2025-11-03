@@ -25,7 +25,7 @@ bool Heater::Init() {
 }
 
 void Heater::Loop() {
-  uint32_t tdelta = esp_timer_get_time() - _last_run;
+  // uint32_t tdelta = esp_timer_get_time() - _last_run;
   ps_msg_t *msg = NULL;
   // uint32_t temperature;
   msg = ps_get(_sub_temp, 0);
@@ -37,6 +37,7 @@ void Heater::Loop() {
       }
       _last_temp_update = esp_timer_get_time();
     }
+    ps_unref_msg(msg);
   }
   // auto temperature = GetTemperature();
   if (_last_temp_update + 5000000 < esp_timer_get_time()) {
@@ -64,6 +65,7 @@ esp_err_t Heater::SetPower(uint8_t power) {
   } else {
     HeaterOff();
   }
+  return ESP_OK;
 }
 
 esp_err_t Heater::HeaterOn() {

@@ -28,7 +28,7 @@ uint64_t _lvgl_sleep;
 /// @return true if successful, false otherwise
 esp_err_t Display::Init() {
   ESP_ERROR_CHECK(SetupPanel());
-  // ESP_ERROR_CHECK(SetupTouchPanel());
+  ESP_ERROR_CHECK(SetupTouchPanel());
   FLOG_DEBUG("Free heap: %u, Min free: %u", esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
   ESP_RETURN_ON_FALSE(
       xTaskCreatePinnedToCore(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL, 0),
@@ -56,7 +56,7 @@ esp_err_t Display::SetupPanel() {
   esp_lcd_panel_handle_t panel_handle = NULL;
   esp_lcd_panel_dev_config_t panel_config = {
       .reset_gpio_num = CONFIG_TL_DISPLAY_RESET_PIN, // DISPAY_RESET_GPIO,
-      .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,    // Try RGB first for ST7796S
+      .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,    // Try RGB first for ST7796S
       .bits_per_pixel = 16,
   };
   FLOG_DEBUG("Create new ST7796 panel");
@@ -66,9 +66,6 @@ esp_err_t Display::SetupPanel() {
 
   // ST7796S often needs color inversion
   ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
-
-  ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
-  ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
 
   ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
@@ -80,12 +77,24 @@ esp_err_t Display::SetupPanel() {
   lv_init();
   FLOG_INFO("LVGL Initialized");
 
+  int32_t hres, vres;
+  if (PORTRAIT) {
+    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, false));
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, false));
+    hres = CONFIG_TL_DISPLAY_VRES;
+    vres = CONFIG_TL_DISPLAY_HRES;
+  } else {
+    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
+    hres = CONFIG_TL_DISPLAY_HRES;
+    vres = CONFIG_TL_DISPLAY_VRES;
+  }
+
   // Create display and wrap in shared_ptr (LVGL may keep internal references)
-  _display = std::shared_ptr<lv_display_t>(lv_display_create(CONFIG_TL_DISPLAY_HRES, CONFIG_TL_DISPLAY_VRES),
-                                           [](lv_display_t *ptr) {
-                                             // Custom deleter - check if LVGL provides a specific cleanup function
-                                             // For now, let LVGL handle cleanup internally
-                                           });
+  _display = std::shared_ptr<lv_display_t>(lv_display_create(hres, vres), [](lv_display_t *ptr) {
+    // Custom deleter - check if LVGL provides a specific cleanup function
+    // For now, let LVGL handle cleanup internally
+  });
   if (!_display) {
     FLOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_INVALID_STATE;
@@ -130,19 +139,34 @@ esp_err_t Display::SetupPanel() {
 /// @brief  Setup the touch panel
 /// @return
 esp_err_t Display::SetupTouchPanel() {
+  bool swapxy, mirror_x, mirror_y;
+  uint16_t hres, vres;
+  if (PORTRAIT) {
+    swapxy = false;
+    mirror_x = 0;
+    mirror_y = 0;
+    hres = CONFIG_TL_DISPLAY_VRES;
+    vres = CONFIG_TL_DISPLAY_HRES;
+  } else {
+    swapxy = true;
+    mirror_x = 0;
+    mirror_y = 1;
+    hres = CONFIG_TL_DISPLAY_VRES;
+    vres = CONFIG_TL_DISPLAY_HRES;
+  }
   esp_lcd_panel_io_handle_t tp_io_handle = NULL;
   esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(CONFIG_TL_TOUCHPANEL_SPI_CS_PIN);
   ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)_spi_host, &tp_io_config, &tp_io_handle));
   esp_lcd_touch_config_t tp_cfg = {
-      .x_max = CONFIG_TL_DISPLAY_HRES,
-      .y_max = CONFIG_TL_DISPLAY_VRES,
+      .x_max = hres,
+      .y_max = vres,
       .rst_gpio_num = GPIO_NUM_NC,
       .int_gpio_num = (gpio_num_t)CONFIG_TL_TOUCHPANEL_INT_PIN,
       .flags =
           {
-              .swap_xy = 0,
-              .mirror_x = 0,
-              .mirror_y = 0, // CONFIG_EXAMPLE_LCD_MIRROR_Y,
+              .swap_xy = swapxy,
+              .mirror_x = mirror_x,
+              .mirror_y = mirror_y, // CONFIG_EXAMPLE_LCD_MIRROR_Y,
           },
   };
   esp_lcd_touch_handle_t tp = NULL;

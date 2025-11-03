@@ -5,6 +5,7 @@
       "ninjaArgs": [],
       "buildDirectoryPath": "${workspaceFolder}/build",
       "sdkconfigDefaults": [
+        "${workspaceFolder}/config/sdkconfig.defaults",
         "${workspaceFolder}/config/sdkconfig.lvgl",
         "${workspaceFolder}/config/sdkconfig.dev"
       ],

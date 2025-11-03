@@ -15,18 +15,19 @@ endif()
 
 project(Toothless LANGUAGES CXX)
 
-idf_build_set_property(
-  COMPILE_OPTIONS
-  "-w"
-  APPEND
-)
-idf_build_set_property(
-  COMPILE_OPTIONS
-  "-Wno-unknown-warning-option"
-  "-Wno-documentation"
-  "-Wno-error"
-  APPEND
-)
+# idf_build_set_property(
+#   COMPILE_OPTIONS
+#   "-w"
+#   APPEND
+# )
+
+# Add component-specific suppressions
+# idf_component_set_property(lvgl__lvgl COMPILE_OPTIONS "-w" APPEND)
+# idf_component_set_property(QDispatch COMPILE_OPTIONS "-w" APPEND) 
+idf_component_set_property(pubsub-c COMPILE_OPTIONS "-w" APPEND)
+idf_component_set_property(atanisoft__esp_lcd_touch_xpt2046 COMPILE_OPTIONS "-w" APPEND)
+idf_component_set_property(espressif__esp32_display_panel COMPILE_OPTIONS "-w" APPEND)
+
 
 ## Link time optimization
 idf_build_set_property(

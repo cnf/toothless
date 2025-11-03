@@ -6,6 +6,20 @@
 
 namespace toothless {
 
+/*
+Top-left: x=425, y=285
+Bottom-right: x=63, y=24
+*/
+
+// Touch calibration constants - based on actual measurements
+#define RAW_X_MIN 45  // Raw touch value at RIGHT edge (inverted)
+#define RAW_X_MAX 445 // Raw touch value at LEFT edge (inverted)
+#define RAW_Y_MIN 30  // Raw touch value at BOTTOM edge (inverted)
+#define RAW_Y_MAX 285 // Raw touch value at TOP edge (inverted)
+
+#define LVGL_TASK_MAX_DELAY_MS 500
+#define LVGL_TASK_MIN_DELAY_MS 1000 / CONFIG_FREERTOS_HZ
+
 // Forward declaration
 class Display;
 

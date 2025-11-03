@@ -18,7 +18,7 @@ set(REQ
   # pubsub-c
   # QDispatch
   FunLog
-  max6675
+  # max6675
 )
 
 idf_component_register(SRCS ${SRC} ${UI} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PRIV_REQUIRES ${PRIVREQ})
@@ -26,6 +26,16 @@ idf_component_register(SRCS ${SRC} ${UI} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PR
 ## Use std23
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_23)
 set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 23)
+
+# Add compiler warnings
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Wall
+    -Wextra
+    -Wreturn-type
+    -Werror=return-type    # This makes it an error, not just warning
+    -Wmissing-declarations
+    -Wunused-variable
+)
 
 
 message(STATUS "main CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")

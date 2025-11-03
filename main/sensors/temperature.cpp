@@ -11,7 +11,7 @@ extern "C" {
 namespace toothless {
 esp_err_t Temperature::Init() {
   _initialized = true;
-  return Max6675Setup(CONFIG_TL_TC_CLK_PIN, CONFIG_TL_TC_CS_PIN, CONFIG_TL_TC_MISO_PIN);
+  return Max6675Setup((int8_t)CONFIG_TL_TC_CLK_PIN, (int8_t)CONFIG_TL_TC_CS_PIN, (int8_t)CONFIG_TL_TC_MISO_PIN);
 }
 esp_err_t Temperature::Loop() {
   if (!_initialized) {

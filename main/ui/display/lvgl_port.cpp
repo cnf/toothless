@@ -13,20 +13,21 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-// #include "esp_timer.h"
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/task.h"
-// #include <sys/lock.h>
-// #include <esp_lcd_panel_vendor.h>
-// #include <esp_lcd_panel_io.h>
-
-// #include <esp_timer.h>
-
 namespace toothless {
 namespace callback {
 
-#define LVGL_TASK_MAX_DELAY_MS 500
-#define LVGL_TASK_MIN_DELAY_MS 1000 / CONFIG_FREERTOS_HZ
+// Utility functions for touch calibration
+static int32_t map(int32_t value, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+  return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+static int32_t constrain(int32_t value, int32_t min_val, int32_t max_val) {
+  if (value < min_val)
+    return min_val;
+  if (value > max_val)
+    return max_val;
+  return value;
+}
 
 /// @brief LVGL callback to flush a portion of the display
 /// @param disp
@@ -80,11 +81,16 @@ void lvgl_port_task(void *arg) {
 
   uint32_t time_till_next_ms = 0;
   while (1) {
+    // Feed watchdog BEFORE potentially long LVGL operations
+    esp_task_wdt_reset();
+
     {
       std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
       lv_obj_t *active_screen = lv_display_get_screen_active(Display::GetDisplayPtr());
       if (active_screen) {
         time_till_next_ms = lv_timer_handler();
+        // Reset watchdog after LVGL processing
+        esp_task_wdt_reset();
       } else {
         time_till_next_ms = 100;
         static uint32_t no_screen_count = 0;
@@ -93,9 +99,6 @@ void lvgl_port_task(void *arg) {
         }
       }
     }
-
-    // Feed the watchdog to prevent timeout
-    esp_task_wdt_reset();
 
     // Clamp delay values
     time_till_next_ms = MAX(time_till_next_ms, LVGL_TASK_MIN_DELAY_MS);
@@ -112,23 +115,51 @@ void lvgl_port_task(void *arg) {
 /// @param indev
 /// @param data
 void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data) {
-  // TODO: not sure how this works
-  // uint16_t touchpad_x[1] = {0};
-  // uint16_t touchpad_y[1] = {0};
-  // uint8_t touchpad_cnt = 0;
+  uint16_t touchpad_x[1] = {0};
+  uint16_t touchpad_y[1] = {0};
+  uint8_t touchpad_cnt = 0;
 
-  // esp_lcd_touch_handle_t *touch_pad = lv_indev_get_user_data(indev);
-  // esp_lcd_touch_read_data(touch_pad);
-  // /* Get coordinates */
-  // bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+  // Get the touch controller handle from LVGL input device user data
+  esp_lcd_touch_handle_t touch_handle = (esp_lcd_touch_handle_t)lv_indev_get_user_data(indev);
 
-  // if (touchpad_pressed && touchpad_cnt > 0) {
-  //   data->point.x = touchpad_x[0];
-  //   data->point.y = touchpad_y[0];
-  //   data->state = LV_INDEV_STATE_PRESSED;
-  // } else {
-  //   data->state = LV_INDEV_STATE_RELEASED;
-  // }
+  // Read current touch data from the controller
+  esp_err_t ret = esp_lcd_touch_read_data(touch_handle);
+  if (ret != ESP_OK) {
+    // If read failed, report no touch
+    data->state = LV_INDEV_STATE_RELEASED;
+    return;
+  }
+
+  // Get coordinates and touch state
+  bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+
+  if (touchpad_pressed && touchpad_cnt > 0) {
+    // // FLOG_INFO("Raw: x=%d, y=%d", touchpad_x[0], touchpad_y[0]);
+    // // Touch detected - report coordinates
+    // // Get raw coordinates first
+    // uint16_t raw_x = touchpad_x[0];
+    // uint16_t raw_y = touchpad_y[0];
+
+    // // // Apply calibration mapping
+    // data->point.x = map(raw_x, RAW_X_MIN, RAW_X_MAX, 0, 480);
+    // data->point.y = map(raw_y, RAW_Y_MIN, RAW_Y_MAX, 0, 320);
+
+    // // // Clamp to screen bounds
+    // data->point.x = constrain(data->point.x, 0, 479);
+    // data->point.y = constrain(data->point.y, 0, 319);
+    data->point.x = touchpad_x[0];
+    data->point.y = touchpad_y[0];
+    data->state = LV_INDEV_STATE_PRESSED;
+
+    // Optional: Add touch coordinate logging for debugging
+    static uint32_t log_count = 0;
+    if (++log_count % 10 == 0) { // Log every 10th touch event
+      FLOG_DEBUG("Touch: x=%d, y=%d", data->point.x, data->point.y);
+    }
+  } else {
+    // No touch detected
+    data->state = LV_INDEV_STATE_RELEASED;
+  }
   return;
 }
 
