@@ -8,26 +8,31 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_touch_xpt2046.h>
 #include <esp_task_wdt.h>
+#include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <sys/param.h>
 #include <unistd.h>
 
+extern "C" {
+#include <pubsub.h>
+}
+
 namespace toothless {
 namespace callback {
 
-// Utility functions for touch calibration
-static int32_t map(int32_t value, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
-  return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
+// // Utility functions for touch calibration
+// static int32_t map(int32_t value, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+//   return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+// }
 
-static int32_t constrain(int32_t value, int32_t min_val, int32_t max_val) {
-  if (value < min_val)
-    return min_val;
-  if (value > max_val)
-    return max_val;
-  return value;
-}
+// static int32_t constrain(int32_t value, int32_t min_val, int32_t max_val) {
+//   if (value < min_val)
+//     return min_val;
+//   if (value > max_val)
+//     return max_val;
+//   return value;
+// }
 
 /// @brief LVGL callback to flush a portion of the display
 /// @param disp
@@ -72,12 +77,17 @@ bool lvgl_notify_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_i
 /// @param arg
 void lvgl_port_task(void *arg) {
   FLOG_INFO("Starting LVGL port task");
-  // Display *display = static_cast<Display *>(arg);
-  // std::shared_ptr<lv_display_t> = static_cast<lv_display_t *>(arg);
-  // lv_display_t *display = Display::GetDisplayPtr();
 
   esp_task_wdt_add(NULL);
-  vTaskDelay(pdMS_TO_TICKS(500)); // Wait 500ms for UI setup
+  // Configure WDT to log errors instead of panicking
+  // BUG: This doesn't actually trigger at all
+  // esp_task_wdt_config_t twdt_config = {
+  //     .timeout_ms = 4000,   // 10 second timeout
+  //     .idle_core_mask = 0,   // Don't monitor idle tasks
+  //     .trigger_panic = false // Don't crash on timeout - just log!
+  // };
+  // esp_task_wdt_reconfigure(&twdt_config);
+  // vTaskDelay(pdMS_TO_TICKS(500)); // Wait 500ms for UI setup
 
   uint32_t time_till_next_ms = 0;
   while (1) {
@@ -99,6 +109,7 @@ void lvgl_port_task(void *arg) {
         }
       }
     }
+    PS_PUB_INT("heartbeat.ui", esp_timer_get_time());
 
     // Clamp delay values
     time_till_next_ms = MAX(time_till_next_ms, LVGL_TASK_MIN_DELAY_MS);
@@ -161,6 +172,44 @@ void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data) {
     data->state = LV_INDEV_STATE_RELEASED;
   }
   return;
+}
+
+void lvgl_display_event_cb(lv_event_t *e) {
+  // lv_event_code_t code = lv_event_get_code(e);
+  // if (code == LV_EVENT_REFR_READY) {
+  //   // First refresh done
+  //   gpio_set_level(CONFIG_TL_DISPLAY_BACKLIGHT_PIN, 1);
+  //   // Optionally remove this event callback after first call
+  //   lv_event_clear(lv_event_get_target(e), LV_EVENT_REFR_READY, lvgl_display_event_cb);
+  // }
+}
+
+void lvgl_boot_screen() {
+  FLOG_INFO("Boot Screen");
+  std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
+
+  lv_obj_t *boot_scr = lv_obj_create(NULL);
+  lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
+
+  lv_obj_t *label = lv_label_create(boot_scr);
+  lv_label_set_text(label, "Toothless");
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
+  lv_obj_center(label);
+
+  lv_obj_t *sub_label = lv_label_create(boot_scr);
+  lv_label_set_text(sub_label, "Initializing...");
+  lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_16, 0);
+  lv_obj_align(sub_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+
+  lv_display_flush_ready(Display::GetDisplayPtr());
+
+  lv_screen_load(boot_scr);
+}
+
+void backlight_timer_cb(void *arg) {
+  ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, GPIO_MODE_OUTPUT));
+  gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, DISPLAY_BL_ON_LEVEL);
 }
 
 } // namespace callback

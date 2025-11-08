@@ -33,7 +33,15 @@ esp_err_t Display::Init() {
   ESP_RETURN_ON_FALSE(
       xTaskCreatePinnedToCore(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL, 0),
       ESP_ERR_INVALID_STATE, FLOG_SHORT_FILENAME, "Failed to create LVGL task");
+  lvgl_boot_screen();
 
+  {
+    // Schedule backlight to turn on after 500ms (gives LVGL time to render first screen)
+    esp_timer_handle_t backlight_timer = NULL;
+    const esp_timer_create_args_t timer_args = {.callback = backlight_timer_cb, .arg = NULL, .name = "backlight_timer"};
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &backlight_timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 10000)); // 500ms in microseconds
+  }
   return ESP_OK;
 };
 
@@ -69,13 +77,8 @@ esp_err_t Display::SetupPanel() {
 
   ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-  FLOG_INFO("Turn on LCD backlight");
-  ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, GPIO_MODE_OUTPUT));
-  gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, DISPLAY_BL_ON_LEVEL);
-
   FLOG_INFO("Initialize LVGL");
   lv_init();
-  FLOG_INFO("LVGL Initialized");
 
   int32_t hres, vres;
   if (PORTRAIT) {
@@ -100,15 +103,30 @@ esp_err_t Display::SetupPanel() {
     return ESP_ERR_INVALID_STATE;
   }
 
+  //
+
   FLOG_INFO("Display resolution: %dx%d", CONFIG_TL_DISPLAY_HRES, CONFIG_TL_DISPLAY_VRES);
 
   size_t draw_buffer_sz = CONFIG_TL_DISPLAY_HRES * LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
   FLOG_INFO("Draw buffer size: %zu bytes (%d lines)", draw_buffer_sz, LVGL_DRAW_BUF_LINES);
 
   void *buf1 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
-  assert(buf1);
+  if (!buf1) {
+    FLOG_ERROR("DMA buf1 alloc failed");
+    return ESP_ERR_NO_MEM;
+  }
   void *buf2 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
-  assert(buf2);
+  if (!buf2) {
+    free(buf1);
+    FLOG_ERROR("DMA buf2 alloc failed");
+    return ESP_ERR_NO_MEM;
+  }
+
+  // Clear buffers to avoid garbage pixels
+  memset(buf1, 0x00, draw_buffer_sz);
+  memset(buf2, 0x00, draw_buffer_sz);
+
+  lv_display_flush_ready(_display.get()); // trigger LVGL flush
 
   FLOG_INFO("Allocated DMA buffers: buf1=%p, buf2=%p", buf1, buf2);
   // initialize LVGL draw buffers
@@ -133,6 +151,8 @@ esp_err_t Display::SetupPanel() {
   };
   /* Register done callback */
   ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, _display.get()));
+  // lv_display_add_event_cb(_display.get(), lvgl_display_event_cb, LV_EVENT_REFR_READY, NULL);
+
   return ESP_OK;
 }
 

@@ -35,5 +35,11 @@ void lvgl_port_task(void *arg);
 
 void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data);
 
+void lvgl_display_event_cb(lv_event_t *e);
+
+void lvgl_boot_screen();
+
+void backlight_timer_cb(void *arg);
+
 } // namespace callback
 } // namespace toothless

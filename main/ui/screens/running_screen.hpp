@@ -1,61 +1,67 @@
 #pragma once
 
-#include "ui/screens/screen.hpp"
-
 #include <esp_err.h>
+
 #include <memory>
 
+#include "ui/chart_history.hpp"
+#include "ui/screens/screen.hpp"
 namespace toothless {
 
-struct RunningScreenLabels {
-  lv_obj_t *temp_current;
-  lv_obj_t *temp_target;
-  lv_obj_t *chart;
-  lv_chart_series_t *chart_series;
-  lv_obj_t *chart_scale_right;
+struct RunningScreenLabels : public ScreenLabels {
+  lv_chart_series_t* chart_series;
+  lv_obj_t* chart;
+  lv_obj_t* chart_scale_right;
+  lv_obj_t* temp_current;
+  lv_obj_t* temp_target;
+  lv_obj_t* heater_led;
+  lv_obj_t* startstop_label;
+  lv_obj_t* stage;
+  lv_obj_t* profile;
 };
 
 class RunningScreen : public Screen {
-public:
+ public:
   RunningScreen();
+  RunningScreen(ChartHistory* chart_hist);
   ~RunningScreen();
-  lv_obj_t *Create();
+  lv_obj_t* Create();
   void Loop();
+  ScreenLabels* GetLabels() override { return _labels.get(); };
 
-private:
-  lv_obj_t *_screen = nullptr;
+ private:
   std::unique_ptr<RunningScreenLabels> _labels;
   int32_t _target_temp;
-  static constexpr int Y_LABEL_COUNT = 6;
-  char label_strings[Y_LABEL_COUNT][16];         // Array of string buffers
-  const char *label_pointers[Y_LABEL_COUNT + 1]; // Array of pointers + NULL terminator
+  AxisLabels _y_axis_labels;
+  const char* label_pointers[kYLabelCount + 1];  // Array of pointers + NULL terminator
+  ChartHistory* _chart_history;                  // UI owns it
+  std::map<std::string, lv_chart_series_t*> _chart_series_map;
 
-  static void UIUpdateTimerCB(lv_timer_t *timer);
+  static void UIUpdateTimerCB(lv_timer_t* timer);
   esp_err_t UpdateAllDisplays();
 
   esp_err_t Chart();
-  esp_err_t ChartSetScale();
-  esp_err_t ChartSetScale(int32_t scale);
-  void ChartYAxisLabels(int32_t min_temp, int32_t max_temp);
-  int32_t ChartGetMaxValue();
+  void UpdateChart();
 
   esp_err_t Temperature();
-  lv_obj_t *TemperatureBlock(lv_obj_t *parent, const char *title, const char *temp);
+  lv_obj_t* TemperatureBlock(lv_obj_t* parent, const char* title, const char* temp);
+  void HeaterLED(lv_obj_t* parent);
 
   void TemperatureUpdateCurrent(int32_t temp);
   void TemperatureUpdateTarget(int32_t temp);
+  void TemperatureClearTarget();
+  static void TemperatureSetTargetHandler(lv_event_t* e);
 
   esp_err_t MidSection();
 
-  esp_err_t TemperatureSlider();
-  static void TemperatureSliderHandler(lv_event_t *e);
-
   esp_err_t BottomRow();
-  esp_err_t StopButton(lv_obj_t *container);
-  static void StopButtonEventHandler(lv_event_t *e);
+  esp_err_t StartButton(lv_obj_t* container);
+  esp_err_t SettingsButton(lv_obj_t* container);
+  esp_err_t StartStopButton(lv_obj_t* container);
+  static void ButtonEventHandler(lv_event_t* e);
   void StopButtonPress();
 
   void StopConfirmation();
-  static void ButtonCB(lv_event_t *e);
+  static void ButtonCB(lv_event_t* e);
 };
-} // namespace toothless
+}  // namespace toothless

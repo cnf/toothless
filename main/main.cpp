@@ -54,7 +54,7 @@ using namespace toothless;
 extern "C" void app_main(void) {
   SetLogLevels();
   // TODO: wait()
-  usleep(1000 * 500);
+  usleep(1000 * 100);
 
   FLOG_INFO("ESP-IDF version is: %s", esp_get_idf_version());
 
@@ -71,6 +71,8 @@ extern "C" void app_main(void) {
       .max_transfer_sz = CONFIG_TL_DISPLAY_HRES * 80 * sizeof(uint16_t),
   };
   ESP_ERROR_CHECK(spi_bus_initialize(BSP_SD_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
+
+  // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
 
   FLOG_INFO("Initializing User Interface");
@@ -84,7 +86,7 @@ extern "C" void app_main(void) {
   main_dispatcher.callEvery(100, &Sensors::Loop, &sensors);
 
   FLOG_INFO("Initializing heater");
-  Heater heater(GPIO_NUM_12);
+  Heater heater;
   heater.Init();
   main_dispatcher.callEvery(200, &Heater::Loop,
                             &heater); // TODO: Heater will be run on its own core, focusing on UI first

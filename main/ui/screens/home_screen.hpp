@@ -7,7 +7,7 @@
 
 namespace toothless {
 
-struct HomeScreenLabels {
+struct HomeScreenLabels : public ScreenLabels {
   lv_obj_t *temperature;
 };
 
@@ -17,10 +17,9 @@ public:
   ~HomeScreen();
   lv_obj_t *Create();
   void Loop();
+  ScreenLabels *GetLabels() override { return _labels.get(); };
 
 private:
-  lv_obj_t *_screen = nullptr;
-
   std::unique_ptr<HomeScreenLabels> _labels;
   // ps_subscriber_t *_subscription;
   static void UIUpdateTimerCB(lv_timer_t *timer);

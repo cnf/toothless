@@ -20,7 +20,7 @@ HomeScreen::~HomeScreen() {
 }
 
 lv_obj_t *HomeScreen::Create() {
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.chamber.temperature"));
+  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber"));
   _screen = lv_obj_create(NULL);
   lv_obj_set_style_pad_all(_screen, 10, 0); // Global 2% border
                                             // Set screen to vertical flex layout
@@ -47,11 +47,11 @@ void HomeScreen::UIUpdateTimerCB(lv_timer_t *timer) {
 esp_err_t HomeScreen::UpdateAllDisplays() {
   ps_msg_t *msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.chamber.temperature") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
       UpdateTemperatureDisplay((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "sensor.somethingelse") && PS_IS_INT(msg)) {
-      FLOG_INFO("TODO");
+      FLOG_ERROR("TODO");
     }
     ps_unref_msg(msg);
   }
@@ -115,10 +115,12 @@ esp_err_t HomeScreen::MidSection() {
   lv_obj_t *spacer = lv_obj_create(_screen);
   lv_obj_remove_style_all(spacer); // Make it invisible
   lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
-  lv_obj_set_flex_grow(spacer, 1); // This spacer grows to fill remaining space
+  lv_obj_set_width(spacer, lv_pct(100));
   lv_obj_set_height(spacer, 0);    // Minimum height
+  lv_obj_set_flex_grow(spacer, 1); // This spacer grows to fill remaining space
   lv_obj_t *ohai = lv_label_create(spacer);
-  lv_label_set_text(ohai, "Toothless Reflow");
+  lv_obj_center(ohai);
+  lv_label_set_text(ohai, "Let's make things HOT!");
 
   return ESP_OK;
 }
@@ -154,7 +156,7 @@ esp_err_t HomeScreen::StartButton(lv_obj_t *container) {
 
   lv_obj_t *start_label = lv_label_create(start_btn);
   lv_label_set_text(start_label, "Start");
-  // lv_obj_center(start_label);
+  lv_obj_center(start_label);
   lv_obj_set_flex_grow(start_btn, 1); // Equal width temperature_objs
 
   // Register event with screen object as user data
@@ -163,13 +165,12 @@ esp_err_t HomeScreen::StartButton(lv_obj_t *container) {
 }
 
 void HomeScreen::StartButtonEventHandler(lv_event_t *e) {
-  FLOG_INFO("Button handler");
   lv_event_code_t code = lv_event_get_code(e);
 
   // lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
 
   if (code == LV_EVENT_CLICKED) {
-    FLOG_INFO("Button clicked!");
+    FLOG_DEBUG("Start Button clicked");
 
     // Get the screen object if you passed it as user_data
     HomeScreen *screen = (HomeScreen *)lv_event_get_user_data(e);
@@ -180,10 +181,10 @@ void HomeScreen::StartButtonEventHandler(lv_event_t *e) {
 }
 
 void HomeScreen::HandleStartButtonPress() {
-  FLOG_INFO("Handling button press in HomeScreen");
+  // TODO: this can probably just live in StartButtonEventHandler
   PS_PUB_NIL("ui.action.start");
   // Switch to running screen
-  // userInterface->SwitchTo(ScreenState::RUNNING);
+  // userInterface->SwitchTo(ScreenState::kRunningScreen);
 }
 
 } // namespace toothless

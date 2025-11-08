@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sdkconfig.h"
+#include <cstdint>
 
 #define BSP_CAPS_DISPLAY 1
 #define BSP_CAPS_TOUCH 1
@@ -30,3 +31,7 @@
 // #define MAX6675_CLK_GPIO GPIO_NUM_14
 // #define MAX6675_CS_GPIO GPIO_NUM_27
 // #define MAX6675_MISO_GPIO GPIO_NUM_12
+
+static constexpr uint16_t kUIMaxTargetTemperatureC = 999;
+
+#define kHeaterControlPin 12;
