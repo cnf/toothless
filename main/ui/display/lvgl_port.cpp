@@ -1,10 +1,6 @@
 // cSpell: words lvgl
-#include "config.h"
-
-#include "funlog.h"
 #include "lvgl_port.hpp"
-#include "ui/display/display.hpp"
-#include "ui/display/lvgl_port.hpp"
+
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_touch_xpt2046.h>
 #include <esp_task_wdt.h>
@@ -13,6 +9,11 @@
 #include <freertos/task.h>
 #include <sys/param.h>
 #include <unistd.h>
+
+#include "config.h"
+#include "funlog.h"
+#include "ui/display/display.hpp"
+#include "ui/display/lvgl_port.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -38,7 +39,9 @@ namespace callback {
 /// @param disp
 /// @param area
 /// @param px_map
-void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
+void lvgl_flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+  uint32_t starter = esp_timer_get_time();
+
   esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
   int offsetx1 = area->x1;
   int offsetx2 = area->x2;
@@ -53,11 +56,12 @@ void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
 
   // CRITICAL: Tell LVGL that flushing is done
   lv_display_flush_ready(disp);
+  LV_LOG_INFO("LVGL flush time: %lli us", (esp_timer_get_time() - starter));
 }
 
 /// @brief LVGL callback to increase the tick count
 /// @param arg
-void lvgl_increase_tick(void *arg) {
+void lvgl_increase_tick(void* arg) {
   /* Tell LVGL how many milliseconds has elapsed */
   lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
@@ -67,15 +71,15 @@ void lvgl_increase_tick(void *arg) {
 /// @param edata
 /// @param user_ctx
 /// @return
-bool lvgl_notify_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx) {
-  lv_display_t *disp = (lv_display_t *)user_ctx;
+bool lvgl_notify_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t* edata, void* user_ctx) {
+  lv_display_t* disp = (lv_display_t*)user_ctx;
   lv_display_flush_ready(disp);
   return false;
 }
 
 /// @brief  LVGL task to handle LVGL timers and events
 /// @param arg
-void lvgl_port_task(void *arg) {
+void lvgl_port_task(void* arg) {
   FLOG_INFO("Starting LVGL port task");
 
   esp_task_wdt_add(NULL);
@@ -91,12 +95,13 @@ void lvgl_port_task(void *arg) {
 
   uint32_t time_till_next_ms = 0;
   while (1) {
+    uint64_t start = esp_timer_get_time();
     // Feed watchdog BEFORE potentially long LVGL operations
     esp_task_wdt_reset();
 
     {
       std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
-      lv_obj_t *active_screen = lv_display_get_screen_active(Display::GetDisplayPtr());
+      lv_obj_t* active_screen = lv_display_get_screen_active(Display::GetDisplayPtr());
       if (active_screen) {
         time_till_next_ms = lv_timer_handler();
         // Reset watchdog after LVGL processing
@@ -104,12 +109,14 @@ void lvgl_port_task(void *arg) {
       } else {
         time_till_next_ms = 100;
         static uint32_t no_screen_count = 0;
-        if (++no_screen_count % 50 == 0) { // Every 5 seconds
+        if (++no_screen_count % 50 == 0) {  // Every 5 seconds
           FLOG_DEBUG("Waiting for active screen... (%u)", no_screen_count);
         }
       }
     }
-    PS_PUB_INT("heartbeat.ui", esp_timer_get_time());
+    LV_LOG_INFO("LVGL handler time: %lli us", (esp_timer_get_time() - start));
+
+    // PS_PUB_INT("heartbeat.ui", esp_timer_get_time()); //TODO: put a hearbeat something
 
     // Clamp delay values
     time_till_next_ms = MAX(time_till_next_ms, LVGL_TASK_MIN_DELAY_MS);
@@ -125,7 +132,7 @@ void lvgl_port_task(void *arg) {
 /// @brief LVGL touch input device read callback
 /// @param indev
 /// @param data
-void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data) {
+void lvgl_touch_cb(lv_indev_t* indev, lv_indev_data_t* data) {
   uint16_t touchpad_x[1] = {0};
   uint16_t touchpad_y[1] = {0};
   uint8_t touchpad_cnt = 0;
@@ -164,7 +171,7 @@ void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data) {
 
     // Optional: Add touch coordinate logging for debugging
     static uint32_t log_count = 0;
-    if (++log_count % 10 == 0) { // Log every 10th touch event
+    if (++log_count % 10 == 0) {  // Log every 10th touch event
       FLOG_DEBUG("Touch: x=%d, y=%d", data->point.x, data->point.y);
     }
   } else {
@@ -174,7 +181,7 @@ void lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data) {
   return;
 }
 
-void lvgl_display_event_cb(lv_event_t *e) {
+void lvgl_display_event_cb(lv_event_t* e) {
   // lv_event_code_t code = lv_event_get_code(e);
   // if (code == LV_EVENT_REFR_READY) {
   //   // First refresh done
@@ -188,16 +195,16 @@ void lvgl_boot_screen() {
   FLOG_INFO("Boot Screen");
   std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
 
-  lv_obj_t *boot_scr = lv_obj_create(NULL);
+  lv_obj_t* boot_scr = lv_obj_create(NULL);
   lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
 
-  lv_obj_t *label = lv_label_create(boot_scr);
+  lv_obj_t* label = lv_label_create(boot_scr);
   lv_label_set_text(label, "Toothless");
   lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
   lv_obj_center(label);
 
-  lv_obj_t *sub_label = lv_label_create(boot_scr);
+  lv_obj_t* sub_label = lv_label_create(boot_scr);
   lv_label_set_text(sub_label, "Initializing...");
   lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_16, 0);
   lv_obj_align(sub_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
@@ -207,10 +214,10 @@ void lvgl_boot_screen() {
   lv_screen_load(boot_scr);
 }
 
-void backlight_timer_cb(void *arg) {
+void backlight_timer_cb(void* arg) {
   ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, GPIO_MODE_OUTPUT));
   gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, DISPLAY_BL_ON_LEVEL);
 }
 
-} // namespace callback
-} // namespace toothless
+}  // namespace callback
+}  // namespace toothless

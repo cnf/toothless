@@ -4,23 +4,25 @@ extern "C" {
 #include <pubsub.h>
 }
 
-#include "funlog.h"
-#include "heater/heater.hpp"
-#include "sensors/sensors.hpp"
-#include "ui/user_interface.hpp"
 #include <QDispatch.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <esp_lib_utils.h>
 #include <esp_timer.h>
+
 #include <memory>
+
+#include "funlog.h"
+#include "heater/heater.hpp"
+#include "sensors/sensors.hpp"
+#include "ui/user_interface.hpp"
 
 DynamicContextPool context_pool;
 TaskDispatcher main_dispatcher(&context_pool);
-// TaskDispatcher prio_dispatcher(&context_pool);
+TaskDispatcher prio_dispatcher(&context_pool);
 
 // Declarations
-extern "C" void app_main(); // Function prototype
+extern "C" void app_main();  // Function prototype
 void SetLogLevels();
 
 /// @brief Set the log levels for various components
@@ -45,6 +47,8 @@ void SetLogLevels() {
   // esp_log_level_set("gpio", ESP_LOG_ERROR);
   esp_log_level_set("heater.cpp", ESP_LOG_INFO);
   esp_log_level_set("lvgl_port.cpp", ESP_LOG_DEBUG);
+  esp_log_level_set("screen_helpers.cpp", ESP_LOG_DEBUG);
+  esp_log_level_set("user_interface.cpp", ESP_LOG_DEBUG);
 }
 
 // using namespace esp_panel::drivers;
@@ -76,9 +80,10 @@ extern "C" void app_main(void) {
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
 
   FLOG_INFO("Initializing User Interface");
-  UserInterface ui;
-  ui.Init();
-  main_dispatcher.callEvery(100, &UserInterface::Loop, &ui);
+  UserInterface::Start();
+  // UserInterface ui;
+  // ui.Init();
+  // main_dispatcher.callEvery(100, &UserInterface::Loop, &ui);
 
   FLOG_INFO("Initializing sensors");
   Sensors sensors;
@@ -88,9 +93,19 @@ extern "C" void app_main(void) {
   FLOG_INFO("Initializing heater");
   Heater heater;
   heater.Init();
-  main_dispatcher.callEvery(200, &Heater::Loop,
-                            &heater); // TODO: Heater will be run on its own core, focusing on UI first
+  prio_dispatcher.callEvery(200, &Heater::Loop,
+                            &heater);  // TODO: Heater will be run on its own core, focusing on UI first
 
+  xTaskCreatePinnedToCore(
+      [](void* arg) {
+        FLOG_INFO("Starting high priority dispatcher thread");
+        while (true) {
+          prio_dispatcher.run();
+          vTaskDelay(10 / portTICK_PERIOD_MS);
+          taskYIELD();
+        }
+      },
+      "HighPrioDispatcher", 4096, NULL, 20, NULL, 1);
   FLOG_INFO("Init done");
 
   // uint64_t timer = esp_timer_get_time();

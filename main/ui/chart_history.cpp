@@ -217,6 +217,19 @@ AxisLabels ChartHistory::YAxisLabels(int32_t min_temp, int32_t max_temp) {
   return result;
 }
 
+std::array<const char*, kYLabelCount> ChartHistory::YAxisLabelPointers(int32_t min_temp, int32_t max_temp) {
+  std::array<const char*, kYLabelCount> result{};
+  int32_t temp_range = max_temp - min_temp;
+  for (size_t i = 0; i < kYLabelCount; i++) {
+    int32_t temp_value = min_temp + (temp_range * (int32_t)i) / (kYLabelCount - 1);
+    // Use internal fixed buffers to ensure stable lifetime for C-string pointers
+    snprintf(_label_strings[i], sizeof(_label_strings[i]), "%li°", (long)temp_value);
+    _label_strings[i][sizeof(_label_strings[i]) - 1] = '\0';
+    result[i] = _label_strings[i];
+  }
+  return result;
+}
+
 // int32_t ChartHistory::ChartGetMaxValue() {
 //   if (!_labels->chart_series)
 //     return 0;

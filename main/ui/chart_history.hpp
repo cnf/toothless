@@ -62,6 +62,10 @@ class ChartHistory {
   lv_coord_t GetLatest(const std::string& topic) const;
   int32_t GetScale();
   AxisLabels YAxisLabels(int32_t min_temp, int32_t max_temp);
+  /// @brief Return pointers to stable, null-terminated C strings for Y axis labels.
+  /// The returned pointers reference internal storage owned by ChartHistory and
+  /// remain valid until the next call that mutates the storage.
+  std::array<const char*, kYLabelCount> YAxisLabelPointers(int32_t min_temp, int32_t max_temp);
 
  private:
   /// @brief Monotonic sample counter (total samples written since start).

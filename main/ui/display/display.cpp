@@ -1,10 +1,6 @@
 // cSpell: words lvgl
-#include "config.h"
-
 #include "display.hpp"
-#include "funlog.h"
-#include "ui/display/display.hpp"
-#include "ui/display/lvgl_port.hpp"
+
 #include <driver/gpio.h>
 #include <esp_check.h>
 #include <esp_lcd_panel_io.h>
@@ -13,6 +9,12 @@
 #include <esp_lcd_st7796.h>
 #include <esp_lcd_touch_xpt2046.h>
 #include <esp_timer.h>
+
+#include "config.h"
+#include "funlog.h"
+#include "theme.hpp"
+#include "ui/display/display.hpp"
+#include "ui/display/lvgl_port.hpp"
 
 namespace toothless {
 using namespace callback;
@@ -28,6 +30,7 @@ uint64_t _lvgl_sleep;
 /// @return true if successful, false otherwise
 esp_err_t Display::Init() {
   ESP_ERROR_CHECK(SetupPanel());
+  ESP_ERROR_CHECK(SetTheme(_display.get()));
   ESP_ERROR_CHECK(SetupTouchPanel());
   FLOG_DEBUG("Free heap: %u, Min free: %u", esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
   ESP_RETURN_ON_FALSE(
@@ -40,7 +43,7 @@ esp_err_t Display::Init() {
     esp_timer_handle_t backlight_timer = NULL;
     const esp_timer_create_args_t timer_args = {.callback = backlight_timer_cb, .arg = NULL, .name = "backlight_timer"};
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &backlight_timer));
-    ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 10000)); // 500ms in microseconds
+    ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 10000));  // 500ms in microseconds
   }
   return ESP_OK;
 };
@@ -51,8 +54,8 @@ esp_err_t Display::SetupPanel() {
   FLOG_INFO("Install panel IO");
   esp_lcd_panel_io_handle_t io_handle = NULL;
   esp_lcd_panel_io_spi_config_t io_config = {
-      .cs_gpio_num = CONFIG_TL_DISPLAY_SPI_CS_PIN, // BSP_SD_SPI_CS,
-      .dc_gpio_num = CONFIG_TL_DISPLAY_DC_PIN,     // DISPAY_DC_GPIO,
+      .cs_gpio_num = CONFIG_TL_DISPLAY_SPI_CS_PIN,  // BSP_SD_SPI_CS,
+      .dc_gpio_num = CONFIG_TL_DISPLAY_DC_PIN,      // DISPAY_DC_GPIO,
       .spi_mode = 0,
       .pclk_hz = LCD_PIXEL_CLOCK_HZ,
       .trans_queue_depth = 10,
@@ -63,8 +66,8 @@ esp_err_t Display::SetupPanel() {
   ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)_spi_host, &io_config, &io_handle));
   esp_lcd_panel_handle_t panel_handle = NULL;
   esp_lcd_panel_dev_config_t panel_config = {
-      .reset_gpio_num = CONFIG_TL_DISPLAY_RESET_PIN, // DISPAY_RESET_GPIO,
-      .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,    // Try RGB first for ST7796S
+      .reset_gpio_num = CONFIG_TL_DISPLAY_RESET_PIN,  // DISPAY_RESET_GPIO,
+      .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,     // Try RGB first for ST7796S
       .bits_per_pixel = 16,
   };
   FLOG_DEBUG("Create new ST7796 panel");
@@ -94,7 +97,7 @@ esp_err_t Display::SetupPanel() {
   }
 
   // Create display and wrap in shared_ptr (LVGL may keep internal references)
-  _display = std::shared_ptr<lv_display_t>(lv_display_create(hres, vres), [](lv_display_t *ptr) {
+  _display = std::shared_ptr<lv_display_t>(lv_display_create(hres, vres), [](lv_display_t* ptr) {
     // Custom deleter - check if LVGL provides a specific cleanup function
     // For now, let LVGL handle cleanup internally
   });
@@ -110,12 +113,12 @@ esp_err_t Display::SetupPanel() {
   size_t draw_buffer_sz = CONFIG_TL_DISPLAY_HRES * LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
   FLOG_INFO("Draw buffer size: %zu bytes (%d lines)", draw_buffer_sz, LVGL_DRAW_BUF_LINES);
 
-  void *buf1 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
+  void* buf1 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
   if (!buf1) {
     FLOG_ERROR("DMA buf1 alloc failed");
     return ESP_ERR_NO_MEM;
   }
-  void *buf2 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
+  void* buf2 = spi_bus_dma_memory_alloc((spi_host_device_t)_spi_host, draw_buffer_sz, 0);
   if (!buf2) {
     free(buf1);
     FLOG_ERROR("DMA buf2 alloc failed");
@@ -126,7 +129,7 @@ esp_err_t Display::SetupPanel() {
   memset(buf1, 0x00, draw_buffer_sz);
   memset(buf2, 0x00, draw_buffer_sz);
 
-  lv_display_flush_ready(_display.get()); // trigger LVGL flush
+  lv_display_flush_ready(_display.get());  // trigger LVGL flush
 
   FLOG_INFO("Allocated DMA buffers: buf1=%p, buf2=%p", buf1, buf2);
   // initialize LVGL draw buffers
@@ -186,15 +189,15 @@ esp_err_t Display::SetupTouchPanel() {
           {
               .swap_xy = swapxy,
               .mirror_x = mirror_x,
-              .mirror_y = mirror_y, // CONFIG_EXAMPLE_LCD_MIRROR_Y,
+              .mirror_y = mirror_y,  // CONFIG_EXAMPLE_LCD_MIRROR_Y,
           },
   };
   esp_lcd_touch_handle_t tp = NULL;
 
   FLOG_INFO("Initialize touch controller XPT2046");
   ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
-  static lv_indev_t *indev;
-  indev = lv_indev_create(); // Input device driver (SetupTouchPanel)
+  static lv_indev_t* indev;
+  indev = lv_indev_create();  // Input device driver (SetupTouchPanel)
   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
   lv_indev_set_display(indev, _display.get());
   lv_indev_set_user_data(indev, tp);
@@ -203,8 +206,8 @@ esp_err_t Display::SetupTouchPanel() {
   return ESP_OK;
 }
 
-std::mutex &Display::GetLvglMutex() { return _lvgl_mutex; }
+std::mutex& Display::GetLvglMutex() { return _lvgl_mutex; }
 
-lv_display_t *Display::GetDisplayPtr() { return _display.get(); }
+lv_display_t* Display::GetDisplayPtr() { return _display.get(); }
 
-} // namespace toothless
+}  // namespace toothless

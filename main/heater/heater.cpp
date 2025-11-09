@@ -41,6 +41,7 @@ bool Heater::Init() {
   _previous_temperature = std::numeric_limits<int32_t>::max();
   _last_run = esp_timer_get_time() * 1000;
   LoadProfile("Qwik Leaded");
+  _mode = heater::kModeDrying;  // TODO: configure
 
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater"));
   return true;
@@ -110,7 +111,15 @@ esp_err_t Heater::HandleSubscriptions() {
         SetState(heater::kStateIdle);
         FLOG_ERROR("Invalid heater state message");
       }
+    } else if (ps_has_topic(msg, "heater.mode.set") && PS_IS_INT(msg)) {
+      heater::Mode mode = static_cast<heater::Mode>(msg->int_val);
+      SetMode(mode);
+    } else if (ps_has_topic(msg, "heater.start")) {
+      SetState(heater::kStateOn);
+      // HeaterOn();
+      FLOG_INFO("Heater started");
     } else if (ps_has_topic(msg, "heater.stop")) {
+      SetState(heater::kStateOff);
       // HeaterOff();
       FLOG_INFO("Heater stopped");
     } else if (ps_has_topic(msg, "heater.target.temperature.set")) {
@@ -181,6 +190,35 @@ esp_err_t Heater::SetState(heater::State state) {
       return ESP_ERR_INVALID_ARG;
   }
   PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  return ESP_OK;
+}
+
+esp_err_t Heater::SetMode(heater::Mode mode) {
+  switch (_mode) {
+    case heater::kModeHeating:
+      _mode = heater::kModeHeating;
+      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
+      FLOG_DEBUG("Heater mode: HEATING");
+      break;
+    case heater::kModeDrying:
+      _mode = heater::kModeDrying;
+      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
+      FLOG_DEBUG("Heater mode: DRYING");
+      break;
+    case heater::kModeProfile:
+      _mode = heater::kModeProfile;
+      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
+      FLOG_DEBUG("Heater mode: PROFILE");
+      break;
+    case heater::kModeCooldown:
+      _mode = heater::kModeCooldown;
+      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
+      FLOG_DEBUG("Heater mode: COOLDOWN");
+      break;
+    default:
+      FLOG_ERROR("Unknown heater mode %d", _mode);
+      return ESP_ERR_INVALID_ARG;
+  }
   return ESP_OK;
 }
 

@@ -1,6 +1,7 @@
 file(GLOB_RECURSE SRC 
   "main.cpp"
   "*.cpp"
+  "ui/display/theme.cpp"
 
   )
 
@@ -11,6 +12,9 @@ set(PRIVREQ
   esp_lvgl_port
   esp_driver_spi
   esp_timer
+  esp_app_format
+
+  io_manager
   # lvgl
 )
 

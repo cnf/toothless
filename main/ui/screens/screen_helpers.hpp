@@ -27,23 +27,25 @@ struct NumpadState {
 struct ConfirmationContext {
   lv_obj_t* parent_screen = nullptr;  // Screen where confirmation is opened
   lv_obj_t* backdrop = nullptr;       // Where to create backdrop
+  lv_obj_t* object;                   // object to act on
   std::string title;
   std::string message;
   std::string confirm_text;
   std::string cancel_text;
-  std::function<void()> on_confirm;  // Callback when user confirms
-  std::function<void()> on_cancel;   // Callback when user cancels
+  std::function<void(void*)> on_confirm;  // Callback when user confirms
+  std::function<void(void*)> on_cancel;   // Callback when user cancels
 };
 
 struct ConfirmationState {
   lv_obj_t* msgbox;    // Message box object
   lv_obj_t* backdrop;  // Backdrop object
+  lv_obj_t* object;    // object to act on
   std::string title;
   std::string message;
   std::string confirm_text;
   std::string cancel_text;
-  std::function<void()> on_confirm;  // Callback when user confirms
-  std::function<void()> on_cancel;   // Callback when user cancels
+  std::function<void(void*)> on_confirm;  // Callback when user confirms
+  std::function<void(void*)> on_cancel;   // Callback when user cancels
 };
 
 lv_obj_t* CreateBackdrop(lv_obj_t* screen);
@@ -57,5 +59,17 @@ void NumPadCleanupHandler(lv_event_t* e);
 void ConfirmationPopup(const ConfirmationContext& ctx);
 
 void ConfirmationHandler(lv_event_t* e);
+
+lv_obj_t* CreateBottomRow(lv_obj_t* container);
+
+lv_obj_t* CreateStartStopButton(lv_obj_t* container);
+
+lv_obj_t* CreateSettingsButton(lv_obj_t* container);
+
+void ButtonEventHandler(lv_event_t* e);
+
+void CreateStopConfirmation(lv_obj_t* e);
+
+void StopConfirmationHandler(lv_event_t* e);
 
 }  // namespace toothless

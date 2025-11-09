@@ -10,15 +10,16 @@
 
 extern "C" {
 #include <pubsub.h>
-
-#include "running_screen.hpp"
 }
 
 namespace toothless {
 
 RunningScreen::RunningScreen() { _labels = std::make_unique<RunningScreenLabels>(); }
 
-RunningScreen::RunningScreen(ChartHistory* chart_hist) : RunningScreen() { _chart_history = chart_hist; }
+RunningScreen::RunningScreen(ChartHistory* chart_hist) : RunningScreen() {
+  _chart = std::make_unique<ChartInfo>();
+  _chart->history = chart_hist;
+}
 
 RunningScreen::~RunningScreen() {
   if (_update_timer) {
@@ -33,11 +34,11 @@ RunningScreen::~RunningScreen() {
 
 lv_obj_t* RunningScreen::Create() {
   esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _target_temp = 35;  // TODO: make configurable
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
                                                    "heater.power", "heater.state", "heater"));
   _screen = lv_obj_create(NULL);
   lv_obj_set_style_pad_all(_screen, 10, 0);  // Global 2% border
+  // lv_obj_set_style_bg_opa(_screen, LV_OPA_TRANSP, 0);
 
   // Set screen to vertical flex layout
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);
@@ -45,10 +46,10 @@ lv_obj_t* RunningScreen::Create() {
   lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
 
   Temperature();
-  Chart();
+  // Chart();
+  // Digits();
   MidSection();
   BottomRow();
-
   _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
   return _screen;
 }
@@ -161,47 +162,61 @@ esp_err_t RunningScreen::Chart() {
   // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
   lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
   lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
+  lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  _chart_series_map = {{std::string("sensor.temperature.chamber"), temp_series},
-                       {std::string("heater.target.temperature"), target_series}};
-  _chart_history->Register(_labels->chart, _chart_series_map);
+  _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+                        {std::string("heater.target.temperature"), target_series}};
+  _chart->history->Register(_labels->chart, _chart->series_map);
 
   return ESP_OK;
 }
 
 void RunningScreen::UpdateChart() {
+  uint32_t starter = esp_timer_get_time();
   static uint32_t last_scale_update = esp_timer_get_time() / 1000;
+  static uint32_t last_max;
   uint32_t now = esp_timer_get_time() / 1000;  // milliseconds
 
   static size_t last_update_index = 0;
-  size_t current_index = _chart_history->GetIndex();  // Global head position
+  size_t current_index = _chart->history->GetIndex();  // Global head position
+
   if (current_index != last_update_index) {
     // Update ALL series together to keep them synchronized
-    for (auto& [topic, series_ptr] : _chart_series_map) {
-      lv_coord_t latest = _chart_history->GetLatest(topic);
+    for (auto& [topic, series_ptr] : _chart->series_map) {
+      lv_coord_t latest = _chart->history->GetLatest(topic);
       // if (latest != LV_CHART_POINT_NONE) {
       lv_chart_set_next_value(_labels->chart, series_ptr, latest);
       // }
     }
     last_update_index = current_index;
     if (now - last_scale_update > 1000) {
-      int32_t max = _chart_history->GetScale();
-      _y_axis_labels = _chart_history->YAxisLabels(0, max);
-      for (size_t i = 0; i < kYLabelCount; i++) {
-        label_pointers[i] = _y_axis_labels.labels[i].c_str();
+      int32_t max = _chart->history->GetScale();
+      if (max == last_max) {
+        FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
+        return;
       }
-      label_pointers[kYLabelCount] = nullptr;
+      last_max = max;
+      // _y_axis_labels = _chart_history->YAxisLabels(0, max);
+      // for (size_t i = 0; i < kYLabelCount; i++) {
+      //   label_pointers[i] = _y_axis_labels.labels[i].c_str();
+      // }
+      // label_pointers[kYLabelCount] = nullptr;
       lv_chart_set_axis_range(_labels->chart, LV_CHART_AXIS_PRIMARY_Y, 0, (float)max);
-      lv_scale_set_text_src(_labels->chart_scale_right, label_pointers);
+      // lv_scale_set_text_src(_labels->chart_scale_right, label_pointers);
+
+      auto labels = _chart->history->YAxisLabelPointers(0, max);  // returns std::array<const char*,kYLabelCount>
+      for (size_t i = 0; i < kYLabelCount; i++) _chart->label_pointers[i] = labels[i];
+      _chart->label_pointers[kYLabelCount] = nullptr;  // null terminator if LVGL expects it
+      lv_scale_set_text_src(_labels->chart_scale_right, _chart->label_pointers.data());
       last_scale_update = now;
     }
   }
+  FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
 esp_err_t RunningScreen::Temperature() {
-  std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
   lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
   lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
@@ -210,8 +225,9 @@ esp_err_t RunningScreen::Temperature() {
   lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
   lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
-  lv_obj_add_event_cb(temp_container, TemperatureSetTargetHandler, LV_EVENT_CLICKED, this);
+  // lv_obj_add_event_cb(temp_container, TemperatureSetTargetHandler, LV_EVENT_CLICKED, this);
   // lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_add_flag(temp_container, LV_OBJ_FLAG_HIDDEN);
 
   _labels->temp_current = TemperatureBlock(temp_container, "Current", "--°C");
   HeaterLED(temp_container);
@@ -463,6 +479,8 @@ void RunningScreen::StopButtonPress() {
 void RunningScreen::StopConfirmation() {
   // Create a backdrop to block background interactions
   lv_obj_t* backdrop = lv_obj_create(_screen);
+  // lv_display_get_screen_active();
+
   lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
   lv_obj_set_pos(backdrop, 0, 0);
   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);

@@ -1,25 +1,26 @@
 #include "user_interface.hpp"
 
-#include "funlog.h"
-#include "ui/chart_history.hpp"
-#include "ui/display/display.hpp"
-#include "ui/screens/home_screen.hpp"
-#include "ui/screens/running_screen.hpp"
-#include "ui/screens/settings_screen.hpp"
 #include <driver/gpio.h>
 #include <esp_check.h>
 #include <esp_err.h>
 #include <lvgl.h>
 
+#include "funlog.h"
 #include "helpers.hpp"
+#include "ui/chart_history.hpp"
+#include "ui/display/display.hpp"
+#include "ui/screens/dryer_screen.hpp"
+#include "ui/screens/running_screen.hpp"
+#include "ui/screens/settings_screen.hpp"
 
 namespace toothless {
 
 UserInterface::UserInterface() {
   _display = nullptr;
-  _current_screen_state = ScreenState::kRunningScreen;
-  _current_screen_obj = nullptr; // Initialize before calling SwitchTo
+  _current_screen_state = ScreenList::kDryerScreen;
+  _current_screen_obj = nullptr;  // Initialize before calling SwitchTo
   _current_screen = nullptr;
+  _switching_screen_state = false;
 
   // TODO: make topic strings configurations
   // _chart_history = ChartHistory();
@@ -39,15 +40,55 @@ UserInterface::~UserInterface() {
   }
 }
 
-esp_err_t UserInterface::Init() {
-  _subscription = ps_new_subscriber(10, PS_STRLIST("ui.action"));
-
+esp_err_t UserInterface::Start() {
   ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
+
+  lv_async_call(
+      [](void*) {
+        UserInterface* ui = new UserInterface();
+        ui->Init();
+      },
+      nullptr);
+  return ESP_OK;
+}
+
+esp_err_t UserInterface::Init() {
+  _subscription = ps_new_subscriber(10, PS_STRLIST("ui.action", "heater.mode"));
+
+  // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
 
   _display = Display::GetDisplayPtr();
 
-  SwitchTo(_current_screen_state);
+  // lv_timer_t* ui_timer = lv_timer_create([this](void*) { this->Loop(); }, 100, this);
+  lv_timer_t* t = lv_timer_create(
+      +[](lv_timer_t* timer) {
+        UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
+        ui->Loop();
+      },
+      100, this);
 
+  lv_timer_t* ui_timer = lv_timer_create(
+      +[](lv_timer_t* timer) {
+        UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
+        ui->SwitchTo(ui->_current_screen_state);
+        lv_timer_del(timer);  // or lv_timer_set_repeat_count(timer, 1);
+      },
+      200 /*ms*/, this);
+
+  // SwitchTo(_current_screen_state);
+
+#if defined(CONFIG_LV_USE_SYSMON)
+  /* Create generic monitor */
+  _sysmon = lv_sysmon_create(lv_display_get_default());
+#if defined(CONFIG_LV_USE_PERF_MONITOR)
+  /* Create performance monitor */
+  lv_sysmon_show_performance(NULL); /* NULL = default display */
+#endif
+#if defined(CONFIG_LV_USE_MEM_MONITOR)
+  /* Create memory monitor */
+  lv_sysmon_show_memory(NULL);
+#endif
+#endif
   return ESP_OK;
 }
 
@@ -56,7 +97,7 @@ void UserInterface::Loop() {
   _chart_history.Loop();
   ESP_ERROR_CHECK(HandleSubscriptions());
   if (_current_screen) {
-    _current_screen->Loop(); // Update current screen
+    _current_screen->Loop();
   }
   return;
 }
@@ -66,62 +107,105 @@ void UserInterface::BackLight(bool state) {
   gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, state);
 }
 
-esp_err_t UserInterface::SwitchTo(ScreenState screen) {
+esp_err_t UserInterface::SwitchTo(ScreenList screen) {
+  FLOG_INFO("Switching Screens");
   // If we're already switching, ignore the request
   if (_switching_screen_state) {
     return ESP_OK;
   }
-  lv_lock();
+  // lv_lock();
   // Store the target state and defer the actual switch
   _switching_screen_state = true;
   std::unique_ptr<Screen> new_screen;
-
+  FLOG_DEBUG("Requested ScreenState: %d", screen);
   switch (screen) {
-  case ScreenState::kHomeScreen:
-    new_screen = std::make_unique<HomeScreen>();
-    FLOG_DEBUG("Switching to HOME Screen");
-    break;
-  case ScreenState::kRunningScreen:
-    new_screen = std::make_unique<RunningScreen>(&_chart_history);
-    FLOG_DEBUG("Switching to RUNNING Screen");
-    break;
-  case ScreenState::kSettingsScreen:
-    new_screen = std::make_unique<SettingsScreen>();
-    FLOG_DEBUG("Switching to SETTINGS Screen");
-    break;
-  default:
-    FLOG_ERROR("ScreenState %d not implemented", screen);
-    _switching_screen_state = false; // ← Also reset flag
-    lv_unlock();
-    return ESP_ERR_NOT_SUPPORTED;
+    case ScreenList::kDryerScreen:
+      new_screen = std::make_unique<DryerScreen>();
+      FLOG_DEBUG("Switching to HOME Screen");
+      break;
+    case ScreenList::kRunningScreen:
+      new_screen = std::make_unique<RunningScreen>(&_chart_history);
+      FLOG_DEBUG("Switching to RUNNING Screen");
+      break;
+    case ScreenList::kSettingsScreen:
+      new_screen = std::make_unique<SettingsScreen>();
+      FLOG_DEBUG("Switching to SETTINGS Screen");
+      break;
+    default:
+      FLOG_ERROR("ScreenState %d not implemented", screen);
+      _switching_screen_state = false;  // ← Also reset flag
+      // lv_unlock();
+      return ESP_ERR_NOT_SUPPORTED;
   };
 
   if (new_screen) {
+    FLOG_DEBUG("Created new screen instance");
     // Create the LVGL object
-    lv_obj_t *new_screen_obj = new_screen->Create();
+    lv_obj_t* new_screen_obj = new_screen->Create();
     // Switch to new screen (LVGL handles old screen cleanup)
     // lv_screen_load(new_screen_obj);
     lv_screen_load_anim(new_screen_obj, LV_SCREEN_LOAD_ANIM_FADE_IN, 250, 0, true);
+
     // Now safely replace the old with new
-    _current_screen = std::move(new_screen); // Old screen auto-destructs here
+    _current_screen = std::move(new_screen);  // Old screen auto-destructs here
+
     _current_screen_obj = new_screen_obj;
   }
+  FLOG_DEBUG("Completed screen switch");
 
   _switching_screen_state = false;
-  lv_unlock();
+  // lv_unlock();
   return ESP_OK;
 }
 
 esp_err_t UserInterface::HandleSubscriptions() {
-  ps_msg_t *msg = nullptr;
+  ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     FLOG_DEBUG("MSG TOPIC: %s", msg->topic);
-    if (ps_has_topic(msg, "ui.action.start") || ps_has_topic(msg, "ui.action.running")) {
-      SwitchTo(ScreenState::kRunningScreen);
+    if (ps_has_topic(msg, "ui.action.return")) {
+      switch (_mode) {
+        case heater::Mode::kModeHeating:
+        case heater::Mode::kModeProfile:
+          SwitchTo(ScreenList::kRunningScreen);
+          break;
+        case heater::Mode::kModeCooldown:
+        case heater::Mode::kModeDrying:
+          SwitchTo(ScreenList::kDryerScreen);
+          break;
+        default:
+          SwitchTo(ScreenList::kDryerScreen);
+          break;
+      }
+    } else if (ps_has_topic(msg, "ui.action.running")) {
+      SwitchTo(ScreenList::kRunningScreen);
     } else if (ps_has_topic(msg, "ui.action.stop")) {
-      SwitchTo(ScreenState::kHomeScreen);
+      SwitchTo(ScreenList::kDryerScreen);
     } else if (ps_has_topic(msg, "ui.action.settings")) {
-      SwitchTo(ScreenState::kSettingsScreen);
+      SwitchTo(ScreenList::kSettingsScreen);
+    } else if (ps_has_topic(msg, "heater.mode") && PS_IS_INT(msg)) {
+      heater::Mode new_mode = static_cast<heater::Mode>(msg->int_val);
+      if (new_mode != _mode) {
+        FLOG_INFO("Heater mode changed to %d", static_cast<int>(new_mode));
+        _mode = new_mode;
+      }
+      switch (_current_screen_state) {
+        // TODO: expand modes/states
+        case ScreenList::kErrorScreen:
+        case ScreenList::kSettingsScreen:
+          break;
+        case ScreenList::kRunningScreen:
+          if (new_mode == heater::Mode::kModeDrying || new_mode == heater::Mode::kModeCooldown) {
+            SwitchTo(ScreenList::kDryerScreen);
+          }
+          break;
+        case ScreenList::kDryerScreen:
+          if (new_mode == heater::Mode::kModeHeating || new_mode == heater::Mode::kModeProfile) {
+            SwitchTo(ScreenList::kRunningScreen);
+          }
+          break;
+        default:
+          break;
+      }
     } else {
       FLOG_ERROR("Unhandled topic: %s", msg->topic);
     }
@@ -130,4 +214,4 @@ esp_err_t UserInterface::HandleSubscriptions() {
   return ESP_OK;
 }
 
-} // namespace toothless
+}  // namespace toothless

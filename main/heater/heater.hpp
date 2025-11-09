@@ -42,6 +42,7 @@ class Heater {
   esp_err_t StartProfile();
   std::optional<uint16_t> GetTemperature();
   esp_err_t SetState(heater::State state);
+  esp_err_t SetMode(heater::Mode mode);
   esp_err_t SetPower(uint8_t power);
   esp_err_t SetTarget(int32_t target);
   esp_err_t ClearTarget();
@@ -52,6 +53,7 @@ class Heater {
   ps_subscriber_t* _subscription;
   std::unique_ptr<BaseElement> _element;
   heater::State _state;
+  heater::Mode _mode;
   // std::unique_ptr<Profile> _current_profile;
   Profile* _current_profile = nullptr;
   int64_t _start_time;  // time we started the current profile

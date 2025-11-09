@@ -20,6 +20,17 @@ struct RunningScreenLabels : public ScreenLabels {
   lv_obj_t* profile;
 };
 
+struct ChartInfo {
+  lv_obj_t* chart;
+  uint32_t scale;
+  AxisLabels y_axis_labels;
+  // const char* _olabel_pointers[kYLabelCount + 1];  // Array of pointers + NULL terminator
+  std::array<const char*, kYLabelCount + 1> label_pointers;
+  ChartHistory* history;  // UI owns it
+  std::map<std::string, lv_chart_series_t*> series_map;
+  // std::map<std::string, lv_chart_series_t*> series;
+};
+
 class RunningScreen : public Screen {
  public:
   RunningScreen();
@@ -32,10 +43,13 @@ class RunningScreen : public Screen {
  private:
   std::unique_ptr<RunningScreenLabels> _labels;
   int32_t _target_temp;
-  AxisLabels _y_axis_labels;
-  const char* label_pointers[kYLabelCount + 1];  // Array of pointers + NULL terminator
-  ChartHistory* _chart_history;                  // UI owns it
-  std::map<std::string, lv_chart_series_t*> _chart_series_map;
+  std::unique_ptr<ChartInfo> _chart;
+
+  // AxisLabels _y_axis_labels;
+  // // const char* _olabel_pointers[kYLabelCount + 1];  // Array of pointers + NULL terminator
+  // std::array<const char*, kYLabelCount + 1> _label_pointers;
+  // ChartHistory* _chart_history;  // UI owns it
+  // std::map<std::string, lv_chart_series_t*> _chart_series_map;
 
   static void UIUpdateTimerCB(lv_timer_t* timer);
   esp_err_t UpdateAllDisplays();

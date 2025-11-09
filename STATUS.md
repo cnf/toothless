@@ -12,7 +12,7 @@ User is building ESP32 reflow oven controller with:
 
 ## Current Structure
 - Display class in main/display/ handles LVGL init, mutex, task
-- Pubsub subscriptions: "sensor.chamber.temperature", "heater.status"
+- Pubsub subscriptions: "sensor.temperature.chamber", "heater.status"
 - Heater class publishes temp data, PID control
 - Main components: Display, Heater, Sensors (MAX6675)
 
