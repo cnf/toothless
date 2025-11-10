@@ -8,7 +8,7 @@
 #include "ui/screens/screen.hpp"
 namespace toothless {
 
-struct RunningScreenLabels : public ScreenLabels {
+struct ReflowScreenLabels : public ScreenLabels {
   lv_chart_series_t* chart_series;
   lv_obj_t* chart;
   lv_obj_t* chart_scale_right;
@@ -31,17 +31,17 @@ struct ChartInfo {
   // std::map<std::string, lv_chart_series_t*> series;
 };
 
-class RunningScreen : public Screen {
+class ReflowScreen : public Screen {
  public:
-  RunningScreen();
-  RunningScreen(ChartHistory* chart_hist);
-  ~RunningScreen();
+  ReflowScreen();
+  ReflowScreen(ChartHistory* chart_hist);
+  ~ReflowScreen();
   lv_obj_t* Create();
   void Loop();
   ScreenLabels* GetLabels() override { return _labels.get(); };
 
  private:
-  std::unique_ptr<RunningScreenLabels> _labels;
+  std::unique_ptr<ReflowScreenLabels> _labels;
   int32_t _target_temp;
   std::unique_ptr<ChartInfo> _chart;
 

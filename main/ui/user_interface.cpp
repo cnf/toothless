@@ -10,7 +10,7 @@
 #include "ui/chart_history.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/dryer_screen.hpp"
-#include "ui/screens/running_screen.hpp"
+#include "ui/screens/reflow_screen.hpp"
 #include "ui/screens/settings_screen.hpp"
 
 namespace toothless {
@@ -53,6 +53,7 @@ esp_err_t UserInterface::Start() {
 }
 
 esp_err_t UserInterface::Init() {
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _subscription = ps_new_subscriber(10, PS_STRLIST("ui.action", "heater.mode"));
 
   // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
@@ -65,7 +66,7 @@ esp_err_t UserInterface::Init() {
         UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
         ui->Loop();
       },
-      100, this);
+      50, this);
 
   lv_timer_t* ui_timer = lv_timer_create(
       +[](lv_timer_t* timer) {
@@ -108,11 +109,21 @@ void UserInterface::BackLight(bool state) {
 }
 
 esp_err_t UserInterface::SwitchTo(ScreenList screen) {
-  FLOG_INFO("Switching Screens");
+  FLOG_INFO("Switching Screens: %d", screen);
   // If we're already switching, ignore the request
   if (_switching_screen_state) {
     return ESP_OK;
   }
+  // stops you from switching OUT of
+  // switch (_current_screen_state) {
+  //   case ScreenList::kErrorScreen:
+  //   case ScreenList::kSettingsScreen:
+  //     FLOG_DEBUG("Current ScreenState: ERROR or SETTINGS");
+  //     return ESP_OK;
+  //     break;
+  //   default:
+  //     break;
+  // }
   // lv_lock();
   // Store the target state and defer the actual switch
   _switching_screen_state = true;
@@ -121,11 +132,11 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
   switch (screen) {
     case ScreenList::kDryerScreen:
       new_screen = std::make_unique<DryerScreen>();
-      FLOG_DEBUG("Switching to HOME Screen");
+      FLOG_DEBUG("Switching to Dryer Screen");
       break;
-    case ScreenList::kRunningScreen:
-      new_screen = std::make_unique<RunningScreen>(&_chart_history);
-      FLOG_DEBUG("Switching to RUNNING Screen");
+    case ScreenList::kReflowScreen:
+      new_screen = std::make_unique<ReflowScreen>(&_chart_history);
+      FLOG_DEBUG("Switching to Reflow Screen");
       break;
     case ScreenList::kSettingsScreen:
       new_screen = std::make_unique<SettingsScreen>();
@@ -148,7 +159,7 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
 
     // Now safely replace the old with new
     _current_screen = std::move(new_screen);  // Old screen auto-destructs here
-
+    _current_screen_state = screen;
     _current_screen_obj = new_screen_obj;
   }
   FLOG_DEBUG("Completed screen switch");
@@ -165,8 +176,8 @@ esp_err_t UserInterface::HandleSubscriptions() {
     if (ps_has_topic(msg, "ui.action.return")) {
       switch (_mode) {
         case heater::Mode::kModeHeating:
-        case heater::Mode::kModeProfile:
-          SwitchTo(ScreenList::kRunningScreen);
+        case heater::Mode::kModeReflow:
+          SwitchTo(ScreenList::kReflowScreen);
           break;
         case heater::Mode::kModeCooldown:
         case heater::Mode::kModeDrying:
@@ -176,36 +187,68 @@ esp_err_t UserInterface::HandleSubscriptions() {
           SwitchTo(ScreenList::kDryerScreen);
           break;
       }
-    } else if (ps_has_topic(msg, "ui.action.running")) {
-      SwitchTo(ScreenList::kRunningScreen);
     } else if (ps_has_topic(msg, "ui.action.stop")) {
       SwitchTo(ScreenList::kDryerScreen);
     } else if (ps_has_topic(msg, "ui.action.settings")) {
       SwitchTo(ScreenList::kSettingsScreen);
+    } else if (ps_has_topic(msg, "heater.mode.set")) {
     } else if (ps_has_topic(msg, "heater.mode") && PS_IS_INT(msg)) {
       heater::Mode new_mode = static_cast<heater::Mode>(msg->int_val);
-      if (new_mode != _mode) {
+      // if (new_mode != _mode) {
+      if (true) {
         FLOG_INFO("Heater mode changed to %d", static_cast<int>(new_mode));
         _mode = new_mode;
-      }
-      switch (_current_screen_state) {
-        // TODO: expand modes/states
-        case ScreenList::kErrorScreen:
-        case ScreenList::kSettingsScreen:
-          break;
-        case ScreenList::kRunningScreen:
-          if (new_mode == heater::Mode::kModeDrying || new_mode == heater::Mode::kModeCooldown) {
+        // switch (_current_screen_state) {
+        //   // TODO: expand modes/states
+        //   case ScreenList::kErrorScreen:
+        //   case ScreenList::kSettingsScreen:
+        //     FLOG_DEBUG("Current ScreenState: ERROR or SETTINGS");
+        //     ps_unref_msg(msg);
+        //     continue;
+        //     break;
+        // }
+        switch (_mode) {
+          case heater::Mode::kModeReflow:
+            FLOG_DEBUG("REFLOW mode");
+            SwitchTo(ScreenList::kReflowScreen);
+            break;
+          case heater::Mode::kModeDrying:
+            FLOG_DEBUG("DRYING mode");
             SwitchTo(ScreenList::kDryerScreen);
-          }
-          break;
-        case ScreenList::kDryerScreen:
-          if (new_mode == heater::Mode::kModeHeating || new_mode == heater::Mode::kModeProfile) {
-            SwitchTo(ScreenList::kRunningScreen);
-          }
-          break;
-        default:
-          break;
+            break;
+          case heater::Mode::kModeHeating:
+          case heater::Mode::kModeCooldown:
+            FLOG_ERROR("Heater is in HEATING or COOLDOWN mode, no screen switch");
+            break;
+          default:
+            FLOG_DEBUG("Heater is in UNKNOWN mode");
+            break;
+        }
       }
+      // switch (_current_screen_state) {
+      //   // TODO: expand modes/states
+      //   case ScreenList::kErrorScreen:
+      //     FLOG_DEBUG("Current ScreenState: ERROR");
+      //     break;
+      //   case ScreenList::kSettingsScreen:
+      //     FLOG_DEBUG("Current ScreenState: SETTINGS");
+      //     break;
+      //   case ScreenList::kReflowScreen:
+      //     FLOG_DEBUG("Current ScreenState: REFLOW");
+      //     if (new_mode == heater::Mode::kModeDrying || new_mode == heater::Mode::kModeCooldown) {
+      //       SwitchTo(ScreenList::kDryerScreen);
+      //     }
+      //     break;
+      //   case ScreenList::kDryerScreen:
+      //     FLOG_DEBUG("Current ScreenState: DRYER");
+      //     if (new_mode == heater::Mode::kModeHeating || new_mode == heater::Mode::kModeReflow) {
+      //       SwitchTo(ScreenList::kReflowScreen);
+      //     }
+      //     break;
+      //   default:
+      //     FLOG_ERROR("Unhandled screen state: %d", static_cast<int>(_current_screen_state));
+      //     break;
+      // }
     } else {
       FLOG_ERROR("Unhandled topic: %s", msg->topic);
     }

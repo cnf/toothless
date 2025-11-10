@@ -24,7 +24,9 @@ SettingsScreen::SettingsScreen() { _labels = std::make_unique<SettingsScreenLabe
 SettingsScreen::~SettingsScreen() {}
 
 lv_obj_t* SettingsScreen::Create() {
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _screen = lv_obj_create(NULL);
+  _labels->menu_mode = true;
   lv_obj_set_style_pad_all(_screen, 10, 0);
 
   // Vertical flex layout
@@ -36,6 +38,7 @@ lv_obj_t* SettingsScreen::Create() {
   // CreateSettingsList();
   CreateMenu();
   // CreateBackButton();
+  SetMode(true);
 
   return _screen;
 }
@@ -95,12 +98,13 @@ esp_err_t SettingsScreen::CreateMenu() {
   // lv_obj_set_style_pad_hor(_labels->root_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
   lv_obj_t* section = lv_menu_section_create(_labels->root_page);
 
+  CreateSubMode(_labels->menu, section);
   CreateSubDisplay(_labels->menu, section);
 
   CreateText(_labels->root_page, NULL, "Info", LV_MENU_ITEM_BUILDER_VARIANT_1);
   section = lv_menu_section_create(_labels->root_page);
   CreateSubFirmwareInfo(_labels->menu, section);
-  lv_obj_t* modesw = CreateSwitch(section, LV_SYMBOL_OK, "Mode", _labels->menu_mode);
+  lv_obj_t* modesw = CreateSwitch(section, LV_SYMBOL_SETTINGS, NULL, _labels->menu_mode);
   lv_obj_add_event_cb(modesw, ModeHandler, LV_EVENT_VALUE_CHANGED, this);
 
   // SetMode(_labels->menu_mode);
@@ -168,12 +172,43 @@ lv_obj_t* SettingsScreen::CreateSlider(lv_obj_t* parent, const char* icon, const
   return obj;
 }
 
+lv_obj_t* SettingsScreen::CreateDropdown(lv_obj_t* parent, const char* icon, const char* txt, const char* options) {
+  lv_obj_t* obj = CreateText(parent, icon, txt, LV_MENU_ITEM_BUILDER_VARIANT_1);
+
+  lv_obj_t* dd = lv_dropdown_create(obj);
+  lv_dropdown_set_options(dd, options);
+  lv_obj_set_width(dd, lv_pct(50));
+
+  return obj;
+}
+
+lv_obj_t* SettingsScreen::CreateSubMode(lv_obj_t* parent, lv_obj_t* section) {
+  lv_obj_t* sub_mode_page = lv_menu_page_create(_labels->menu, "Mode Configuration");
+  // lv_obj_set_style_pad_hor(sub_mode_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
+  lv_menu_separator_create(sub_mode_page);
+  lv_obj_t* sub_section = lv_menu_section_create(sub_mode_page);
+  CreateDropdown(sub_section, NULL, "Default",
+                 "Dryer\n"
+                 "Profile\n"
+                 "Heater");
+
+  lv_menu_separator_create(sub_mode_page);
+  CreateText(sub_section, LV_SYMBOL_LIST, "Dryer Defaults", LV_MENU_ITEM_BUILDER_VARIANT_1);
+  CreateText(sub_section, NULL, "Timer", LV_MENU_ITEM_BUILDER_VARIANT_1);
+  CreateText(sub_section, NULL, "Temperature", LV_MENU_ITEM_BUILDER_VARIANT_1);
+
+  lv_obj_t* cont = CreateText(section, LV_SYMBOL_SETTINGS, "Mode", LV_MENU_ITEM_BUILDER_VARIANT_1);
+  lv_menu_set_load_page_event(_labels->menu, cont, sub_mode_page);
+  return sub_mode_page;
+};
+
 lv_obj_t* SettingsScreen::CreateSubDisplay(lv_obj_t* parent, lv_obj_t* section) {
   lv_obj_t* sub_display_page = lv_menu_page_create(_labels->menu, "Display Settings");
   // lv_obj_set_style_pad_hor(sub_display_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
   lv_menu_separator_create(sub_display_page);
   lv_obj_t* sub_section = lv_menu_section_create(sub_display_page);
-  CreateSwitch(sub_section, LV_SYMBOL_SETTINGS, "Dark Mode", true);
+  CreateSwitch(sub_section, LV_SYMBOL_TINT, "Dark", true);
+  CreateSwitch(sub_section, LV_SYMBOL_IMAGE, "Portrait", false);
 
   lv_obj_t* cont = CreateText(section, LV_SYMBOL_SETTINGS, "Display", LV_MENU_ITEM_BUILDER_VARIANT_1);
   lv_menu_set_load_page_event(_labels->menu, cont, sub_display_page);

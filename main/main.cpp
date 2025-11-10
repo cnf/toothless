@@ -88,7 +88,7 @@ extern "C" void app_main(void) {
   FLOG_INFO("Initializing sensors");
   Sensors sensors;
   sensors.Init();
-  main_dispatcher.callEvery(100, &Sensors::Loop, &sensors);
+  main_dispatcher.callEvery(250, &Sensors::Loop, &sensors);
 
   FLOG_INFO("Initializing heater");
   Heater heater;

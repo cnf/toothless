@@ -2,7 +2,7 @@ file(GLOB_RECURSE SRC
   "main.cpp"
   "*.cpp"
   "ui/display/theme.cpp"
-
+  "ui/fonts/*.c"
   )
 
 set(INCL "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/main" "${INCLUDE_DIRECTORIES}")

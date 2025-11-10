@@ -5,14 +5,14 @@
 
 namespace toothless {
 
-float Profile::TargetTemp(uint32_t elapsedMs) const {
+float Profile::TargetTemp(uint32_t elapsed_ms) const {
   if (_nr_of_stages == 0) return 0.0f;
 
   uint32_t t = 0;
   for (size_t i = 0; i < _nr_of_stages; ++i) {
     const auto& s = _stages[i];
-    if (elapsedMs < t + s.duration_ms) {
-      float frac = float(elapsedMs - t) / float(s.duration_ms);
+    if (elapsed_ms < t + s.duration_ms) {
+      float frac = float(elapsed_ms - t) / float(s.duration_ms);
       if (s.shape == Shape::Smooth)
         // cosine smooth step interpolation
         frac = (1 - std::cos(frac * 3.1415926f)) * 0.5f;

@@ -66,7 +66,9 @@ class SettingsScreen : public Screen {
                        lv_menu_builder_variant_t builder_variant);
   lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk);
   lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val);
+  lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* icon, const char* txt, const char* options);
 
+  lv_obj_t* CreateSubMode(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubDisplay(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* section);
   esp_err_t CreateSettingsList();

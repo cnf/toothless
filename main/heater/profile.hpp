@@ -28,6 +28,8 @@ class Profile {
 
   size_t GenerateCurve(Sample* buffer, size_t max_samples, uint32_t step_ms = 1000) const;
   std::string CurrentStage(uint32_t elapsed_ms);
+  /// @brief Total duration of the profile in milliseconds
+  /// @return Total duration in milliseconds
   uint32_t TotalDuration() const;
 
   float TargetTemp(uint32_t elapsed_ms) const;

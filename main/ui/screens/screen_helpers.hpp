@@ -24,6 +24,23 @@ struct NumpadState {
   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
 };
 
+struct TimeRollerContext {
+  lv_obj_t* parent_screen = nullptr;                       // Screen where roller is opened
+  lv_obj_t* backdrop = nullptr;                            // Where to create backdrop
+  lv_obj_t* target_spinbox = nullptr;                      // Spinbox to update
+  std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
+};
+
+struct TimeRollerState {
+  lv_obj_t* roller_hours;  // Roller object
+  lv_obj_t* roller_minutes;
+  lv_obj_t* roller_seconds;
+  lv_obj_t* ok_btn;
+  lv_obj_t* backdrop;                                      // Backdrop object
+  lv_obj_t* target_spinbox;                                // Spinbox being edited
+  std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
+};
+
 struct ConfirmationContext {
   lv_obj_t* parent_screen = nullptr;  // Screen where confirmation is opened
   lv_obj_t* backdrop = nullptr;       // Where to create backdrop
@@ -56,15 +73,39 @@ void NumpadKeyHandler(lv_event_t* e);
 
 void NumPadCleanupHandler(lv_event_t* e);
 
+void TimeRollerOpen(const TimeRollerContext& ctx);
+
+void TimeRollerHandler(lv_event_t* e);
+
+void TimeRollerCleanupHandler(lv_event_t* e);
+
 void ConfirmationPopup(const ConfirmationContext& ctx);
 
 void ConfirmationHandler(lv_event_t* e);
+
+lv_obj_t* CreateModeSwitcher(lv_obj_t* screen);
+
+void ModeSwitcherHandler(lv_event_t* e);
 
 lv_obj_t* CreateBottomRow(lv_obj_t* container);
 
 lv_obj_t* CreateStartStopButton(lv_obj_t* container);
 
+lv_obj_t* CreateModeButton(lv_obj_t* container);
+
 lv_obj_t* CreateSettingsButton(lv_obj_t* container);
+
+lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant);
+
+lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant);
+
+lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk);
+
+lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val);
+
+lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow);
+
+lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_cb_t callback, void* user_data);
 
 void ButtonEventHandler(lv_event_t* e);
 

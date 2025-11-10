@@ -1,4 +1,4 @@
-#include "ui/screens/running_screen.hpp"
+#include "ui/screens/reflow_screen.hpp"
 
 #include <esp_timer.h>
 
@@ -7,6 +7,7 @@
 #include "funlog.h"
 #include "heater/heater.hpp"
 #include "ui/display/display.hpp"
+#include "ui/screens/screen_helpers.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -14,14 +15,14 @@ extern "C" {
 
 namespace toothless {
 
-RunningScreen::RunningScreen() { _labels = std::make_unique<RunningScreenLabels>(); }
+ReflowScreen::ReflowScreen() { _labels = std::make_unique<ReflowScreenLabels>(); }
 
-RunningScreen::RunningScreen(ChartHistory* chart_hist) : RunningScreen() {
+ReflowScreen::ReflowScreen(ChartHistory* chart_hist) : ReflowScreen() {
   _chart = std::make_unique<ChartInfo>();
   _chart->history = chart_hist;
 }
 
-RunningScreen::~RunningScreen() {
+ReflowScreen::~ReflowScreen() {
   if (_update_timer) {
     lv_timer_set_repeat_count(_update_timer, 0);
     lv_timer_delete(_update_timer);
@@ -32,8 +33,8 @@ RunningScreen::~RunningScreen() {
   }
 }
 
-lv_obj_t* RunningScreen::Create() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+lv_obj_t* ReflowScreen::Create() {
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
                                                    "heater.power", "heater.state", "heater"));
   _screen = lv_obj_create(NULL);
@@ -46,25 +47,25 @@ lv_obj_t* RunningScreen::Create() {
   lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
 
   Temperature();
-  // Chart();
-  // Digits();
+  Chart();
   MidSection();
-  BottomRow();
+  // BottomRow();
+  CreateBottomRow(_screen);
   _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
   return _screen;
 }
 
-void RunningScreen::Loop() {}
+void ReflowScreen::Loop() {}
 
-void RunningScreen::UIUpdateTimerCB(lv_timer_t* timer) {
-  RunningScreen* screen = (RunningScreen*)lv_timer_get_user_data(timer);
+void ReflowScreen::UIUpdateTimerCB(lv_timer_t* timer) {
+  ReflowScreen* screen = (ReflowScreen*)lv_timer_get_user_data(timer);
   if (screen) {
     screen->UpdateAllDisplays();
     screen->UpdateChart();
   }
 }
 
-esp_err_t RunningScreen::UpdateAllDisplays() {
+esp_err_t ReflowScreen::UpdateAllDisplays() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
@@ -118,7 +119,7 @@ esp_err_t RunningScreen::UpdateAllDisplays() {
   return ESP_OK;
 }
 
-esp_err_t RunningScreen::Chart() {
+esp_err_t ReflowScreen::Chart() {
   lv_obj_t* wrapper = lv_obj_create(_screen);
   lv_obj_remove_style_all(wrapper);
   lv_obj_set_size(wrapper, lv_pct(100), 0);
@@ -162,7 +163,7 @@ esp_err_t RunningScreen::Chart() {
   // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
   lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
   lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
-  lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
+  // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
@@ -173,7 +174,7 @@ esp_err_t RunningScreen::Chart() {
   return ESP_OK;
 }
 
-void RunningScreen::UpdateChart() {
+void ReflowScreen::UpdateChart() {
   uint32_t starter = esp_timer_get_time();
   static uint32_t last_scale_update = esp_timer_get_time() / 1000;
   static uint32_t last_max;
@@ -182,12 +183,13 @@ void RunningScreen::UpdateChart() {
   static size_t last_update_index = 0;
   size_t current_index = _chart->history->GetIndex();  // Global head position
 
-  if (current_index != last_update_index) {
+  if (current_index != SIZE_MAX && current_index != last_update_index) {
     // Update ALL series together to keep them synchronized
     for (auto& [topic, series_ptr] : _chart->series_map) {
       lv_coord_t latest = _chart->history->GetLatest(topic);
       // if (latest != LV_CHART_POINT_NONE) {
       lv_chart_set_next_value(_labels->chart, series_ptr, latest);
+      FLOG_INFO("Chart topic %s latest value: %d (at index %d)", topic.c_str(), latest, current_index);
       // }
     }
     last_update_index = current_index;
@@ -216,7 +218,7 @@ void RunningScreen::UpdateChart() {
   FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
-esp_err_t RunningScreen::Temperature() {
+esp_err_t ReflowScreen::Temperature() {
   lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
   lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
@@ -227,7 +229,7 @@ esp_err_t RunningScreen::Temperature() {
   lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
   // lv_obj_add_event_cb(temp_container, TemperatureSetTargetHandler, LV_EVENT_CLICKED, this);
   // lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_add_flag(temp_container, LV_OBJ_FLAG_HIDDEN);
+  // lv_obj_add_flag(temp_container, LV_OBJ_FLAG_HIDDEN);
 
   _labels->temp_current = TemperatureBlock(temp_container, "Current", "--°C");
   HeaterLED(temp_container);
@@ -236,7 +238,7 @@ esp_err_t RunningScreen::Temperature() {
   return ESP_OK;
 }
 
-lv_obj_t* RunningScreen::TemperatureBlock(lv_obj_t* parent, const char* title, const char* temp) {
+lv_obj_t* ReflowScreen::TemperatureBlock(lv_obj_t* parent, const char* title, const char* temp) {
   lv_obj_t* obj;
   lv_obj_t* temperature_obj = lv_obj_create(parent);
   lv_obj_set_style_pad_all(temperature_obj, 0, 0);  // Remove all padding
@@ -266,7 +268,7 @@ lv_obj_t* RunningScreen::TemperatureBlock(lv_obj_t* parent, const char* title, c
   return obj;
 };
 
-void RunningScreen::HeaterLED(lv_obj_t* parent) {
+void ReflowScreen::HeaterLED(lv_obj_t* parent) {
   // led cell
   lv_obj_t* led_cell = lv_obj_create(parent);
   lv_obj_remove_style_all(led_cell);
@@ -285,7 +287,7 @@ void RunningScreen::HeaterLED(lv_obj_t* parent) {
   lv_led_set_color(_labels->heater_led, lv_palette_main(LV_PALETTE_RED));
 }
 
-void RunningScreen::TemperatureUpdateCurrent(int32_t temp) {
+void ReflowScreen::TemperatureUpdateCurrent(int32_t temp) {
   FLOG_VERBOSE("Received temperature: %d", temp);
   float temperature = temp / 100.0f;
   char temp_str[16];
@@ -295,7 +297,7 @@ void RunningScreen::TemperatureUpdateCurrent(int32_t temp) {
   lv_label_set_text(_labels->temp_current, temp_str);
 }
 
-void RunningScreen::TemperatureUpdateTarget(int32_t temp) {
+void ReflowScreen::TemperatureUpdateTarget(int32_t temp) {
   // FLOG_DEBUG("Received target: %d", temp);
   char temp_str[16];
   int32_t clamped_temp = std::clamp<int32_t>(temp / 100, int32_t(-99), int32_t(999));
@@ -303,17 +305,17 @@ void RunningScreen::TemperatureUpdateTarget(int32_t temp) {
   lv_label_set_text(_labels->temp_target, temp_str);
 }
 
-void RunningScreen::TemperatureClearTarget() {
+void ReflowScreen::TemperatureClearTarget() {
   // snprintf(temp_str, sizeof(temp_str), "%li°C", clamped_temp);
   lv_label_set_text(_labels->temp_target, "--°C");
 }
 
-void RunningScreen::TemperatureSetTargetHandler(lv_event_t* e) {
-  FLOG_INFO("TempTargetHandler");
-  PS_PUB_NIL("ui.action.settings");
-}
+// void ReflowScreen::TemperatureSetTargetHandler(lv_event_t* e) {
+//   FLOG_INFO("TempTargetHandler");
+//   PS_PUB_NIL("ui.action.settings");
+// }
 
-esp_err_t RunningScreen::MidSection() {
+esp_err_t ReflowScreen::MidSection() {
   lv_obj_t* mid = lv_obj_create(_screen);
   lv_obj_remove_style_all(mid);
   lv_obj_set_style_bg_opa(mid, LV_OPA_TRANSP, 0);
@@ -377,7 +379,7 @@ esp_err_t RunningScreen::MidSection() {
   return ESP_OK;
 }
 
-esp_err_t RunningScreen::BottomRow() {
+esp_err_t ReflowScreen::BottomRow() {
   lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_remove_style_all(temp_container);
   lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
@@ -397,7 +399,7 @@ esp_err_t RunningScreen::BottomRow() {
   return ESP_OK;
 }
 
-esp_err_t RunningScreen::StartStopButton(lv_obj_t* container) {
+esp_err_t ReflowScreen::StartStopButton(lv_obj_t* container) {
   lv_obj_t* button = lv_button_create(container);
   lv_obj_set_size(button, 0, lv_pct(100));
   lv_obj_set_flex_grow(button, 1);  // share space equally
@@ -413,7 +415,7 @@ esp_err_t RunningScreen::StartStopButton(lv_obj_t* container) {
   return ESP_OK;
 }
 
-esp_err_t RunningScreen::StartButton(lv_obj_t* container) {
+esp_err_t ReflowScreen::StartButton(lv_obj_t* container) {
   lv_obj_t* start_btn = lv_button_create(container);
   lv_obj_set_size(start_btn, 0, lv_pct(100));
   lv_obj_set_flex_grow(start_btn, 1);  // share space equally
@@ -428,7 +430,7 @@ esp_err_t RunningScreen::StartButton(lv_obj_t* container) {
   return ESP_OK;
 }
 
-esp_err_t RunningScreen::SettingsButton(lv_obj_t* container) {
+esp_err_t ReflowScreen::SettingsButton(lv_obj_t* container) {
   lv_obj_t* button = lv_button_create(container);
   lv_obj_set_size(button, 0, lv_pct(100));
   lv_obj_set_flex_grow(button, 1);  // share space equally
@@ -443,7 +445,7 @@ esp_err_t RunningScreen::SettingsButton(lv_obj_t* container) {
   return ESP_OK;
 }
 
-void RunningScreen::ButtonEventHandler(lv_event_t* e) {
+void ReflowScreen::ButtonEventHandler(lv_event_t* e) {
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
 
   lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
@@ -457,7 +459,7 @@ void RunningScreen::ButtonEventHandler(lv_event_t* e) {
     return;
   } else if (lv_strcmp(text, "Stop") == 0) {
     // Get the screen object if you passed it as user_data
-    RunningScreen* screen = (RunningScreen*)lv_event_get_user_data(e);
+    ReflowScreen* screen = (ReflowScreen*)lv_event_get_user_data(e);
     if (screen) {
       screen->StopConfirmation();
     }
@@ -471,12 +473,12 @@ void RunningScreen::ButtonEventHandler(lv_event_t* e) {
   // if (code == LV_EVENT_CLICKED) {}
 }
 
-void RunningScreen::StopButtonPress() {
+void ReflowScreen::StopButtonPress() {
   FLOG_DEBUG("Stop StopButton clicked!");
   StopConfirmation();
 }
 
-void RunningScreen::StopConfirmation() {
+void ReflowScreen::StopConfirmation() {
   // Create a backdrop to block background interactions
   lv_obj_t* backdrop = lv_obj_create(_screen);
   // lv_display_get_screen_active();
@@ -525,7 +527,7 @@ void RunningScreen::StopConfirmation() {
   lv_obj_set_height(footer, lv_pct(33));
 }
 
-void RunningScreen::ButtonCB(lv_event_t* e) {
+void ReflowScreen::ButtonCB(lv_event_t* e) {
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
   lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
 

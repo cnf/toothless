@@ -1,5 +1,6 @@
 #include "sensors/temperature.hpp"
 
+#include <esp_check.h>
 #include <esp_err.h>
 
 #include "config.h"
@@ -12,11 +13,12 @@ extern "C" {
 
 namespace toothless {
 esp_err_t Temperature::Init() {
-  _initialized = true;
   ESP_ERROR_CHECK(
       Max6675Setup((int8_t)CONFIG_TL_TC_CLK_PIN, (int8_t)CONFIG_TL_TC_CS_PIN, (int8_t)CONFIG_TL_TC_MISO_PIN));
   uint32_t temp;
-  Max6675GetTemp(temp);
+  ESP_ERROR_CHECK(Max6675GetTemp(temp));
+  _initialized = true;
+
   _temperature_samples.fill(temp);
   _temperature_average = temp;
   return ESP_OK;
@@ -37,14 +39,18 @@ esp_err_t Temperature::Loop() {
   first reading
   */
   uint32_t temp;
-  Max6675GetTemp(temp);
+  esp_err_t err = Max6675GetTemp(temp);
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to get temperature from Max6675: %s", esp_err_to_name(err));
+    return err;
+  }
   _temperature_average -= _temperature_samples[count % kTemperatureAverageSamples] / kTemperatureAverageSamples;
   _temperature_samples[count % kTemperatureAverageSamples] = temp;
   _temperature_average += _temperature_samples[count % kTemperatureAverageSamples] / kTemperatureAverageSamples;
   count++;
   PS_PUB_INT("sensor.temperature.chamber", _temperature_average);
-  // FLOG_INFO("Thermocouple temperature: %.2f C", temp / 100);
-  // FLOG_INFO("Thermocouple reading: %d", temp);
+  // FLOG_INFO("Thermocouple temperature: %.2f C", temp);
+  // FLOG_INFO("Thermocouple reading: %d (%d)", temp, _temperature_average);
   return ESP_OK;
 }
 }  // namespace toothless

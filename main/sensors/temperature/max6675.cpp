@@ -1,9 +1,13 @@
 #include "sensors/temperature/max6675.hpp"
+
+#include <driver/gpio.h>
+#include <unistd.h>
+
+#include <bitset>
+
 #include "config.h"
 #include "funlog.h"
 #include "max6675.hpp"
-#include <driver/gpio.h>
-#include <unistd.h>
 
 static gpio_num_t _max6675_clock;
 static gpio_num_t _max6675_chip_select;
@@ -23,20 +27,21 @@ esp_err_t Max6675Setup(int8_t clock, int8_t chip_select, int8_t data) {
   return ESP_OK;
 }
 
-esp_err_t Max6675GetCelsius(float &celsius) {
+esp_err_t Max6675GetCelsius(float& celsius) {
   uint32_t temp;
   Max6675GetTemp(temp);
   celsius = temp / 100;
   return ESP_OK;
 }
 
-esp_err_t Max6675GetTemp(uint32_t &celsius) {
+esp_err_t Max6675GetTemp(uint32_t& celsius) {
   uint32_t v;
 
   FLOG_DEBUG("Getting Temp, CS: %d", _max6675_chip_select);
   esp_err_t err = gpio_set_level((gpio_num_t)_max6675_chip_select, 0);
   if (err != ESP_OK) {
     FLOG_ERROR("OOPS: %s", esp_err_to_name(err));
+    return err;
   }
   usleep(10);
 
@@ -45,14 +50,20 @@ esp_err_t Max6675GetTemp(uint32_t &celsius) {
   v |= Max6675Read();
 
   err = gpio_set_level((gpio_num_t)_max6675_chip_select, 1);
+  gpio_set_level(_max6675_clock, 0);  // ensure idle low
   if (err != ESP_OK) {
     FLOG_ERROR("OOPS: %s", esp_err_to_name(err));
+    return err;
   }
 
   if (v & 0x4) {
     // return ESP_ERR_INVALID_STATE; // no thermocouple attached
-    return ESP_ERR_NOT_FOUND; // no thermocouple attached
+    return ESP_ERR_NOT_FOUND;  // no thermocouple attached
   }
+  if (v == 0x0000) {
+    return ESP_ERR_NOT_FOUND;
+  }
+  FLOG_DEBUG("Max6675 Raw Value: 0x%04X, [%li] [%s]", v, v, std::bitset<16>(v).to_string().c_str());
 
   v >>= 3;
 
@@ -77,4 +88,4 @@ uint8_t Max6675Read() {
   return d;
 }
 
-}; // namespace toothless
+};  // namespace toothless

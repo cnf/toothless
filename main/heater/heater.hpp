@@ -28,8 +28,10 @@ namespace toothless {
 // }  // namespace topics::heater
 
 namespace heater {
-enum Mode { kModeHeating, kModeCooldown, kModeProfile, kModeDrying };
-enum State { kStateOff, kStateOn, kStatePause, kStateIdle };
+
+enum Mode { kModeHeating, kModeCooldown, kModeReflow, kModeDrying };
+enum State { kStateOff, kStateOn, kStatePause };
+
 }  // namespace heater
 class Heater {
  public:
@@ -39,13 +41,17 @@ class Heater {
   esp_err_t HandleSubscriptions();
   void AssertOff();
   esp_err_t LoadProfile(std::string name);
-  esp_err_t StartProfile();
   std::optional<uint16_t> GetTemperature();
+  uint64_t GetTimeSecondsLeft();
+
   esp_err_t SetState(heater::State state);
   esp_err_t SetMode(heater::Mode mode);
   esp_err_t SetPower(uint8_t power);
+  esp_err_t SetTimer(uint32_t time_sec);
+  esp_err_t ClearTimer();
   esp_err_t SetTarget(int32_t target);
   esp_err_t ClearTarget();
+
   esp_err_t HeaterOn(float power);
   esp_err_t HeaterOff();
 
@@ -56,7 +62,9 @@ class Heater {
   heater::Mode _mode;
   // std::unique_ptr<Profile> _current_profile;
   Profile* _current_profile = nullptr;
-  int64_t _start_time;  // time we started the current profile
+  int64_t _start_time_ms;  // time we started the current profile
+  int64_t _timer_ms = 0;
+  int64_t _time_remaining_ms = 0;
   int32_t _target = std::numeric_limits<int32_t>::quiet_NaN();
   uint32_t _last_temp_update;  // temp sensor failsafe
   uint32_t _last_run;
@@ -74,5 +82,11 @@ class Heater {
   float _ki = 0;                // tweak for steady state error
 
   void Tune();
+  esp_err_t StateToOn();
+  esp_err_t StateToOff();
+  esp_err_t StateToPause();
+  esp_err_t UpdateTimer();
+  esp_err_t LoopProfile();
+  esp_err_t LoopDryer();
 };  // namespace topicsclass Heater
 }  // namespace toothless

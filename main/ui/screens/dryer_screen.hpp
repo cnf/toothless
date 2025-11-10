@@ -9,7 +9,11 @@
 namespace toothless {
 
 struct DryerScreenLabels : public ScreenLabels {
-  lv_obj_t* temperature;
+  lv_obj_t* temperature_current;
+  lv_obj_t* temperature_target;
+  lv_obj_t* timer;
+  lv_obj_t* timer_target;
+  lv_obj_t* heater_led;
   lv_obj_t* start_stop_button;
 };
 
@@ -28,9 +32,22 @@ class DryerScreen : public Screen {
   esp_err_t UpdateAllDisplays();
 
   esp_err_t Temperature();
+  void TemperatureUpdateTarget(int32_t temp);
+  void TemperatureClearTarget();
+  void TemperatureUpdateCurrent(int32_t temp);
+  void TimerUpdate(uint32_t seconds);
+  void TimerClear();
   void UpdateTemperatureDisplay(uint32_t temp);
 
-  esp_err_t MidSection();
+  void MainSection();
+
+  void CreateTemperature(lv_obj_t* parent);
+
+  void CreateTimer(lv_obj_t* parent);
+
+  static void TimerHandler(lv_event_t* e);
+
+  void HeaterLED(lv_obj_t* parent);
 
   esp_err_t BottomRow();
 

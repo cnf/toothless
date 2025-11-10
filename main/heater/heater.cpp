@@ -30,6 +30,7 @@ Profile leaded(leaded_stages, 5);
 using namespace heater;
 
 bool Heater::Init() {
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _element = std::make_unique<GPIOElement>();
   _element->Init();
   _time_slice = 200;
@@ -49,7 +50,8 @@ bool Heater::Init() {
 
 void Heater::Loop() {
   HandleSubscriptions();
-  // auto temperature = GetTemperature();
+  UpdateTimer();
+
   if (_last_temp_update + 5000000 < esp_timer_get_time()) {
     AssertOff();
     if (_state != heater::kStateOff) {
@@ -59,26 +61,26 @@ void Heater::Loop() {
     };
     return;
   }
+  switch (_mode) {
+    case heater::kModeReflow:
+      LoopProfile();
+      break;
+    case heater::kModeDrying:
+      LoopDryer();
+      break;
+    case heater::kModeHeating:
+      break;
+    case heater::kModeCooldown:
+      break;
+    default:
+      AssertOff();
+      FLOG_ERROR("Unknown heater mode %d", _mode);
+      return;
+  }
+
   if (_state != heater::kStateOn) {
     AssertOff();
     return;
-  }
-  // TODO: Optimize
-  if (_current_profile && _state == heater::kStateOn) {
-    uint32_t elapsed = (esp_timer_get_time() - _start_time) / 1000;
-    if (elapsed > _current_profile->TotalDuration()) {
-      SetState(heater::kStateIdle);
-      ClearTarget();
-      FLOG_INFO("Heater profile complete");
-      return;
-    }
-    int32_t profile_target = static_cast<int32_t>(_current_profile->TargetTemp(elapsed) * 100.0f);
-    if (profile_target != _target) {
-      SetTarget(profile_target);
-      FLOG_DEBUG("Profile target temperature updated to %d", profile_target);
-    }
-    std::string stage = _current_profile->CurrentStage(elapsed);
-    PS_PUB_STR("heater.profile.stage", stage.c_str());
   }
 
   Tune();
@@ -108,8 +110,16 @@ esp_err_t Heater::HandleSubscriptions() {
         heater::State state = static_cast<heater::State>(msg->int_val);
         SetState(state);
       } else {
-        SetState(heater::kStateIdle);
+        SetState(heater::kStateOff);
         FLOG_ERROR("Invalid heater state message");
+      }
+    } else if (ps_has_topic(msg, "heater.timer.set")) {
+      if (PS_IS_INT(msg)) {
+        SetTimer(msg->int_val);
+      } else if (PS_IS_NIL(msg)) {
+        ClearTimer();
+      } else {
+        FLOG_ERROR("Invalid heater timer message");
       }
     } else if (ps_has_topic(msg, "heater.mode.set") && PS_IS_INT(msg)) {
       heater::Mode mode = static_cast<heater::Mode>(msg->int_val);
@@ -122,6 +132,9 @@ esp_err_t Heater::HandleSubscriptions() {
       SetState(heater::kStateOff);
       // HeaterOff();
       FLOG_INFO("Heater stopped");
+    } else if (ps_has_topic(msg, "heater.pause")) {
+      SetState(heater::kStatePause);
+      FLOG_INFO("Heater paused");
     } else if (ps_has_topic(msg, "heater.target.temperature.set")) {
       if (PS_IS_INT(msg)) {
         SetTarget(msg->int_val);
@@ -139,7 +152,7 @@ esp_err_t Heater::HandleSubscriptions() {
         PS_PUB_NIL_FL("heater.profile", PS_FL_STICKY);
       }
     } else {
-      FLOG_DEBUG("unknown message : %s", msg->topic);
+      FLOG_VERBOSE("unknown message : %s", msg->topic);
     }
     ps_unref_msg(msg);
   }
@@ -155,46 +168,53 @@ esp_err_t Heater::LoadProfile(std::string name) {
   return ESP_OK;
 }
 
-esp_err_t Heater::StartProfile() {
-  //
-  return ESP_OK;
-}
-
 std::optional<uint16_t> Heater::GetTemperature() { return std::nullopt; }
+
+uint64_t Heater::GetTimeSecondsLeft() {
+  uint32_t elapsed;
+  switch (_mode) {
+    case heater::kModeReflow:
+      if (!_current_profile) return 0;
+      elapsed = (esp_timer_get_time() / 1000 - _start_time_ms);
+      return (_current_profile->TotalDuration() - elapsed) / 1000;
+      break;
+    case heater::kModeDrying:
+      return _time_remaining_ms / 1000;
+      break;
+    case heater::kModeHeating:
+      return 0;
+      break;
+    case heater::kModeCooldown:
+      return 0;  // 5 minutes
+      break;
+    default:
+      return 0;
+      break;
+  }
+  //
+  // return (_timer_ms - (esp_timer_get_time() / 1000 - _start_time)) / 1000;
+}
 
 esp_err_t Heater::SetState(heater::State state) {
   switch (state) {
     case heater::kStateOn:
-      _state = heater::kStateOn;
-      _start_time = esp_timer_get_time();
-      FLOG_DEBUG("Heater state: ON");
+      StateToOn();
       break;
     case heater::kStateOff:
-      _state = heater::kStateOff;
-      ClearTarget();
-      _start_time = 0;
-      PS_PUB_NIL("heater.profile.stage");
-      FLOG_DEBUG("Heater state: OFF");
+      StateToOff();
       break;
     case heater::kStatePause:
-      _state = heater::kStatePause;
-      FLOG_DEBUG("Heater state: PAUSE");
-      break;
-    case heater::kStateIdle:
-      _state = heater::kStateIdle;
-      FLOG_DEBUG("Heater state: IDLE");
-
+      StateToPause();
       break;
     default:
       FLOG_ERROR("Unknown heater state %d", state);
       return ESP_ERR_INVALID_ARG;
   }
-  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
   return ESP_OK;
 }
 
-esp_err_t Heater::SetMode(heater::Mode mode) {
-  switch (_mode) {
+esp_err_t Heater::SetMode(heater::Mode new_mode) {
+  switch (new_mode) {
     case heater::kModeHeating:
       _mode = heater::kModeHeating;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
@@ -205,10 +225,10 @@ esp_err_t Heater::SetMode(heater::Mode mode) {
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
       FLOG_DEBUG("Heater mode: DRYING");
       break;
-    case heater::kModeProfile:
-      _mode = heater::kModeProfile;
+    case heater::kModeReflow:
+      _mode = heater::kModeReflow;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
-      FLOG_DEBUG("Heater mode: PROFILE");
+      FLOG_DEBUG("Heater mode: REFLOW");
       break;
     case heater::kModeCooldown:
       _mode = heater::kModeCooldown;
@@ -228,6 +248,22 @@ esp_err_t Heater::SetPower(uint8_t power) {
   } else {
     _element->Off();
   }
+  return ESP_OK;
+}
+
+esp_err_t Heater::SetTimer(uint32_t time_sec) {
+  _timer_ms = time_sec * 1000;  // store in ms
+  PS_PUB_INT_FL("heater.timer", _timer_ms / 1000, PS_FL_STICKY);
+  PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 1000, PS_FL_STICKY);
+  FLOG_INFO("Heater timer set to %d seconds", time_sec);
+  return ESP_OK;
+}
+
+esp_err_t Heater::ClearTimer() {
+  _timer_ms = 0;
+  PS_PUB_NIL_FL("heater.timer", PS_FL_STICKY);
+  PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
+
   return ESP_OK;
 }
 
@@ -305,6 +341,149 @@ void Heater::Tune() {
   //        _temperature_integral, _power_setting);
 
   _previous_temperature = _temperature;
+}
+
+esp_err_t Heater::StateToOn() {
+  if (_state == heater::kStateOff) {
+    _start_time_ms = esp_timer_get_time() / 1000;
+  }
+
+  switch (_mode) {
+    case heater::kModeDrying:
+      // _timer_ms = 20000;  // BUG: remove, only for testing
+      // SetTarget(3000);  // BUG: remove, only for testing
+      if (_time_remaining_ms == 0 && _timer_ms != 0) {
+        _time_remaining_ms = _timer_ms;
+      }
+      break;
+    case heater::kModeReflow:
+      if (!_current_profile) {
+        FLOG_ERROR("No profile loaded, cannot start profile mode");
+        return ESP_ERR_INVALID_STATE;
+      }
+      _start_time_ms = esp_timer_get_time() / 1000;
+      break;
+    default:
+      return ESP_ERR_NOT_SUPPORTED;
+      break;
+  }
+  _state = heater::kStateOn;
+  FLOG_DEBUG("Heater state: ON");
+  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  return ESP_OK;
+}
+
+esp_err_t Heater::StateToOff() {
+  switch (_mode) {
+    case heater::kModeDrying:
+      ClearTimer();
+      ClearTarget();
+      _state = heater::kStateOff;
+      // ClearTarget();
+      break;
+    case heater::kModeReflow:
+      ClearTarget();
+      _start_time_ms = 0;
+      PS_PUB_NIL("heater.profile.stage");
+      _state = heater::kStateOff;
+      break;
+    default:
+      ClearTarget();
+      _state = heater::kStateOff;
+      PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+      return ESP_ERR_NOT_SUPPORTED;
+      break;
+  }
+  FLOG_DEBUG("Heater state: OFF");
+  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  return ESP_OK;
+}
+
+esp_err_t Heater::StateToPause() {
+  switch (_mode) {
+    case heater::kModeDrying:
+      _state = heater::kStatePause;
+      break;
+    case heater::kModeReflow:
+      return ESP_ERR_NOT_SUPPORTED;
+      break;
+    default:
+      return ESP_ERR_NOT_SUPPORTED;
+      break;
+  }
+  FLOG_DEBUG("Heater state: PAUSE");
+  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  return ESP_OK;
+}
+
+esp_err_t Heater::UpdateTimer() {
+  // FLOG_INFO("UpdateTimer called");
+  static int64_t last = esp_timer_get_time();
+  if (_timer_ms == 0 && _time_remaining_ms != 0) {
+    _time_remaining_ms = 0;
+    PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
+    return ESP_OK;
+  }
+  switch (_state) {
+    case heater::kStateOn:
+      if (_time_remaining_ms <= 0) break;
+      _time_remaining_ms -= (esp_timer_get_time() - last) / 1000;
+      break;
+    default:
+      break;
+  }
+  last = esp_timer_get_time();
+
+  // }
+  return ESP_OK;
+}
+
+esp_err_t Heater::LoopProfile() {
+  // TODO: Optimize
+  if (_current_profile && _state == heater::kStateOn) {
+    uint32_t elapsed = (esp_timer_get_time() / 1000) - _start_time_ms;
+    if (elapsed > _current_profile->TotalDuration()) {
+      SetState(heater::kStateOff);
+      ClearTarget();
+      FLOG_INFO("Heater profile complete");
+      return ESP_OK;
+      ;
+    }
+    int32_t profile_target = static_cast<int32_t>(_current_profile->TargetTemp(elapsed) * 100.0f);
+    if (profile_target != _target) {
+      SetTarget(profile_target);
+      FLOG_DEBUG("Profile target temperature updated to %d", profile_target);
+    }
+    std::string stage = _current_profile->CurrentStage(elapsed);
+    PS_PUB_STR("heater.profile.stage", stage.c_str());
+  }
+  return ESP_OK;
+}
+
+esp_err_t Heater::LoopDryer() {
+  static int64_t refresh = esp_timer_get_time();
+  if (_time_remaining_ms <= 0 && _state == heater::kStateOn) {
+    SetState(heater::kStateOff);
+    _time_remaining_ms = 0;
+    FLOG_INFO("Dryer cycle complete");
+    if (_timer_ms > 0) PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 100, PS_FL_STICKY);
+    return ESP_OK;
+  }
+  if (refresh + 1000000 < esp_timer_get_time()) {
+    if (_time_remaining_ms > 0) {
+      refresh = esp_timer_get_time();
+      // _time_remaining_ms -= 1000;
+      FLOG_DEBUG("Timer remaining: %d seconds", _time_remaining_ms / 1000);
+      PS_PUB_INT_FL("heater.timer.remaining", _time_remaining_ms / 1000, PS_FL_STICKY);
+      // } else {
+      //   if (_timer_ms > 0) {
+      //     PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 1000, PS_FL_STICKY);
+      //   } else {
+      //     PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
+      //   }
+    }
+  }
+  return ESP_OK;
 }
 
 }  // namespace toothless

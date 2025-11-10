@@ -21,7 +21,7 @@ enum ScreenList {
   kErrorScreen,
   kSettingsScreen,
   kDryerScreen,
-  kRunningScreen,
+  kReflowScreen,
 };
 
 class UserInterface {

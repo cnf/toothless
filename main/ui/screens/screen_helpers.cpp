@@ -4,20 +4,20 @@
 
 #include "config.h"
 #include "heater/heater.hpp"
-#include "screen_helpers.hpp"
 namespace toothless {
 
 lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
   lv_obj_t* backdrop = lv_obj_create(screen);
   lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
-  lv_obj_set_style_pad_all(backdrop, 0, 0);  // Global 2% border
   lv_obj_set_pos(backdrop, 0, 0);
   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
   lv_obj_add_flag(backdrop, LV_OBJ_FLAG_FLOATING);
-  // Set screen to vertical flex layout
   lv_obj_set_layout(backdrop, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(backdrop, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  lv_obj_set_style_pad_gap(backdrop, 10, 0);            // 10px gap between items
+  lv_obj_set_flex_flow(backdrop, LV_FLEX_FLOW_COLUMN);
+  lv_obj_move_to_index(backdrop, -1);
+  lv_obj_set_scrollbar_mode(backdrop, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_SCROLLABLE);
+
   return backdrop;
 }
 
@@ -140,6 +140,146 @@ void NumPadCleanupHandler(lv_event_t* e) {
   delete state;
 }
 
+void TimeRollerOpen(const TimeRollerContext& ctx) {
+  FLOG_INFO("Open Time Roller");
+  const char* minsecstr =
+      "00\n"
+      "05\n"
+      "10\n"
+      "15\n"
+      "20\n"
+      "25\n"
+      "30\n"
+      "35\n"
+      "40\n"
+      "45\n"
+      "50\n"
+      "55";
+
+  // create a small textarea + keyboard
+  if (ctx.backdrop) return;  // already a backdrop active
+
+  TimeRollerState* state = new TimeRollerState();
+  state->backdrop = ctx.backdrop;
+  state->target_spinbox = ctx.target_spinbox;
+  state->on_confirm = ctx.on_confirm;
+
+  state->backdrop = CreateBackdrop(ctx.parent_screen);
+  lv_obj_t* col;
+  {
+    col = lv_obj_create(state->backdrop);
+    lv_obj_remove_style_all(col);
+    lv_obj_set_style_bg_opa(col, LV_OPA_TRANSP, 0);
+    lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(col, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(col, LV_FLEX_FLOW_ROW);  // Vertical stacking
+    lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_t* label = lv_label_create(col);
+    lv_label_set_text(label, "Timer");
+  }
+
+  col = lv_obj_create(state->backdrop);
+  lv_obj_remove_style_all(col);
+  lv_obj_set_style_bg_opa(col, LV_OPA_TRANSP, 0);
+  lv_obj_set_layout(col, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(col, LV_FLEX_FLOW_ROW);  // Vertical stacking
+  lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  // lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_size(col, lv_pct(100), 0);
+  lv_obj_set_flex_grow(col, 1);
+  {
+    // Hours roller
+    state->roller_hours = lv_roller_create(col);
+    lv_roller_set_options(state->roller_hours, minsecstr, LV_ROLLER_MODE_INFINITE);
+
+    lv_roller_set_visible_row_count(state->roller_hours, 4);
+    lv_obj_center(state->roller_hours);
+    lv_obj_add_event_cb(state->roller_hours, TimeRollerHandler, LV_EVENT_ALL, state);
+  }
+  {
+    // Minutes roller
+    state->roller_minutes = lv_roller_create(col);
+    lv_roller_set_options(state->roller_minutes, minsecstr, LV_ROLLER_MODE_INFINITE);
+
+    lv_roller_set_visible_row_count(state->roller_minutes, 4);
+    lv_obj_center(state->roller_minutes);
+    lv_obj_add_event_cb(state->roller_minutes, TimeRollerHandler, LV_EVENT_ALL, state);
+  }
+  {
+    // Seconds roller
+    state->roller_seconds = lv_roller_create(col);
+    lv_roller_set_options(state->roller_seconds, minsecstr, LV_ROLLER_MODE_INFINITE);
+
+    lv_roller_set_visible_row_count(state->roller_seconds, 4);
+    lv_obj_center(state->roller_seconds);
+    lv_obj_add_event_cb(state->roller_seconds, TimeRollerHandler, LV_EVENT_ALL, state);
+  }
+  {
+    col = lv_obj_create(state->backdrop);
+    lv_obj_set_layout(col, LV_LAYOUT_FLEX);
+    lv_obj_remove_style_all(col);
+    lv_obj_set_style_bg_opa(col, LV_OPA_TRANSP, 0);
+    // lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_ROW);  // Vertical stacking
+    // lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+    lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_t* ok_btn = lv_button_create(state->backdrop);
+    lv_obj_set_size(ok_btn, lv_pct(100), 60);
+    lv_obj_t* ok_label = lv_label_create(ok_btn);
+    lv_label_set_text(ok_label, "Set Time");
+    lv_obj_center(ok_label);
+    lv_obj_add_event_cb(ok_btn, TimeRollerCleanupHandler, LV_EVENT_CLICKED, state);
+  }
+}
+
+void TimeRollerHandler(lv_event_t* e) {
+  // FLOG_INFO("Time Roller event");
+  lv_event_code_t code = lv_event_get_code(e);
+  lv_obj_t* obj = lv_event_get_target_obj(e);
+  if (code == LV_EVENT_VALUE_CHANGED) {
+    char buf[32];
+    lv_roller_get_selected_str(obj, buf, sizeof(buf));
+    FLOG_INFO("Selected: %s\n", buf);
+  }
+}
+
+void TimeRollerCleanupHandler(lv_event_t* e) {
+  FLOG_INFO("Time Roller cleanup started");
+  TimeRollerState* state = (TimeRollerState*)lv_event_get_user_data(e);
+
+  if (!state) {
+    FLOG_ERROR("no state passed... propably have a memory leak...");
+    return;
+  }
+  // On apply, read value and close keyboard
+  char buf[32];
+  lv_roller_get_selected_str(state->roller_hours, buf, sizeof(buf));
+  int hours = atoi(buf);
+  lv_roller_get_selected_str(state->roller_minutes, buf, sizeof(buf));
+  int minutes = atoi(buf);
+  lv_roller_get_selected_str(state->roller_seconds, buf, sizeof(buf));
+  int seconds = atoi(buf);
+  FLOG_INFO("Got Time: %02d:%02d:%02d", hours, minutes, seconds);
+  int32_t total_seconds = (hours * 3600 + minutes * 60 + seconds);  // TODO: units
+
+  if (state->on_confirm) {
+    FLOG_INFO("Running Callback");
+    state->on_confirm(total_seconds);
+    FLOG_INFO("Done");
+  }
+
+  if (state->backdrop) lv_obj_delete(state->backdrop);
+  state->backdrop = nullptr;
+  if (state->roller_hours) lv_obj_delete(state->roller_hours);
+  state->roller_hours = nullptr;
+  if (state->roller_minutes) lv_obj_delete(state->roller_minutes);
+  state->roller_minutes = nullptr;
+  if (state->roller_seconds) lv_obj_delete(state->roller_seconds);
+  state->roller_seconds = nullptr;
+  FLOG_INFO("All done");
+
+  delete state;
+}
+
 void ConfirmationPopup(const ConfirmationContext& ctx) {
   FLOG_INFO("Open Confirmation");
 
@@ -209,6 +349,54 @@ void ConfirmationHandler(lv_event_t* e) {
   }
 }
 
+lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
+  lv_obj_t* backdrop = CreateBackdrop(screen);
+
+  lv_obj_t* wrapper = lv_obj_create(backdrop);
+  lv_obj_remove_style_all(wrapper);
+  // lv_obj_set_style_bg_opa(wrapper, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_pad_all(wrapper, 0, 0);
+  lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
+  lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+  // lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
+  // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
+  // lv_obj_set_style_border_width(wrapper, 1, 0);
+  lv_obj_set_style_bg_color(wrapper, lv_color_hex(0x440000), 0);
+
+  lv_obj_set_style_pad_gap(wrapper, 10, 0);
+
+  CreateText(wrapper, LV_SYMBOL_WARNING, "Switching mode will stop the current one.", false);
+
+  CreateCBButton(wrapper, "Drying", true, ModeSwitcherHandler, backdrop);
+  CreateCBButton(wrapper, "Reflow", true, ModeSwitcherHandler, backdrop);
+  CreateCBButton(wrapper, "Cancel", true, ModeSwitcherHandler, backdrop);
+
+  return wrapper;
+}
+
+void ModeSwitcherHandler(lv_event_t* e) {
+  FLOG_INFO("Event Handler Called");
+  lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
+  lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
+
+  // lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
+  lv_obj_t* label = lv_obj_get_child_by_type(button, 0, &lv_label_class);
+  if (!label) return;
+  const char* text = lv_label_get_text(label);
+
+  if (lv_strcmp(text, "Drying") == 0) {
+    FLOG_INFO("Setting Drying Mode");
+    PS_PUB_INT("heater.mode.set", heater::kModeDrying);
+  } else if (lv_strcmp(text, "Reflow") == 0) {
+    FLOG_INFO("Setting Reflow Mode");
+    PS_PUB_INT("heater.mode.set", heater::kModeReflow);
+  } else if (lv_strcmp(text, "Cancel") == 0) {
+  }
+  lv_obj_delete_async(backdrop);
+}
+
 lv_obj_t* CreateBottomRow(lv_obj_t* container) {
   static lv_obj_t* start_stop;
   lv_obj_t* wrapper = lv_obj_create(container);
@@ -225,6 +413,7 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
   lv_obj_set_style_pad_gap(wrapper, 10, 0);  // Gap between temp blocks
 
   start_stop = CreateStartStopButton(wrapper);
+  CreateModeButton(wrapper);
   CreateSettingsButton(wrapper);
   return start_stop;
 }
@@ -245,10 +434,26 @@ lv_obj_t* CreateStartStopButton(lv_obj_t* container) {
   return startstop_label;
 }
 
-lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
+lv_obj_t* CreateModeButton(lv_obj_t* container) {
   lv_obj_t* button = lv_button_create(container);
   lv_obj_set_size(button, 0, lv_pct(100));
-  lv_obj_set_flex_grow(button, 1);  // share space equally
+  lv_obj_set_flex_grow(button, 1);
+
+  lv_obj_t* startstop_label = lv_label_create(button);
+  lv_label_set_text(startstop_label, "Mode");
+  lv_obj_center(startstop_label);
+
+  lv_obj_set_style_align(button, LV_ALIGN_BOTTOM_RIGHT, 0);  // or LV_ALIGN_RIGHT
+
+  lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, startstop_label);
+
+  return startstop_label;
+}
+
+lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
+  lv_obj_t* button = lv_button_create(container);
+  lv_obj_set_size(button, LV_SIZE_CONTENT, lv_pct(100));
+  // lv_obj_set_flex_grow(button, 1);  // share space equally
 
   lv_obj_t* label = lv_label_create(button);
   lv_label_set_text(label, LV_SYMBOL_SETTINGS);
@@ -258,6 +463,84 @@ lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, NULL);
 
   return button;
+}
+
+lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant) {
+  return CreateText(parent, icon, txt, NULL, builder_variant);
+}
+
+lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant) {
+  lv_obj_t* obj = lv_menu_cont_create(parent);
+
+  lv_obj_t* img = NULL;
+  lv_obj_t* label = NULL;
+
+  if (icon) {
+    img = lv_image_create(obj);
+    lv_image_set_src(img, icon);
+  }
+
+  if (txt) {
+    label = lv_label_create(obj);
+    lv_label_set_text_fmt(label, txt, fmt);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_flex_grow(label, 1);
+  }
+
+  if (builder_variant && icon && txt) {
+    lv_obj_add_flag(img, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+    lv_obj_swap(img, label);
+  }
+
+  return obj;
+}
+
+lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk) {
+  lv_obj_t* obj = CreateText(parent, icon, txt, false);
+
+  lv_obj_t* sw = lv_switch_create(obj);
+  lv_obj_add_state(sw, chk ? LV_STATE_CHECKED : LV_STATE_DEFAULT);
+
+  return sw;
+}
+
+lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val) {
+  lv_obj_t* obj = CreateText(parent, icon, txt, true);
+
+  lv_obj_t* slider = lv_slider_create(obj);
+  lv_obj_set_flex_grow(slider, 1);
+  lv_slider_set_range(slider, min, max);
+  lv_slider_set_value(slider, val, LV_ANIM_OFF);
+
+  if (icon == NULL) {
+    lv_obj_add_flag(slider, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+  }
+
+  return obj;
+}
+
+lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow) {
+  lv_obj_t* btn = lv_button_create(parent);
+  lv_obj_set_style_min_height(btn, 60, 0);
+  lv_obj_set_style_min_width(btn, 60, 0);
+  if (grow) {
+    lv_obj_set_size(btn, lv_pct(100), 0);
+    lv_obj_set_flex_grow(btn, 1);
+  } else {
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, 60);
+  }
+  lv_obj_t* btn_label = lv_label_create(btn);
+  if (txt) lv_label_set_text(btn_label, txt);
+  lv_obj_center(btn_label);
+
+  return btn;
+}
+
+lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_cb_t callback, void* user_data) {
+  lv_obj_t* btn = CreateButton(parent, txt, grow);
+  lv_obj_add_event_cb(btn, callback, LV_EVENT_CLICKED, user_data);
+
+  return btn;
 }
 
 void ButtonEventHandler(lv_event_t* e) {
@@ -271,7 +554,8 @@ void ButtonEventHandler(lv_event_t* e) {
 
   if (lv_strcmp(text, "Start") == 0) {
     FLOG_DEBUG("Start Button clicked!");
-    PS_PUB_INT("heater.state.set", heater::kStateOn);
+    // PS_PUB_INT("heater.state.set", heater::kStateOn);
+    PS_PUB_NIL("heater.start");
     lv_label_set_text(label, "Stop");
     // PS_PUB_NIL("ui.action.start");
     return;
@@ -280,11 +564,13 @@ void ButtonEventHandler(lv_event_t* e) {
     // PS_PUB_INT("heater.state.set", heater::kStateOff);
     // lv_label_set_text(label, "Start");
     // Get the screen object if you passed it as user_data
-    // RunningScreen* screen = (RunningScreen*)lv_event_get_user_data(e);
+    // ReflowScreen* screen = (ReflowScreen*)lv_event_get_user_data(e);
     // if (screen) {
     //   screen->StopConfirmation();
     // }
     // TODO: figure out stop confirmation
+  } else if (lv_strcmp(text, "Mode") == 0) {
+    CreateModeSwitcher(lv_display_get_screen_active(NULL));
   } else if (lv_strcmp(text, LV_SYMBOL_SETTINGS) == 0) {
     FLOG_DEBUG("Settings Button clicked!");
     PS_PUB_NIL("ui.action.settings");
@@ -311,7 +597,8 @@ void CreateStopConfirmation(lv_obj_t* label) {
                               [](void* obj) {
                                 ConfirmationState* state = static_cast<ConfirmationState*>(obj);
                                 FLOG_INFO("Stopping");
-                                PS_PUB_INT("heater.state.set", heater::kStateOff);
+                                // PS_PUB_INT("heater.state.set", heater::kStateOff);
+                                PS_PUB_NIL("heater.stop");
                                 // lv_label_set_text(state->object, "Start");
                                 // PS_PUB_NIL("ui.action.return");
                                 if (state->backdrop) lv_obj_delete(state->backdrop);
@@ -324,54 +611,6 @@ void CreateStopConfirmation(lv_obj_t* label) {
                                 if (state->backdrop) lv_obj_delete(state->backdrop);
                               }};
   ConfirmationPopup(ctx);
-}
-
-void CreateStopConfirmation2() {
-  // Create a backdrop to block background interactions
-  lv_obj_t* backdrop = lv_obj_create(lv_display_get_screen_active(NULL));
-
-  lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
-  lv_obj_set_pos(backdrop, 0, 0);
-  lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  lv_obj_add_flag(backdrop, LV_OBJ_FLAG_FLOATING);
-
-  // Style the backdrop - semi-transparent dark overlay
-  lv_obj_set_style_bg_color(backdrop, lv_color_black(), 0);
-  lv_obj_set_style_bg_opa(backdrop, 128, 0);  // 50% opacity
-  lv_obj_set_style_border_width(backdrop, 0, 0);
-  lv_obj_remove_style(backdrop, NULL, LV_PART_SCROLLBAR);
-  lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_SCROLLABLE);
-
-  lv_obj_t* msgbox = lv_msgbox_create(backdrop);
-  lv_obj_set_size(msgbox, lv_pct(100), lv_pct(60));
-
-  // Remove from flex layout so it can be positioned freely
-  lv_obj_remove_flag(msgbox, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  lv_obj_add_flag(msgbox, LV_OBJ_FLAG_FLOATING);
-
-  lv_obj_center(msgbox);
-  lv_obj_move_to_index(msgbox, -1);  // Move to top of children
-  lv_obj_set_style_text_align(msgbox, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-  const char* title = {"Stop"};
-  const char* text = {"Are you sure you want to stop the heating process?"};
-  lv_msgbox_add_text(msgbox, text);
-  lv_msgbox_add_title(msgbox, title);
-
-  lv_obj_t* cancel_button = lv_msgbox_add_footer_button(msgbox, "Cancel");
-  lv_obj_set_width(cancel_button, lv_pct(45));
-  lv_obj_set_height(cancel_button, 100);
-  // lv_obj_set_flex_grow(cancel_button, 1); // Chart grows to fill remaining space
-  lv_obj_add_event_cb(cancel_button, ConfirmationHandler, LV_EVENT_CLICKED, backdrop);
-
-  lv_obj_t* stop_button = lv_msgbox_add_footer_button(msgbox, "Stop!");
-  lv_obj_set_width(stop_button, lv_pct(45));
-  lv_obj_set_height(stop_button, 100);
-  // lv_obj_set_flex_grow(stop_button, 1); // Chart grows to fill remaining space
-  lv_obj_add_event_cb(stop_button, ConfirmationHandler, LV_EVENT_CLICKED, backdrop);
-
-  lv_obj_t* footer = lv_msgbox_get_footer(msgbox);
-  lv_obj_set_height(footer, lv_pct(33));
 }
 
 void StopConfirmationHandler(lv_event_t* e) {
