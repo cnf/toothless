@@ -43,7 +43,7 @@ esp_err_t Display::Init() {
     esp_timer_handle_t backlight_timer = NULL;
     const esp_timer_create_args_t timer_args = {.callback = backlight_timer_cb, .arg = NULL, .name = "backlight_timer"};
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &backlight_timer));
-    ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 10000));  // 500ms in microseconds
+    ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 100000));  // 500ms in microseconds
   }
   return ESP_OK;
 };

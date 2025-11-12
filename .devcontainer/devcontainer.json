@@ -7,8 +7,10 @@
 		}
 	},
 	"mounts": [
-		"source=/dev/,target=/dev/,type=bind,consistency=consistent"
+		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
+		"source=${localWorkspaceFolderBasename}/cache,target=${containerWorkspaceFolder}/cache,type=volume"
 	],
+	"remote.containers.useDockerForAllWorkspaceCommands": true,
 	"customizations": {
 		"vscode": {
 			"settings": {
@@ -36,6 +38,6 @@
 	"remoteUser": "ubuntu",
 	"runArgs": [
 		"--privileged",
-		"--userns=keep-id"
+		// "--userns=keep-id"
 	]
 }

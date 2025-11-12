@@ -3,7 +3,7 @@
     "build": {
       "compileArgs": [],
       "ninjaArgs": [],
-      "buildDirectoryPath": "${workspaceFolder}/build",
+      "buildDirectoryPath": "${workspaceFolder}/cache/build/",
       "sdkconfigDefaults": [
         "${workspaceFolder}/config/sdkconfig.defaults",
         "${workspaceFolder}/config/sdkconfig.lvgl",

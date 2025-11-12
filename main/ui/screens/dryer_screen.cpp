@@ -33,6 +33,7 @@ lv_obj_t* DryerScreen::Create() {
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
   // FIXME: should probably make queue size configurable
   _screen = lv_obj_create(NULL);
+  lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
   lv_obj_set_style_pad_all(_screen, 10, 0);            // Global 2% border
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
@@ -278,6 +279,9 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
     lv_label_set_text(target_unit, "°C");
     lv_obj_set_style_text_font(target_unit, &AdwaitaMonoB_32, 0);
     lv_obj_set_align(target_unit, LV_ALIGN_TOP_LEFT);
+
+    lv_obj_add_flag(taco, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(taco, TargetHandler, LV_EVENT_CLICKED, this);
   }
 
   _labels->timer = lv_label_create(wrapper);
@@ -305,6 +309,39 @@ void DryerScreen::TimerHandler(lv_event_t* e) {
                         }};
 
   TimeRollerOpen(ctx);
+}
+
+void DryerScreen::TargetHandler(lv_event_t* e) {
+  DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
+  // FLOG_INFO("TargetHandler called");
+  // TimeRollerContext ctx = {
+  //     .parent_screen = obj->GetScreen(),
+  //     .backdrop = obj->_labels->backdrop,            // backdrop
+  //     .target_spinbox = obj->_labels->temperature_target,  // spinbox
+  //     .on_confirm = [obj](std::optional<int32_t> val) {
+  //       if (val.has_value() && !std::isnan(val.value())) {
+  //         FLOG_INFO("Value: %li", val.value());
+  //         PS_PUB_INT("heater.target.temperature", val.value());
+  //       } else {
+  //         PS_PUB_NIL("heater.target.temperature");
+  //       }
+  //       // lv_label_set_text(obj->_labels->set_target, )
+  //     }};
+
+  NumpadContext ctx{.parent_screen = obj->GetScreen(),
+                    .backdrop = obj->_labels->backdrop,          // backdrop
+                    .target_spinbox = obj->_labels->set_target,  // spinbox
+                    .on_confirm = [obj](std::optional<int32_t> val) {
+                      if (val.has_value() && !std::isnan(val.value())) {
+                        FLOG_INFO("Value: %li", val.value());
+                        PS_PUB_INT("heater.target.temperature.set", val.value());
+                      } else {
+                        PS_PUB_NIL("heater.target.temperature.set");
+                      }
+                      // lv_label_set_text(obj->_labels->set_target, )
+                    }};
+
+  NumpadOpen(ctx);
 }
 
 void DryerScreen::HeaterLED(lv_obj_t* parent) {

@@ -67,6 +67,8 @@ struct ConfirmationState {
 
 lv_obj_t* CreateBackdrop(lv_obj_t* screen);
 
+static void BackdropDeleteCb(lv_event_t* e);
+
 void NumpadOpen(const NumpadContext& context);
 
 void NumpadKeyHandler(lv_event_t* e);

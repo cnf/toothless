@@ -61,14 +61,16 @@ esp_err_t UserInterface::Init() {
   _display = Display::GetDisplayPtr();
 
   // lv_timer_t* ui_timer = lv_timer_create([this](void*) { this->Loop(); }, 100, this);
-  lv_timer_t* t = lv_timer_create(
+  // lv_timer_t* t =
+  lv_timer_create(
       +[](lv_timer_t* timer) {
         UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
         ui->Loop();
       },
       50, this);
 
-  lv_timer_t* ui_timer = lv_timer_create(
+  // lv_timer_t* ui_timer =
+  lv_timer_create(
       +[](lv_timer_t* timer) {
         UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
         ui->SwitchTo(ui->_current_screen_state);

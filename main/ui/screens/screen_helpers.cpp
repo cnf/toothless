@@ -2,18 +2,38 @@
 
 #include <lvgl.h>
 
+#include <atomic>
+
 #include "config.h"
 #include "heater/heater.hpp"
+#include "screen_helpers.hpp"
+
 namespace toothless {
 
+static std::atomic_bool s_overlay_active{false};
+
 lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
-  lv_obj_t* backdrop = lv_obj_create(screen);
+  static lv_obj_t* backdrop = nullptr;
+  if (s_overlay_active.load()) return backdrop;  // already active
+  // if (backdrop) {
+  //   if (lv_obj_get_parent(backdrop) == screen) return backdrop;
+  //   lv_obj_del(backdrop);
+  //   backdrop = nullptr;  // force recreation
+  // }
+  backdrop = lv_obj_create(screen);
+  lv_obj_add_event_cb(backdrop, BackdropDeleteCb, LV_EVENT_DELETE, NULL);
+  s_overlay_active.store(true);
   lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
   lv_obj_set_pos(backdrop, 0, 0);
+  lv_obj_set_style_bg_color(backdrop, lv_color_black(), 0);
+  lv_obj_set_style_border_width(backdrop, 0, 0);
+  lv_obj_set_style_pad_all(backdrop, 0, 0);
   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
   lv_obj_add_flag(backdrop, LV_OBJ_FLAG_FLOATING);
   lv_obj_set_layout(backdrop, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(backdrop, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(backdrop, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);  // ??
+
   lv_obj_move_to_index(backdrop, -1);
   lv_obj_set_scrollbar_mode(backdrop, LV_SCROLLBAR_MODE_OFF);
   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_SCROLLABLE);
@@ -21,15 +41,17 @@ lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
   return backdrop;
 }
 
+static void BackdropDeleteCb(lv_event_t* e) { s_overlay_active.store(false); }
+
 void NumpadOpen(const NumpadContext& ctx) {
   FLOG_INFO("Open Numpad");
+  if (s_overlay_active.exchange(true)) return;  // already active
 
   // create a small textarea + keyboard
-  if (ctx.backdrop) return;  // already a backdrop active
 
   // NumpadState *state = new (NumpadState);
   NumpadState* state = new NumpadState();
-  state->backdrop = ctx.backdrop;
+  state->backdrop = CreateBackdrop(ctx.parent_screen);
   state->target_spinbox = ctx.target_spinbox;
   state->on_confirm = ctx.on_confirm;
 
@@ -43,29 +65,35 @@ void NumpadOpen(const NumpadContext& ctx) {
   };
   // clang-format on
 
-  state->backdrop = CreateBackdrop(ctx.parent_screen);
-
   state->numpadtextarea = lv_textarea_create(state->backdrop);
+  lv_obj_remove_style_all(state->numpadtextarea);
   lv_textarea_set_one_line(state->numpadtextarea, true);
   lv_textarea_set_align(state->numpadtextarea, LV_TEXT_ALIGN_CENTER);
+  lv_obj_set_flex_align(state->numpadtextarea, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  // lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
+  // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
   lv_textarea_set_max_length(state->numpadtextarea, 3);
   lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789");
   lv_textarea_set_text(state->numpadtextarea, "");
   lv_textarea_set_placeholder_text(state->numpadtextarea, "Enter value");
   lv_obj_set_size(state->numpadtextarea, lv_pct(100), lv_pct(15));
+  lv_obj_set_style_pad_all(state->numpadtextarea, 0, 0);
   // lv_obj_align(state->numpadtextarea, LV_ALIGN_TOP_MID, 0, 0);
-  lv_obj_set_flex_align(state->numpadtextarea, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   // lv_obj_set_pos(state->numpadtextarea, 10, 10);
   // lv_obj_set_size(state->numpadtextarea, 300, 50);                             // explicit px
-  // lv_obj_set_style_bg_color(state->numpadtextarea, lv_color_hex(0xFF0000), 0); // red
+  // lv_obj_set_style_bg_color(state->numpadtextarea, lv_color_hex(0xFF0000), 0);  // red
 
   state->numpad = lv_buttonmatrix_create(state->backdrop);
+  lv_obj_set_style_pad_all(state->numpad, 0, 0);
+  lv_obj_set_style_bg_color(state->numpad, lv_color_black(), 0);
+  lv_obj_set_style_border_width(state->numpad, 0, 0);
   lv_buttonmatrix_set_map(state->numpad, btn_map);
   lv_obj_add_event_cb(state->numpad, NumpadKeyHandler, LV_EVENT_VALUE_CHANGED, state);
+
   // lv_obj_align(state->numpad, LV_ALIGN_CENTER, 0, 0);
   // lv_obj_set_flex_align(state->numpad, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  lv_obj_set_size(state->numpad, lv_pct(100), lv_pct(85));
+  lv_obj_set_size(state->numpad, lv_pct(100), lv_pct(80));
 
   lv_obj_set_layout(state->numpad, LV_LAYOUT_GRID);
 }
@@ -142,6 +170,7 @@ void NumPadCleanupHandler(lv_event_t* e) {
 
 void TimeRollerOpen(const TimeRollerContext& ctx) {
   FLOG_INFO("Open Time Roller");
+  if (s_overlay_active.exchange(true)) return;  // already active
   const char* minsecstr =
       "00\n"
       "05\n"
@@ -157,10 +186,9 @@ void TimeRollerOpen(const TimeRollerContext& ctx) {
       "55";
 
   // create a small textarea + keyboard
-  if (ctx.backdrop) return;  // already a backdrop active
 
   TimeRollerState* state = new TimeRollerState();
-  state->backdrop = ctx.backdrop;
+  // state->backdrop = ctx.backdrop;
   state->target_spinbox = ctx.target_spinbox;
   state->on_confirm = ctx.on_confirm;
 
@@ -282,12 +310,12 @@ void TimeRollerCleanupHandler(lv_event_t* e) {
 
 void ConfirmationPopup(const ConfirmationContext& ctx) {
   FLOG_INFO("Open Confirmation");
+  if (s_overlay_active.exchange(true)) return;  // already active
 
-  if (ctx.backdrop) return;  // already a backdrop active
   FLOG_INFO("Confirming...");
 
   ConfirmationState* state = new ConfirmationState();
-  state->backdrop = ctx.backdrop;
+  // state->backdrop = ctx.backdrop;
 
   state->backdrop = CreateBackdrop(ctx.parent_screen);
   state->object = ctx.object;
@@ -299,14 +327,12 @@ void ConfirmationPopup(const ConfirmationContext& ctx) {
   state->on_confirm = ctx.on_confirm;
 
   lv_obj_t* msgbox = lv_msgbox_create(state->backdrop);
-  lv_obj_set_size(msgbox, lv_pct(100), lv_pct(60));
+  lv_obj_set_size(msgbox, lv_pct(90), lv_pct(90));
+  lv_obj_set_style_bg_color(msgbox, lv_color_black(), 0);
+  lv_obj_set_style_border_width(msgbox, 0, 0);
+  lv_obj_set_flex_align(msgbox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  // // Remove from flex layout so it can be positioned freely
-  // lv_obj_remove_flag(msgbox, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  // lv_obj_add_flag(msgbox, LV_OBJ_FLAG_FLOATING);
-
-  lv_obj_center(msgbox);
-  lv_obj_move_to_index(msgbox, -1);  // Move to top of children
+  lv_obj_move_to_index(msgbox, -1);
   lv_obj_set_style_text_align(msgbox, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 
   // FIXME: i think this will break...
@@ -320,7 +346,7 @@ void ConfirmationPopup(const ConfirmationContext& ctx) {
   lv_obj_add_event_cb(cancel_button, ConfirmationHandler, LV_EVENT_CLICKED, state);
 
   lv_obj_t* confirm_button = lv_msgbox_add_footer_button(msgbox, state->confirm_text.c_str());
-  lv_obj_set_width(confirm_button, lv_pct(45));
+  lv_obj_set_width(confirm_button, lv_pct(40));
   lv_obj_set_height(confirm_button, 100);
   // lv_obj_set_flex_grow(confirm_button, 1); // Chart grows to fill remaining space
   lv_obj_add_event_cb(confirm_button, ConfirmationHandler, LV_EVENT_CLICKED, state);
@@ -350,6 +376,7 @@ void ConfirmationHandler(lv_event_t* e) {
 }
 
 lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
+  if (s_overlay_active.load()) return nullptr;  // already active
   lv_obj_t* backdrop = CreateBackdrop(screen);
 
   lv_obj_t* wrapper = lv_obj_create(backdrop);

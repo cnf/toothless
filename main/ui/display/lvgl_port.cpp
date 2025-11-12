@@ -199,6 +199,9 @@ void lvgl_boot_screen() {
   lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
 
+  // lv_obj_t* obj = lv_obj_create(boot_scr);
+  // lv_obj_center(obj);
+
   lv_obj_t* label = lv_label_create(boot_scr);
   lv_label_set_text(label, "Toothless");
   lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
@@ -206,8 +209,8 @@ void lvgl_boot_screen() {
 
   lv_obj_t* sub_label = lv_label_create(boot_scr);
   lv_label_set_text(sub_label, "Initializing...");
-  lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_16, 0);
-  lv_obj_align(sub_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+  lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_20, 0);
+  lv_obj_align_to(sub_label, label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
 
   lv_display_flush_ready(Display::GetDisplayPtr());
 

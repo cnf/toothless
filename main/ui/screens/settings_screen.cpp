@@ -26,7 +26,9 @@ SettingsScreen::~SettingsScreen() {}
 lv_obj_t* SettingsScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _screen = lv_obj_create(NULL);
-  _labels->menu_mode = true;
+  lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
+
+  _labels->sidebar = true;
   lv_obj_set_style_pad_all(_screen, 10, 0);
 
   // Vertical flex layout
@@ -38,7 +40,7 @@ lv_obj_t* SettingsScreen::Create() {
   // CreateSettingsList();
   CreateMenu();
   // CreateBackButton();
-  SetMode(true);
+  SetSidebar(true);
 
   return _screen;
 }
@@ -54,7 +56,7 @@ esp_err_t SettingsScreen::CreateTitle() {
   return ESP_OK;
 }
 
-void SettingsScreen::back_event_handler(lv_event_t* e) {
+void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {
   lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
   // lv_obj_t* menu = (lv_obj_t*)lv_event_get_user_data(e);
   SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
@@ -87,14 +89,13 @@ esp_err_t SettingsScreen::CreateMenu() {
 
   // Back button
   lv_menu_set_mode_root_back_button(_labels->menu, LV_MENU_ROOT_BACK_BUTTON_ENABLED);
-  lv_obj_add_event_cb(_labels->menu, back_event_handler, LV_EVENT_CLICKED, this);
+  lv_obj_add_event_cb(_labels->menu, MenuBackEventHandler, LV_EVENT_CLICKED, this);
   lv_obj_t* back_btn = lv_menu_get_main_header_back_button(_labels->menu);
   lv_obj_set_ext_click_area(back_btn, lv_pct(33));
-  lv_obj_set_style_border_width(back_btn, 2, 0);
   lv_obj_set_width(back_btn, lv_pct(10));
 
   /*Create a root page*/
-  _labels->root_page = lv_menu_page_create(_labels->menu, "Settings");
+  _labels->root_page = lv_menu_page_create(_labels->menu, NULL);  //"Settings");
   // lv_obj_set_style_pad_hor(_labels->root_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
   lv_obj_t* section = lv_menu_section_create(_labels->root_page);
 
@@ -104,10 +105,10 @@ esp_err_t SettingsScreen::CreateMenu() {
   CreateText(_labels->root_page, NULL, "Info", LV_MENU_ITEM_BUILDER_VARIANT_1);
   section = lv_menu_section_create(_labels->root_page);
   CreateSubFirmwareInfo(_labels->menu, section);
-  lv_obj_t* modesw = CreateSwitch(section, LV_SYMBOL_SETTINGS, NULL, _labels->menu_mode);
-  lv_obj_add_event_cb(modesw, ModeHandler, LV_EVENT_VALUE_CHANGED, this);
+  lv_obj_t* sidebar_switch = CreateSwitch(section, LV_SYMBOL_SETTINGS, NULL, _labels->sidebar);
+  lv_obj_add_event_cb(sidebar_switch, SidebarHandler, LV_EVENT_VALUE_CHANGED, this);
 
-  // SetMode(_labels->menu_mode);
+  // SetSidebar(_labels->sidebar);
 
   lv_menu_set_page(_labels->menu, _labels->root_page);
 
@@ -232,12 +233,15 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* sect
   CreateText(fsection, LV_SYMBOL_BULLET, "ESP-IDF: %s", desc->idf_ver, LV_MENU_ITEM_BUILDER_VARIANT_1);
   CreateText(fsection, LV_SYMBOL_BULLET, "Build Date: " __DATE__, LV_MENU_ITEM_BUILDER_VARIANT_1);
   CreateText(fsection, LV_SYMBOL_HOME, "URL: https://github.com/cnf/Toothless", LV_MENU_ITEM_BUILDER_VARIANT_1);
+  CreateCBButton(fsection, "Reboot", false, ResetHandler, nullptr);
 
   lv_obj_t* cont = CreateText(section, NULL, "About", LV_MENU_ITEM_BUILDER_VARIANT_1);
   lv_menu_set_load_page_event(parent, cont, sub_software_info_page);
 
   return sub_software_info_page;
 }
+
+void SettingsScreen::ResetHandler(lv_event_t* e) { esp_restart(); };
 
 esp_err_t SettingsScreen::CreateSettingsList() {
   // Container for settings
@@ -282,22 +286,30 @@ esp_err_t SettingsScreen::CreateSettingsList() {
   return ESP_OK;
 }
 
-esp_err_t SettingsScreen::SetMode(bool mode) {
+esp_err_t SettingsScreen::SetSidebar(bool mode) {
   FLOG_DEBUG("Toggling menu mode");
   if (mode) {
-    _labels->menu_mode = true;
+    _labels->sidebar = true;
     lv_menu_set_page(_labels->menu, NULL);
     lv_menu_set_sidebar_page(_labels->menu, _labels->root_page);
     lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(lv_menu_get_cur_sidebar_page(_labels->menu), 0), 0),
                       LV_EVENT_CLICKED, NULL);
-    lv_obj_t* back_btn = lv_menu_get_sidebar_header(_labels->menu);
-    lv_obj_set_style_pad_left(back_btn, 30, 0);  // increases clickable area
-    lv_obj_set_ext_click_area(back_btn, 10);
-    lv_obj_set_style_border_width(back_btn, 2, 0);
-    // lv_obj_set_width(back_btn, lv_pct(10));
+    // lv_menu_get_sidebar_header_back_button(_labels->menu);
+    lv_obj_t* sidebar_header = lv_menu_get_sidebar_header(_labels->menu);
+    lv_obj_add_flag(sidebar_header, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(sidebar_header, MenuBackEventHandler, LV_EVENT_CLICKED, this);
+    // lv_obj_set_style_pad_left(sidebar_header, 30, 0);  // increases clickable area
+    lv_obj_set_ext_click_area(sidebar_header, 10);
+    lv_obj_set_style_border_width(sidebar_header, 0, 0);
+    // lv_obj_set_width(sidebar_header, lv_pct(10));
+    lv_obj_t* sidebar_back = lv_menu_get_sidebar_header_back_button(_labels->menu);
+    lv_obj_add_flag(sidebar_back, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_ext_click_area(sidebar_back, 10);  // enlarge hitbox around the label
+
+    lv_obj_add_event_cb(sidebar_back, MenuBackEventHandler, LV_EVENT_CLICKED, this);
 
   } else {
-    _labels->menu_mode = false;
+    _labels->sidebar = false;
     lv_menu_set_sidebar_page(_labels->menu, NULL);
     lv_menu_clear_history(_labels->menu); /* Clear history because we will be showing the root page later */
     lv_menu_set_page(_labels->menu, _labels->root_page);
@@ -327,54 +339,60 @@ esp_err_t SettingsScreen::SetMode(bool mode) {
 //   return ESP_OK;
 // }
 
-void SettingsScreen::ModeHandler(lv_event_t* e) {
+void SettingsScreen::SidebarHandler(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
   if (!screen) return;
 
   // lv_obj_t* menu = (lv_obj_t*)lv_event_get_user_data(e);
-  FLOG_DEBUG("Toggling menu node");
+  FLOG_DEBUG("Toggling Sidebar");
   lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
     if (lv_obj_has_state(obj, LV_STATE_CHECKED)) {
-      screen->SetMode(true);
+      screen->SetSidebar(true);
     } else {
-      screen->SetMode(false);
+      screen->SetSidebar(false);
     }
   }
 }
 
 void SettingsScreen::BackButtonHandler(lv_event_t* e) {
+  FLOG_INFO("Back button pressed");
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
   if (!obj) return;
-  ConfirmationContext ctx{.parent_screen = obj->GetScreen(),
-                          .backdrop = obj->_labels->backdrop,
-                          .object = nullptr,
-                          .title = "Apply changes?",
-                          .message = "Apply the new target temperature?",
-                          .confirm_text = "Apply",
-                          .cancel_text = "Cancel",
-                          .on_confirm =
-                              [obj](void*) {
-                                FLOG_INFO("Applying new target temperature: %d°C", (int)obj->_pending_value);
-                                // Publish new target temperature
-                                // PS_PUB_INT("heater.target.temperature.set", obj->_pending_value);
-                                PS_PUB_NIL("ui.action.return");
+  if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
+  PS_PUB_NIL("ui.action.return");
+  return;
+  // SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
+  // if (!obj) return;
+  // ConfirmationContext ctx{.parent_screen = obj->GetScreen(),
+  //                         .backdrop = obj->_labels->backdrop,
+  //                         .object = nullptr,
+  //                         .title = "Apply changes?",
+  //                         .message = "Apply the new target temperature?",
+  //                         .confirm_text = "Apply",
+  //                         .cancel_text = "Cancel",
+  //                         .on_confirm =
+  //                             [obj](void*) {
+  //                               FLOG_INFO("Applying new target temperature: %d°C", (int)obj->_pending_value);
+  //                               // Publish new target temperature
+  //                               // PS_PUB_INT("heater.target.temperature.set", obj->_pending_value);
+  //                               PS_PUB_NIL("ui.action.return");
 
-                                obj->_has_pending = false;
-                                obj->_pending_value = 0;
-                                if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
-                              },
-                          .on_cancel =
-                              [obj](void*) {
-                                PS_PUB_NIL("ui.action.return");
-                                FLOG_INFO("Cancelled applying new target temperature");
-                                obj->_has_pending = false;
-                                obj->_pending_value = 0;
-                                if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
-                              }};
+  //                               obj->_has_pending = false;
+  //                               obj->_pending_value = 0;
+  //                               if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
+  //                             },
+  //                         .on_cancel =
+  //                             [obj](void*) {
+  //                               PS_PUB_NIL("ui.action.return");
+  //                               FLOG_INFO("Cancelled applying new target temperature");
+  //                               obj->_has_pending = false;
+  //                               obj->_pending_value = 0;
+  //                               if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
+  //                             }};
 
-  ConfirmationPopup(ctx);
+  // ConfirmationPopup(ctx);
 }
 
 void SettingsScreen::SettingChangedHandler(lv_event_t* e) {
@@ -406,7 +424,7 @@ void SettingsScreen::NumpadOpenHandler(lv_event_t* e) {
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
 
   NumpadContext ctx{.parent_screen = obj->GetScreen(),
-                    .backdrop = obj->_labels->backdrop,          // backdrop
+                    .backdrop = nullptr,                         // backdrop
                     .target_spinbox = obj->_labels->set_target,  // spinbox
                     .on_confirm = [obj](std::optional<int32_t> val) {
                       if (val.has_value() && !std::isnan(val.value())) {

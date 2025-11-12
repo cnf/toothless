@@ -11,6 +11,7 @@ namespace toothless {
 struct DryerScreenLabels : public ScreenLabels {
   lv_obj_t* temperature_current;
   lv_obj_t* temperature_target;
+  lv_obj_t* set_target;
   lv_obj_t* timer;
   lv_obj_t* timer_target;
   lv_obj_t* heater_led;
@@ -46,6 +47,8 @@ class DryerScreen : public Screen {
   void CreateTimer(lv_obj_t* parent);
 
   static void TimerHandler(lv_event_t* e);
+
+  static void TargetHandler(lv_event_t* e);
 
   void HeaterLED(lv_obj_t* parent);
 

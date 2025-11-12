@@ -38,6 +38,8 @@ lv_obj_t* ReflowScreen::Create() {
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
                                                    "heater.power", "heater.state", "heater"));
   _screen = lv_obj_create(NULL);
+  lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
+
   lv_obj_set_style_pad_all(_screen, 10, 0);  // Global 2% border
   // lv_obj_set_style_bg_opa(_screen, LV_OPA_TRANSP, 0);
 
@@ -136,7 +138,9 @@ esp_err_t ReflowScreen::Chart() {
   }
   lv_obj_set_size(_labels->chart, 0, lv_pct(100));
   lv_obj_set_flex_grow(_labels->chart, 1);  // Chart grows to fill remaining space
+
   lv_chart_set_update_mode(_labels->chart, LV_CHART_UPDATE_MODE_SHIFT);
+  // lv_chart_set_update_mode(_labels->chart, LV_CHART_UPDATE_MODE_CIRCULAR);
   lv_chart_series_t* temp_series =
       lv_chart_add_series(_labels->chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
   lv_chart_series_t* target_series =

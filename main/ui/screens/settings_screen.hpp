@@ -19,7 +19,7 @@ struct ModeContext {
 struct SettingsScreenLabels : public ScreenLabels {
   lv_obj_t* title;
   lv_obj_t* menu;
-  bool menu_mode;
+  bool sidebar;
   lv_obj_t* root_page;
   // lv_obj_t *backdrop;
   lv_obj_t* set_target = nullptr;
@@ -52,7 +52,7 @@ class SettingsScreen : public Screen {
 
   // UI construction helpers
   esp_err_t CreateTitle();
-  static void back_event_handler(lv_event_t* e);
+  static void MenuBackEventHandler(lv_event_t* e);
   esp_err_t CreateMenu();
 
   /// @brief
@@ -71,13 +71,14 @@ class SettingsScreen : public Screen {
   lv_obj_t* CreateSubMode(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubDisplay(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* section);
+  static void ResetHandler(lv_event_t* e);
   esp_err_t CreateSettingsList();
   esp_err_t CreateBackButton();
 
-  esp_err_t SetMode(bool mode);
+  esp_err_t SetSidebar(bool mode);
 
   // Event handlers
-  static void ModeHandler(lv_event_t* e);
+  static void SidebarHandler(lv_event_t* e);
   static void BackButtonHandler(lv_event_t* e);
   static void SettingChangedHandler(lv_event_t* e);
   static void SliderChangedHandler(lv_event_t* e);

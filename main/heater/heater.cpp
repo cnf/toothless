@@ -41,8 +41,8 @@ bool Heater::Init() {
   _temperature_integral = 0;
   _previous_temperature = std::numeric_limits<int32_t>::max();
   _last_run = esp_timer_get_time() * 1000;
-  LoadProfile("Qwik Leaded");
-  _mode = heater::kModeDrying;  // TODO: configure
+  SetMode(heater::kModeDrying);  // TODO: configure
+  LoadProfile("Qwik Leaded");    // TODO: configure
 
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater"));
   return true;
