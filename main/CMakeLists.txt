@@ -1,18 +1,27 @@
 file(GLOB_RECURSE SRC 
   "main.cpp"
-  "*.cpp"
-  "ui/display/theme.cpp"
+  "heater/*.cpp"
+  "sensors/*.cpp"
+  "ui/user_interface.cpp"
+  "ui/chart_history.cpp"
+  "ui/display/*.cpp"
   "ui/fonts/*.c"
+  "ui/screens/screen_helpers.cpp"
   )
 
 set(INCL "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/main" "${INCLUDE_DIRECTORIES}")
 set(PRIVREQ  
   esp_wifi
   esp_lcd
+  esp_lcd_touch
   esp_lvgl_port
+  lvgl
   esp_driver_spi
   esp_timer
   esp_app_format
+
+  display_waveshare_pi
+  # display_lilygo_t_display_s3_long
 
   io_manager
   # lvgl
@@ -24,6 +33,28 @@ set(REQ
   FunLog
   # max6675
 )
+
+# # Existing PRIV_REQUIRES, add conditionally:
+# if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
+#   message(STATUS "Adding Waveshare 3.5inch RPi (G) display component")
+#   list(APPEND PRIVREQ display_waveshare_pi)
+# elseif(CONFIG_TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG)
+#   message(STATUS "Adding Lilygo T-Display S3 Long display component")
+#   list(APPEND PRIVREQ display_lilygo_t_display_s3_long)
+# endif()
+
+# if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
+#     set(SCREEN_DIR "480x320")
+# elseif(CONFIG_TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG)
+#     set(SCREEN_DIR "160x640")
+# elseif(CONFIG_TL_DISPLAY_COMP_ROUND)
+#     set(SCREEN_DIR "round")
+# endif()
+
+# list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
+
+file(GLOB_RECURSE SCREENS "ui/screens/${SCREEN_DIR}/*.cpp")
+list(APPEND SRC ${SCREENS})
 
 idf_component_register(SRCS ${SRC} ${UI} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PRIV_REQUIRES ${PRIVREQ})
 

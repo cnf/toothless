@@ -13,8 +13,6 @@
 
 extern "C" {
 #include <pubsub.h>
-
-#include "settings_screen.hpp"
 }
 
 namespace toothless {
@@ -241,7 +239,9 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* sect
   return sub_software_info_page;
 }
 
-void SettingsScreen::ResetHandler(lv_event_t* e) { esp_restart(); };
+void SettingsScreen::ResetHandler(lv_event_t* e) {
+  // esp_restart();// BUG: no idea why this doesn't work
+};
 
 esp_err_t SettingsScreen::CreateSettingsList() {
   // Container for settings

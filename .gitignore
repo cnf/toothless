@@ -5,6 +5,7 @@
 docs/
 local
 /build
+/cache
 managed_components/
 /sdkconfig
 /sdkconfig.*

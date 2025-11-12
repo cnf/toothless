@@ -74,7 +74,7 @@ extern "C" void app_main(void) {
       .quadhd_io_num = -1,
       .max_transfer_sz = CONFIG_TL_DISPLAY_HRES * 80 * sizeof(uint16_t),
   };
-  ESP_ERROR_CHECK(spi_bus_initialize(BSP_SD_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
+  ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, SPI_DMA_CH_AUTO));  // TODO: make spi host configurable
 
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;

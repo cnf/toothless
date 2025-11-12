@@ -3,9 +3,26 @@ menu "Toothless"
         config TL_HAS_DISPLAY
             bool "Has a display"
             default y
+        config TL_LVGL_STACK_SIZE
+            depends on TL_HAS_DISPLAY
+            int "LVGL Task Stack Size"
+            default 16384
+            help
+                Stack size for the LVGL task in bytes.
         choice TL_DISPLAY_IN_USE
             prompt "Choose a display driver"
             depends on TL_HAS_DISPLAY
+            default TL_DISPLAY_COMP_WS_35_RPI_G
+            config TL_DISPLAY_COMP_WS_35_RPI_G
+                bool "Waveshare 3.5inch RPi (G) (480x320)"
+                select TL_DISPLAY_HRES_480
+                select TL_DISPLAY_VRES_320
+                select TL_USES_SPI
+                select TL_DISPLAY_SPI
+                # select TL_TOUCHPANEL_DRIVER_XPT2046
+                select TL_HAS_TOUCHPANEL
+            config TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG
+                bool "Lilygo T-Display S3 Long (160x640)"
             config TL_DEVICE_M5DIAL
                 bool "M5Dial (240x240 round)"
                 select TL_USES_SPI

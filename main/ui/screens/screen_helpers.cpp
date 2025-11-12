@@ -41,7 +41,7 @@ lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
   return backdrop;
 }
 
-static void BackdropDeleteCb(lv_event_t* e) { s_overlay_active.store(false); }
+void BackdropDeleteCb(lv_event_t* e) { s_overlay_active.store(false); }
 
 void NumpadOpen(const NumpadContext& ctx) {
   FLOG_INFO("Open Numpad");
