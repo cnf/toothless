@@ -1,7 +1,5 @@
 #include "i2c_manager.hpp"
 
-// #include "config.h"
-// #include "portability.hpp"
 #include <driver/i2c_master.h>
 #include <esp_err.h>
 #include <funlog.h>
@@ -9,6 +7,8 @@
 #include <bitset>
 #include <mutex>
 #include <string>
+
+#include "iom_config.h"
 
 esp_err_t I2cManager::Init() {
   FLOG_INFO("Initializing I2C");

@@ -31,6 +31,7 @@ ReflowScreen::~ReflowScreen() {
   if (_subscription) {
     ps_free_subscriber(_subscription);
   }
+  _chart->history->UnRegister();
 }
 
 lv_obj_t* ReflowScreen::Create() {

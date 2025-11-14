@@ -59,6 +59,8 @@ esp_err_t UserInterface::Init() {
   // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
 
   _display = Display::GetDisplayPtr();
+  FLOG_DEBUG("Display ptr: %p, lv_display_get_default: %p, free heap: %u", _display, lv_display_get_default(),
+             esp_get_free_heap_size());
 
   // lv_timer_t* ui_timer = lv_timer_create([this](void*) { this->Loop(); }, 100, this);
   // lv_timer_t* t =
@@ -105,12 +107,13 @@ void UserInterface::Loop() {
   return;
 }
 
-void UserInterface::BackLight(bool state) {
-  FLOG_INFO("Turn %s LCD backlight", state ? "on" : "off");
-  gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, state);
-}
+// void UserInterface::BackLight(bool state) {
+//   FLOG_INFO("Turn %s LCD backlight", state ? "on" : "off");
+//   gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, state);
+// }
 
 esp_err_t UserInterface::SwitchTo(ScreenList screen) {
+  return ESP_OK;
   FLOG_INFO("Switching Screens: %d", screen);
   // If we're already switching, ignore the request
   if (_switching_screen_state) {
@@ -126,7 +129,6 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
   //   default:
   //     break;
   // }
-  // lv_lock();
   // Store the target state and defer the actual switch
   _switching_screen_state = true;
   std::unique_ptr<Screen> new_screen;
@@ -147,27 +149,40 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
     default:
       FLOG_ERROR("ScreenState %d not implemented", screen);
       _switching_screen_state = false;  // ← Also reset flag
-      // lv_unlock();
       return ESP_ERR_NOT_SUPPORTED;
   };
 
   if (new_screen) {
     FLOG_DEBUG("Created new screen instance");
-    // Create the LVGL object
     lv_obj_t* new_screen_obj = new_screen->Create();
-    // Switch to new screen (LVGL handles old screen cleanup)
-    // lv_screen_load(new_screen_obj);
-    lv_screen_load_anim(new_screen_obj, LV_SCREEN_LOAD_ANIM_FADE_IN, 250, 0, true);
+    if (new_screen_obj == nullptr) {
+      FLOG_ERROR("new_screen_obj is NULL");
+      _switching_screen_state = false;
+      return ESP_ERR_NO_MEM;
+    }
+    if (lv_display_get_default() == nullptr) {
+      FLOG_ERROR("No LVGL default display");
+      _switching_screen_state = false;
+      return ESP_ERR_INVALID_STATE;
+    }
+
+    lv_screen_load(new_screen_obj);  //<! Switch to new screen (LVGL handles old screen cleanup)
+    FLOG_DEBUG("SwitchTo: new_screen_obj=%p free_heap=%u", new_screen_obj, esp_get_free_heap_size());
+    // lv_screen_load_anim(new_screen_obj, LV_SCREEN_LOAD_ANIM_FADE_IN, 250, 0, true);
+    // lv_refr_now(NULL);  //<! force screen refresh, so the new screen loads faster
 
     // Now safely replace the old with new
     _current_screen = std::move(new_screen);  // Old screen auto-destructs here
     _current_screen_state = screen;
+    if (_current_screen_obj) {
+      lv_obj_delete(_current_screen_obj);  //<! Delete old screen object
+      FLOG_DEBUG("Deleted old screen object: %p", _current_screen_obj);
+    }
     _current_screen_obj = new_screen_obj;
   }
   FLOG_DEBUG("Completed screen switch");
 
   _switching_screen_state = false;
-  // lv_unlock();
   return ESP_OK;
 }
 

@@ -33,7 +33,7 @@ class UserInterface {
 
   esp_err_t Init();
   void Loop();
-  void BackLight(bool state);
+  // void BackLight(bool state);
   esp_err_t SwitchTo(ScreenList screen);
   void PerformSwitchTo();
   // void HandlePubsubMessage(const char *topic, ps_msg_t *msg);

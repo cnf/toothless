@@ -20,8 +20,8 @@ set(PRIVREQ
   esp_timer
   esp_app_format
 
-  display_waveshare_pi
-  # display_lilygo_t_display_s3_long
+  impl_waveshare_pi
+  impl_lilygo_t_display_s3_long
 
   io_manager
   # lvgl
@@ -33,15 +33,6 @@ set(REQ
   FunLog
   # max6675
 )
-
-# # Existing PRIV_REQUIRES, add conditionally:
-# if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
-#   message(STATUS "Adding Waveshare 3.5inch RPi (G) display component")
-#   list(APPEND PRIVREQ display_waveshare_pi)
-# elseif(CONFIG_TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG)
-#   message(STATUS "Adding Lilygo T-Display S3 Long display component")
-#   list(APPEND PRIVREQ display_lilygo_t_display_s3_long)
-# endif()
 
 # if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
 #     set(SCREEN_DIR "480x320")

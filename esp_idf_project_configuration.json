@@ -1,19 +1,20 @@
 {
-  "dev": {
+  "wsrpi": {
     "build": {
       "compileArgs": [],
       "ninjaArgs": [],
-      "buildDirectoryPath": "${workspaceFolder}/cache/build/",
+      "buildDirectoryPath": "${workspaceFolder}/build",
       "sdkconfigDefaults": [
         "${workspaceFolder}/config/sdkconfig.defaults",
         "${workspaceFolder}/config/sdkconfig.lvgl",
-        "${workspaceFolder}/config/sdkconfig.dev"
+        "${workspaceFolder}/config/sdkconfig.dev",
+        "${workspaceFolder}/config/sdkconfig.ws35rpig"
       ],
       "sdkconfigFilePath": "${workspaceFolder}/sdkconfig"
     },
     "env": {},
+    "idfTarget": "esp32",
     "flashBaudRate": "",
-    "idfTarget": "",
     "monitorBaudRate": "115200",
     "openOCD": {
       "debugLevel": 3,
@@ -22,6 +23,35 @@
     },
     "tasks": {
       "preBuild": "rm -f sdkconfig",
+      "preFlash": "",
+      "postBuild": "",
+      "postFlash": ""
+    }
+  },
+  "TD_Long": {
+    "build": {
+      "compileArgs": [],
+      "ninjaArgs": [],
+      "buildDirectoryPath": "${workspaceFolder}/build",
+      "sdkconfigDefaults": [
+        "${workspaceFolder}/config/sdkconfig.defaults",
+        "${workspaceFolder}/config/sdkconfig.lvgl",
+        "${workspaceFolder}/config/sdkconfig.dev",
+        "${workspaceFolder}/config/sdkconfig.lg_tdisplay_s3_long"
+      ],
+      "sdkconfigFilePath": "${workspaceFolder}/sdkconfig"
+    },
+    "env": {},
+    "idfTarget": "esp32s3",
+    "flashBaudRate": "",
+    "monitorBaudRate": "",
+    "openOCD": {
+      "debugLevel": -1,
+      "configs": [],
+      "args": []
+    },
+    "tasks": {
+      "preBuild": "",
       "preFlash": "",
       "postBuild": "",
       "postFlash": ""

@@ -314,7 +314,6 @@ esp_err_t SettingsScreen::SetSidebar(bool mode) {
     lv_menu_clear_history(_labels->menu); /* Clear history because we will be showing the root page later */
     lv_menu_set_page(_labels->menu, _labels->root_page);
   }
-  lv_obj_dump_tree(_labels->menu);
   return ESP_OK;
 }
 

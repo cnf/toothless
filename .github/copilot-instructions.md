@@ -1,3 +1,4 @@
+No file changes unless specifically asked for!
 # Code Style
 This codebase is for controlling reflow ovens, hot plates, and general temperature devices using ESP32 microcontrollers.
 - It is a in c++ 23 library
@@ -13,7 +14,7 @@ This codebase is for controlling reflow ovens, hot plates, and general temperatu
 - use `///` for doc comments
 
 # packages used
-- https://github.com/jaracil/pubsub-c as a pubsub message bus for ALL internal communucation
+- https://github.com/jaracil/pubsub-c as a pubsub message bus for ALL internal communication
 
 # Tests
 All related projects including this repo use ESP-IDF, and the unity test framework. Tests should be runnable in VSCode, but you can also run them from the command line. Tests should follow the Espressif guidelines for unit tests as per https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/additionalfeatures/unit-testing.html

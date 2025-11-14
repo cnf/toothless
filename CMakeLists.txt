@@ -35,6 +35,7 @@ idf_build_set_property(
   "-ffunction-sections" 
   "-fdata-sections"
   "-flto"
+  "-Werror=format="
   APPEND
 )
 idf_build_set_property(

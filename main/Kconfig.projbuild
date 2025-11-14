@@ -1,4 +1,15 @@
 menu "Toothless"
+    choice TL_HARDWARE_IMPLEMENTATION
+        prompt "Select the hardware implementation"
+        config IMPL_LILYGO_TDISPLAY_S3_LONG
+            bool "Lilygo T-Display S3 Long"
+        config IMPL_CYB_4_3_INCH
+            bool "Cheap Yellow Board 4.3inch Display"
+        config IMPL_M5DIAL
+            bool "M5Stack Dial"
+        config IMPL_WAVESHARE_35_RPI_G
+            bool "Waveshare 3.5inch RPi (G)"
+    endchoice  
     menu "Display Options"
         config TL_HAS_DISPLAY
             bool "Has a display"
@@ -9,107 +20,6 @@ menu "Toothless"
             default 16384
             help
                 Stack size for the LVGL task in bytes.
-        choice TL_DISPLAY_IN_USE
-            prompt "Choose a display driver"
-            depends on TL_HAS_DISPLAY
-            default TL_DISPLAY_COMP_WS_35_RPI_G
-            config TL_DISPLAY_COMP_WS_35_RPI_G
-                bool "Waveshare 3.5inch RPi (G) (480x320)"
-                select TL_DISPLAY_HRES_480
-                select TL_DISPLAY_VRES_320
-                select TL_USES_SPI
-                select TL_DISPLAY_SPI
-                # select TL_TOUCHPANEL_DRIVER_XPT2046
-                select TL_HAS_TOUCHPANEL
-            config TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG
-                bool "Lilygo T-Display S3 Long (160x640)"
-            config TL_DEVICE_M5DIAL
-                bool "M5Dial (240x240 round)"
-                select TL_USES_SPI
-                select TL_DISPLAY_SPI
-                select TL_DISPLAY_DRIVER_GC9A01
-                select TL_HAS_TOUCHPANEL
-                select TL_TOUCHPANEL_DRIVER_FT3267
-                imply TL_DISPLAY_HRES_240
-                imply TL_DISPLAY_VRES_240
-            config TL_DISPLAY_DRIVER_ST7796S
-                bool "ST7796S (480x320)"
-                select TL_USES_SPI
-                select TL_DISPLAY_SPI
-                # select TL_DISPLAY_DRIVER_ST7796S
-                select TL_TOUCHPANEL_DRIVER_XPT2046
-                select TL_HAS_TOUCHPANEL
-                imply TL_DISPLAY_HRES_480
-                imply TL_DISPLAY_VRES_320
-            config TL_USE_ILI9341
-                bool "ILI9341 (320x240)"
-        endchoice
-        config TL_DISPLAY_SPI_CS_PIN
-            depends on TL_DISPLAY_SPI
-            int "Display SPI CS Pin"
-            default 7 if TL_DEVICE_M5DIAL
-            default 5
-            help
-                GPIO pin number for the display's SPI Chip Select (CS).
-        config TL_DISPLAY_DC_PIN
-            depends on TL_DISPLAY_SPI
-            int "Display Data/Command Pin"
-            default 4 if TL_DEVICE_M5DIAL
-            default 26
-            help
-                GPIO pin number for the display's Data/Command (DC) control.
-        config TL_DISPLAY_RESET_PIN
-            depends on TL_DISPLAY_SPI
-            int "Display Reset Pin"
-            default 8 if TL_DEVICE_M5DIAL
-            default 33
-            help
-                GPIO pin number for the display's Reset (RST) control.
-        config TL_DISPLAY_BACKLIGHT_PIN
-            depends on TL_HAS_DISPLAY
-            int "Display Backlight Pin"
-            default 9 if TL_DEVICE_M5DIAL
-            default 32
-            help
-                GPIO pin number for the display's Backlight (BL) control.           
-        config TL_HAS_TOUCHPANEL
-            depends on TL_HAS_DISPLAY
-            bool "Has Touchscreen"
-            default n
-        choice TL_TOUCHPANEL_DRIVER
-            prompt "Select the touchpanel driver"
-            depends on TL_HAS_TOUCHPANEL
-            config TL_TOUCHPANEL_DRIVER_XPT2046
-                depends on TL_HAS_TOUCHPANEL
-                default n
-                bool "XPT2046 (SPI)"
-                select TL_USES_SPI
-                select TL_TOUCHPANEL_SPI
-            config TL_TOUCHPANEL_DRIVER_FT3267
-                depends on TL_HAS_TOUCHPANEL
-                default n
-                bool "FT3267 (I2C)"
-                select TL_USES_I2C
-                select TL_TOUCHPANEL_I2C
-        endchoice
-        config TL_TOUCHPANEL_SPI_CS_PIN
-            depends on TL_TOUCHPANEL_SPI && TL_HAS_TOUCHPANEL
-            int "Touchscreen SPI CS Pin"
-            default -1
-            help
-                GPIO pin number for the touchpanel SPI Chip Select (CS).
-        config TL_TOUCHPANEL_INT_PIN
-            depends on TL_HAS_TOUCHPANEL
-            int "Touchscreen Interrupt Pin"
-            default -1
-            help
-                GPIO pin number for the touchpanel Interrupt (INT) signal.
-        config TL_TOUCHPANEL_I2C_ADDRESS
-            depends on TL_TOUCHPANEL_I2C && TL_HAS_TOUCHPANEL
-            int "Touchscreen I2C Address (hex)"
-            default 38
-            help
-                I2C address of the touchscreen controller.        
     endmenu
     menu "Thermocouple Options"
         config TL_HAS_THERMOCOUPLE
@@ -203,112 +113,5 @@ menu "Toothless"
         default 3 if FLOG_LEVEL_INFO
         default 4 if FLOG_LEVEL_DEBUG
         default 5 if FLOG_LEVEL_VERBOSE
-    menu "I2C"
-        config TL_USES_I2C
-        bool "Enable I2C Support"
-        default n
-        help
-            Enable this option to include I2C support for communication with peripheral devices.
-    endmenu
-    menu "SPI"
-        config TL_USES_SPI
-        bool "Enable SPI Support"
-        default y if TL_DISPLAY_SPI
-        help
-            Enable this option to include SPI support for communication with peripheral devices.
-        config TL_SPI_HOST
-            depends on TL_USES_SPI
-            int "SPI Host"
-            range 0 3
-            default 1
-            help
-                Select the SPI host to be used for the display. Common options are 1 or 2 depending on your hardware.
-        config TL_SPI_DMA_CHANNEL
-            depends on TL_USES_SPI
-            int "SPI DMA Channel"
-            default 1
-            help
-                Select the DMA channel for SPI communication with the display. This can help improve performance.
-        menu "SPI Pins"
-        depends on TL_USES_SPI
-        config TL_SPI_CLK_PIN
-            int "SPI Clock Pin"
-            default 18
-            help
-                GPIO pin number for SPI Clock (SCK).
-        config TL_SPI_MISO_PIN
-            int "SPI MISO Pin"
-            default 19
-            help
-                GPIO pin number for SPI Master In Slave Out (MISO).
-        config TL_SPI_MOSI_PIN
-            int "SPI MOSI Pin"
-            default 23
-            help
-                GPIO pin number for SPI Master Out Slave In (MOSI).
-        # config TL_SPI_CS_PIN
-        #     int "SPI Chip Select Pin"
-        #     default 27
-        #     help
-        #         GPIO pin number for SPI Chip Select (CS).
-        endmenu
-    endmenu
+
 endmenu
-
-config TL_DISPLAY_DRIVER_GC9A01
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-# config TL_DISPLAY_DRIVER_ST7796S
-#     bool
-#     default n
-#     depends on TL_HAS_DISPLAY
-
-config TL_DISPLAY_SPI
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_TOUCHPANEL_SPI
-    bool
-    default n
-    depends on TL_HAS_TOUCHPANEL
-config TL_TOUCHPANEL_I2C
-    bool
-    default n
-    depends on TL_HAS_TOUCHPANEL
-
-config TL_DISPLAY_HRES_480
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_HRES_320
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_HRES_240
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_HRES
-    int
-    default 480 if TL_DISPLAY_HRES_480
-    default 320 if TL_DISPLAY_HRES_320
-    default 240 if TL_DISPLAY_HRES_240
-
-config TL_DISPLAY_VRES_480
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_VRES_320
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_VRES_240
-    bool
-    default n
-    depends on TL_HAS_DISPLAY
-config TL_DISPLAY_VRES
-    int
-    default 480 if TL_DISPLAY_VRES_480
-    default 240 if TL_DISPLAY_VRES_240
-    default 320 if TL_DISPLAY_VRES_320

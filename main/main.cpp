@@ -14,6 +14,7 @@ extern "C" {
 
 #include "funlog.h"
 #include "heater/heater.hpp"
+#include "i2c_manager.hpp"
 #include "sensors/sensors.hpp"
 #include "ui/user_interface.hpp"
 
@@ -51,8 +52,6 @@ void SetLogLevels() {
   esp_log_level_set("user_interface.cpp", ESP_LOG_DEBUG);
 }
 
-// using namespace esp_panel::drivers;
-// using namespace esp_panel::board;
 using namespace toothless;
 
 extern "C" void app_main(void) {
@@ -65,16 +64,8 @@ extern "C" void app_main(void) {
   FLOG_INFO("Initializing pubsub msg bus");
   ps_init();
 
-  FLOG_INFO("Initialize SPI bus");
-  spi_bus_config_t buscfg = {
-      .mosi_io_num = BSP_SD_SPI_MOSI,
-      .miso_io_num = BSP_SD_SPI_MISO,
-      .sclk_io_num = BSP_SD_SPI_SCLK,
-      .quadwp_io_num = -1,
-      .quadhd_io_num = -1,
-      .max_transfer_sz = CONFIG_TL_DISPLAY_HRES * 80 * sizeof(uint16_t),
-  };
-  ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, SPI_DMA_CH_AUTO));  // TODO: make spi host configurable
+  // FLOG_INFO("Initializing I2C");
+  // I2cManager::GetInstance()->Init();
 
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;

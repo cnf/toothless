@@ -24,11 +24,9 @@ struct ChartInfo {
   lv_obj_t* chart;
   uint32_t scale;
   AxisLabels y_axis_labels;
-  // const char* _olabel_pointers[kYLabelCount + 1];  // Array of pointers + NULL terminator
   std::array<const char*, kYLabelCount + 1> label_pointers;
   ChartHistory* history;  // UI owns it
   std::map<std::string, lv_chart_series_t*> series_map;
-  // std::map<std::string, lv_chart_series_t*> series;
 };
 
 class ReflowScreen : public Screen {

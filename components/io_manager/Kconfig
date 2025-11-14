@@ -2,9 +2,12 @@ menu "IO Manager Configuration"
     menu "I2C Configuration"
         config IOM_I2C_SDA_PIN
             int "I2C SDA Pin"
+            default IMPL_I2C_SDA_PIN if IMPL_I2C_SDA_PIN
+            # if CONFIG_IMPL_I2C_SDA_PIN
             default 21
         config IOM_I2C_SCL_PIN
             int "I2C SCL Pin"
+            default IMPL_I2C_SCL_PIN if IMPL_I2C_SDA_PIN
             default 22
         config IOM_I2C_FREQUENCY
             int "I2C Frequency (Hz)"
@@ -26,3 +29,7 @@ menu "IO Manager Configuration"
             default 400000
     endmenu
 endmenu
+
+config IOM_I2C_SDA_PIN_OVERRIDE
+    depends on IMPL_I2C_SDA_PIN
+    bool

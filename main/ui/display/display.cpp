@@ -8,8 +8,9 @@
 #include <algorithm>
 
 #include "config.h"
-#include "display_implementation.hpp"
+#include "display_impl.hpp"
 #include "funlog.h"
+#include "theme.hpp"
 
 namespace toothless {
 
@@ -21,9 +22,10 @@ static std::mutex _lvgl_mutex;
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
   ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
-  ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
+  // ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
   _display_ptr = display::impl::GetDisplayObjPtr();
+  // SetTheme(_display_ptr);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
   // _resolution.width = CONFIG_TL_DISPLAY_HRES;
@@ -73,15 +75,10 @@ esp_err_t Display::RegisterCallbacks() {
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, kLvglTickPeriodMs * 1000));
   }
 
-  // FLOG_INFO("Register io panel event callback for LVGL flush ready notification");
-  // const esp_lcd_panel_io_callbacks_t cbs = {
-  //     .on_color_trans_done = lvgl_notify_flush_ready,
-  // };
-
   // /* Register done callback */
   // ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, _display_ptr));
   // // lv_display_add_event_cb(_display.get(), lvgl_display_event_cb, LV_EVENT_REFR_READY, NULL);
-  return esp_err_t();
+  return ESP_OK;
 }
 
 esp_err_t Display::SetupTouchPanel() {
@@ -120,7 +117,7 @@ void Display::LvglPortTask(void* arg) {
   // vTaskDelay(pdMS_TO_TICKS(500)); // Wait 500ms for UI setup
 
   uint32_t time_till_next_ms = 0;
-  uint64_t start;
+  [[maybe_unused]] uint64_t start;  // for log printing
   while (1) {
     start = esp_timer_get_time();
     // Feed watchdog BEFORE potentially long LVGL operations
@@ -137,11 +134,11 @@ void Display::LvglPortTask(void* arg) {
         time_till_next_ms = 100;
         static uint32_t no_screen_count = 0;
         if (++no_screen_count % 50 == 0) {  // Every 5 seconds
-          FLOG_DEBUG("Waiting for active screen... (%u)", no_screen_count);
+          FLOG_ERROR("Waiting for active screen... (%u)", no_screen_count);
         }
       }
     }
-    LV_LOG_INFO("LVGL handler time: %lli us", (esp_timer_get_time() - start));
+    // LV_LOG_USER("LVGL handler time: %lli us", (esp_timer_get_time() - start));
 
     // PS_PUB_INT("heartbeat.ui", esp_timer_get_time()); //TODO: put a hearbeat something
 

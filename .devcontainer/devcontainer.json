@@ -8,9 +8,9 @@
 	},
 	"mounts": [
 		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
-		"source=${localWorkspaceFolderBasename}/cache,target=${containerWorkspaceFolder}/cache,type=volume"
+		"source=${devcontainerId}-cache,target=${containerWorkspaceFolder}/cache,type=volume",
 	],
-	"remote.containers.useDockerForAllWorkspaceCommands": true,
+	"postCreateCommand": "sudo chown ubuntu:ubuntu cache ",
 	"customizations": {
 		"vscode": {
 			"settings": {

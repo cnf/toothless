@@ -31,11 +31,17 @@ static constexpr unsigned int kLcdPixelClockHz = 20 * 1000 * 1000;  //<! spi clo
 static constexpr uint8_t kLcdCmdBits = 8;                           //<! bit number used to represent command
 static constexpr uint8_t kLcdParamBits = 8;                         //<! bit number used to represent parameter
 static constexpr uint8_t kLvglDrawBufferLines = 40;                 // number of display lines in each draw buffer
+static constexpr size_t kMaxTransferSize =
+    CONFIG_IMPL_WSRPIG_HRES * 80 * sizeof(uint16_t);  // FIXME: this is probably wrong for this display
+static constexpr size_t kDrawBufferSize =
+    CONFIG_IMPL_WSRPIG_HRES * kLvglDrawBufferLines * sizeof(lv_color16_t);  // size of LVGL draw buffer
 
 esp_err_t DisplayPanelSetup();
 esp_err_t TouchPanelSetup();
 void GetDisplayDimensions(uint16_t& width, uint16_t& height);
 lv_display_t* GetDisplayObjPtr();
+
+esp_err_t SetupSpi();
 
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map);
 
