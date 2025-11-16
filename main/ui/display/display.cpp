@@ -28,9 +28,6 @@ esp_err_t Display::Init() {
   // SetTheme(_display_ptr);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
-  // _resolution.width = CONFIG_TL_DISPLAY_HRES;
-  // _resolution.height = CONFIG_TL_DISPLAY_VRES;
-  // _resolution.is_portrait = (_resolution.height > _resolution.width);
 
   FLOG_INFO("Display initialized: %ux%u (%s)", _resolution.width, _resolution.height,
             _resolution.is_portrait ? "portrait" : "landscape");

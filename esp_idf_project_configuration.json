@@ -1,5 +1,5 @@
 {
-  "wsrpi": {
+  "cyd4.3": {
     "build": {
       "compileArgs": [],
       "ninjaArgs": [],
@@ -8,12 +8,12 @@
         "${workspaceFolder}/config/sdkconfig.defaults",
         "${workspaceFolder}/config/sdkconfig.lvgl",
         "${workspaceFolder}/config/sdkconfig.dev",
-        "${workspaceFolder}/config/sdkconfig.ws35rpig"
+        "${workspaceFolder}/config/sdkconfig.cyd4_3inch"
       ],
       "sdkconfigFilePath": "${workspaceFolder}/sdkconfig"
     },
     "env": {},
-    "idfTarget": "esp32",
+    "idfTarget": "esp32s3",
     "flashBaudRate": "",
     "monitorBaudRate": "115200",
     "openOCD": {

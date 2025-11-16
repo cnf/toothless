@@ -1,14 +1,5 @@
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c")
 
-# set(INCL "${CMAKE_SOURCE_DIR}/include") # "${INCLUDE_DIRECTORIES}")
-# if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
-#   message(STATUS "[x] Waveshare 3.5inch RPi (G) display implementation")
-#   set(INCL "include")
-#   set(SOURCES ${SRC})
-# else()
-#   set(INCL "")
-#   set(SOURCES "")
-# endif()
 set(INCL "include")
 set(PRIVREQ 
   FunLog

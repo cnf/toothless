@@ -22,6 +22,7 @@ set(PRIVREQ
 
   impl_waveshare_pi
   impl_lilygo_t_display_s3_long
+  impl_cyb_4_3inch
 
   io_manager
   # lvgl
@@ -34,15 +35,17 @@ set(REQ
   # max6675
 )
 
-# if(CONFIG_TL_DISPLAY_COMP_WS_35_RPI_G)
-#     set(SCREEN_DIR "480x320")
-# elseif(CONFIG_TL_DISPLAY_COMP_LG_TDISPLAY_S3_LONG)
-#     set(SCREEN_DIR "160x640")
-# elseif(CONFIG_TL_DISPLAY_COMP_ROUND)
-#     set(SCREEN_DIR "round")
-# endif()
+if(CONFIG_IMPL_COMP_WS_35_RPI_G)
+    set(SCREEN_DIR "480x320")
+elseif(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
+    set(SCREEN_DIR "640x180")
+elseif(CONFIG_IMPL_CYB_4_3_INCH)
+    # set(SCREEN_DIR "800x480")
+    set(SCREEN_DIR "480x320")
 
-# list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
+endif()
+
+list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
 
 file(GLOB_RECURSE SCREENS "ui/screens/${SCREEN_DIR}/*.cpp")
 list(APPEND SRC ${SCREENS})

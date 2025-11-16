@@ -1,12 +1,9 @@
-# set(SRC funlog_write.c)
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c")
-
 set(INCL "include")
 set(PRIVREQ 
   FunLog
   esp_lcd
   esp_lvgl_port
-  esp_rgb_panel
   esp_timer
   lvgl
   # esp_app_format
@@ -14,7 +11,7 @@ set(PRIVREQ
 set(REQ 
 )
 
-if(CONFIG_IMPL_CYB_4_3INCH)
+if(CONFIG_IMPL_CYB_4_3_INCH)
   message(STATUS "[x] Impl: Cheap Yellow Board 4.3\" display implementation")
   set(CONFIG_IMPL_DISPLAY_HRES ${CONFIG_IMPL_CYB_4_3INCH_HRES})
   set(CONFIG_IMPL_DISPLAY_VRES ${CONFIG_IMPL_CYB_4_3INCH_VRES})

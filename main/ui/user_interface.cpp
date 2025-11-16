@@ -107,13 +107,8 @@ void UserInterface::Loop() {
   return;
 }
 
-// void UserInterface::BackLight(bool state) {
-//   FLOG_INFO("Turn %s LCD backlight", state ? "on" : "off");
-//   gpio_set_level((gpio_num_t)CONFIG_TL_DISPLAY_BACKLIGHT_PIN, state);
-// }
-
 esp_err_t UserInterface::SwitchTo(ScreenList screen) {
-  return ESP_OK;
+  // return ESP_OK;
   FLOG_INFO("Switching Screens: %d", screen);
   // If we're already switching, ignore the request
   if (_switching_screen_state) {

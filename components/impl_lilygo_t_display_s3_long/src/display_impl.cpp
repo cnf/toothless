@@ -175,14 +175,14 @@ esp_err_t TouchPanelSetup() {
   //   swapxy = false;
   //   mirror_x = 0;
   //   mirror_y = 0;
-  //   hres = CONFIG_TL_DISPLAY_VRES;
-  //   vres = CONFIG_TL_DISPLAY_HRES;
+  //   hres = ;
+  //   vres = ;
   // } else {
   // swapxy = true;
   // mirror_x = 0;
   // mirror_y = 1;
-  // hres = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_VRES;
-  // vres = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_HRES;
+  // hres = ;
+  // vres = ;
   // }
   LV_LOG_USER("Initialize AXS15231B touch controller");
 
@@ -288,7 +288,7 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
   int offsety2 = area->y2;
 
   // because SPI LCD is big-endian, we need to swap the RGB bytes order
-  lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1));
+  // lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1));
 
   // copy a buffer's content to a specific area of the display
   // esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);

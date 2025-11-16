@@ -28,7 +28,7 @@ struct DisplayResolution {
 class Display {
  public:
   /// @brief Initialize the display hardware and LVGL
-  /// Selects driver based on Kconfig CONFIG_TL_DISPLAY_*
+  /// Selects driver based on Kconfig CONFIG_IMPL_*
   static esp_err_t Init();
 
   /// @brief Setup the display panel (hardware-specific)

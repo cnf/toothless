@@ -64,17 +64,10 @@ esp_err_t DisplayPanelSetup() {
 
   // TODO: lets not do this here, but figure out how to make it configurable?
   int32_t hres, vres;
-  // if (PORTRAIT) {
-  //   ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, false));
-  //   ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, false));
-  //   hres = CONFIG_TL_DISPLAY_VRES;
-  //   vres = CONFIG_TL_DISPLAY_HRES;
-  // } else {
   ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
   ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
   hres = CONFIG_IMPL_WSRPIG_HRES;
   vres = CONFIG_IMPL_WSRPIG_VRES;
-  // }
 
   // Create display and wrap in shared_ptr (LVGL may keep internal references)
   _display = lv_display_create(hres, vres);
@@ -131,19 +124,11 @@ esp_err_t DisplayPanelSetup() {
 esp_err_t TouchPanelSetup() {
   bool swapxy, mirror_x, mirror_y;
   uint16_t hres, vres;
-  // if (PORTRAIT) {
-  //   swapxy = false;
-  //   mirror_x = 0;
-  //   mirror_y = 0;
-  //   hres = CONFIG_TL_DISPLAY_VRES;
-  //   vres = CONFIG_TL_DISPLAY_HRES;
-  // } else {
   swapxy = true;
   mirror_x = 0;
   mirror_y = 1;
   hres = CONFIG_IMPL_WSRPIG_VRES;
   vres = CONFIG_IMPL_WSRPIG_HRES;
-  // }
 
   esp_lcd_panel_io_handle_t tp_io_handle = NULL;
   esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(CONFIG_IMPL_TOUCHPANEL_SPI_CS_PIN);
