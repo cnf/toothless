@@ -2,50 +2,62 @@
 
 #include <lvgl.h>
 
-#include <atomic>
+// #include <atomic>
 
 #include "config.h"
 #include "heater/heater.hpp"
 #include "screen_helpers.hpp"
+#include "ui/display/display.hpp"
 
 namespace toothless {
 
-static std::atomic_bool s_overlay_active{false};
+// BUG: I do not understand the atomic stuff...
+// static std::atomic_bool s_overlay_active{false};
+static bool _overlay_active = false;
+static lv_obj_t* _backdrop = nullptr;
 
 lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
-  static lv_obj_t* backdrop = nullptr;
-  if (s_overlay_active.load()) return backdrop;  // already active
-  // if (backdrop) {
-  //   if (lv_obj_get_parent(backdrop) == screen) return backdrop;
-  //   lv_obj_del(backdrop);
-  //   backdrop = nullptr;  // force recreation
-  // }
-  backdrop = lv_obj_create(screen);
-  lv_obj_add_event_cb(backdrop, BackdropDeleteCb, LV_EVENT_DELETE, NULL);
-  s_overlay_active.store(true);
-  lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
-  lv_obj_set_pos(backdrop, 0, 0);
-  lv_obj_set_style_bg_color(backdrop, lv_color_black(), 0);
-  lv_obj_set_style_border_width(backdrop, 0, 0);
-  lv_obj_set_style_pad_all(backdrop, 0, 0);
-  lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  lv_obj_add_flag(backdrop, LV_OBJ_FLAG_FLOATING);
-  lv_obj_set_layout(backdrop, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(backdrop, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(backdrop, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);  // ??
+  FLOG_INFO("Create Backdrop");
 
-  lv_obj_move_to_index(backdrop, -1);
-  lv_obj_set_scrollbar_mode(backdrop, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_SCROLLABLE);
+  // if existing and still in tree, reuse it
+  if (_backdrop) {
+    FLOG_ERROR("Backdrop already exists");
+    if (lv_obj_get_parent(_backdrop) == screen) return _backdrop;
+    lv_obj_delete(_backdrop);
+    _backdrop = nullptr;
+    // lv_obj_clean(backdrop);
+  }
 
-  return backdrop;
+  _backdrop = lv_obj_create(screen);
+  lv_obj_add_event_cb(_backdrop, BackdropDeleteCb, LV_EVENT_DELETE, NULL);
+  lv_obj_set_size(_backdrop, lv_pct(100), lv_pct(100));
+  lv_obj_set_pos(_backdrop, 0, 0);
+  lv_obj_set_style_bg_color(_backdrop, lv_color_black(), 0);
+  lv_obj_set_style_border_width(_backdrop, 0, 0);
+  lv_obj_set_style_pad_all(_backdrop, 0, 0);
+  lv_obj_remove_flag(_backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+  lv_obj_add_flag(_backdrop, LV_OBJ_FLAG_FLOATING);
+  lv_obj_set_layout(_backdrop, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(_backdrop, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(_backdrop, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);  // ??
+
+  lv_obj_move_to_index(_backdrop, -1);
+  lv_obj_set_scrollbar_mode(_backdrop, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_remove_flag(_backdrop, LV_OBJ_FLAG_SCROLLABLE);
+
+  return _backdrop;
 }
 
-void BackdropDeleteCb(lv_event_t* e) { s_overlay_active.store(false); }
+void BackdropDeleteCb(lv_event_t* e) {
+  FLOG_ERROR("Backdrop deleted");
+  _overlay_active = false;
+  _backdrop = nullptr;
+}
 
 void NumpadOpen(const NumpadContext& ctx) {
   FLOG_INFO("Open Numpad");
-  if (s_overlay_active.exchange(true)) return;  // already active
+  if (_overlay_active) return;  // already active
+  _overlay_active = true;
 
   // create a small textarea + keyboard
 
@@ -169,8 +181,15 @@ void NumPadCleanupHandler(lv_event_t* e) {
 }
 
 void TimeRollerOpen(const TimeRollerContext& ctx) {
+  static float mult = 0.2;
+  if (!Display::IsTall()) {
+    mult = 0.15;
+  }
+  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
+
   FLOG_INFO("Open Time Roller");
-  if (s_overlay_active.exchange(true)) return;  // already active
+  if (_overlay_active) return;  // already active
+  _overlay_active = true;
   const char* minsecstr =
       "00\n"
       "05\n"
@@ -251,7 +270,7 @@ void TimeRollerOpen(const TimeRollerContext& ctx) {
     // lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
     lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
     lv_obj_t* ok_btn = lv_button_create(state->backdrop);
-    lv_obj_set_size(ok_btn, lv_pct(100), 60);
+    lv_obj_set_size(ok_btn, lv_pct(100), height);
     lv_obj_t* ok_label = lv_label_create(ok_btn);
     lv_label_set_text(ok_label, "Set Time");
     lv_obj_center(ok_label);
@@ -310,7 +329,8 @@ void TimeRollerCleanupHandler(lv_event_t* e) {
 
 void ConfirmationPopup(const ConfirmationContext& ctx) {
   FLOG_INFO("Open Confirmation");
-  if (s_overlay_active.exchange(true)) return;  // already active
+  if (_overlay_active) return;  // already active
+  _overlay_active = true;
 
   FLOG_INFO("Confirming...");
 
@@ -376,7 +396,8 @@ void ConfirmationHandler(lv_event_t* e) {
 }
 
 lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
-  if (s_overlay_active.load()) return nullptr;  // already active
+  if (_overlay_active) return nullptr;  // already active
+  _overlay_active = true;
   lv_obj_t* backdrop = CreateBackdrop(screen);
 
   lv_obj_t* wrapper = lv_obj_create(backdrop);
@@ -425,6 +446,11 @@ void ModeSwitcherHandler(lv_event_t* e) {
 }
 
 lv_obj_t* CreateBottomRow(lv_obj_t* container) {
+  static float mult = 0.2;
+  if (!Display::IsTall()) {
+    mult = 0.15;
+  }
+  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
   static lv_obj_t* start_stop;
   lv_obj_t* wrapper = lv_obj_create(container);
   lv_obj_remove_style_all(wrapper);
@@ -432,7 +458,7 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
   lv_obj_set_style_pad_all(wrapper, 0, 0);
   lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
   lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(wrapper, lv_pct(100), 60);
+  lv_obj_set_size(wrapper, lv_pct(100), height);
   // lv_obj_set_size(wrapper, lv_pct(100), lv_pct(15));
   // lv_obj_set_style_min_height(wrapper, 60, 0);
   lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
@@ -547,14 +573,21 @@ lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int3
 }
 
 lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow) {
+  static float mult = 0.2;
+  if (!Display::IsTall()) {
+    mult = 0.15;
+  }
+  static size_t btn_height = lv_display_get_vertical_resolution(NULL) * mult;
+  // if (Display::IsTall()) {
+  // }
   lv_obj_t* btn = lv_button_create(parent);
-  lv_obj_set_style_min_height(btn, 60, 0);
-  lv_obj_set_style_min_width(btn, 60, 0);
+  lv_obj_set_style_min_height(btn, btn_height, 0);
+  lv_obj_set_style_min_width(btn, btn_height, 0);
   if (grow) {
     lv_obj_set_size(btn, lv_pct(100), 0);
     lv_obj_set_flex_grow(btn, 1);
   } else {
-    lv_obj_set_size(btn, LV_SIZE_CONTENT, 60);
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, btn_height);
   }
   lv_obj_t* btn_label = lv_label_create(btn);
   if (txt) lv_label_set_text(btn_label, txt);

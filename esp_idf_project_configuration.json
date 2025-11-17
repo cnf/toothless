@@ -28,6 +28,35 @@
       "postFlash": ""
     }
   },
+  "t-hmi": {
+    "build": {
+      "compileArgs": [],
+      "ninjaArgs": [],
+      "buildDirectoryPath": "${workspaceFolder}/build",
+      "sdkconfigDefaults": [
+        "${workspaceFolder}/config/sdkconfig.defaults",
+        "${workspaceFolder}/config/sdkconfig.lvgl",
+        "${workspaceFolder}/config/sdkconfig.dev",
+        "${workspaceFolder}/config/sdkconfig.t-hmi"
+      ],
+      "sdkconfigFilePath": "${workspaceFolder}/sdkconfig"
+    },
+    "env": {},
+    "idfTarget": "esp32s3",
+    "flashBaudRate": "",
+    "monitorBaudRate": "115200",
+    "openOCD": {
+      "debugLevel": 3,
+      "configs": [],
+      "args": []
+    },
+    "tasks": {
+      "preBuild": "rm -f sdkconfig",
+      "preFlash": "",
+      "postBuild": "",
+      "postFlash": ""
+    }
+  },
   "TD_Long": {
     "build": {
       "compileArgs": [],

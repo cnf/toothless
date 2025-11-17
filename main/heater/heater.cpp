@@ -7,6 +7,7 @@
 #include "heater.hpp"
 #include "heater/elements/element.hpp"
 #include "heater/elements/gpio_element.hpp"
+#include "heater/elements/m5_acssr_element.hpp"
 
 namespace toothless {
 Profile::Stage lead_free_stages[] = {
@@ -31,7 +32,8 @@ using namespace heater;
 
 bool Heater::Init() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _element = std::make_unique<GPIOElement>();
+  // _element = std::make_unique<GPIOElement>();
+  _element = std::make_unique<M5I2CElement>();
   _element->Init();
   _time_slice = 200;
   _kp = 0.01;  // expected 0.01 - 2.0
@@ -41,7 +43,7 @@ bool Heater::Init() {
   _temperature_integral = 0;
   _previous_temperature = std::numeric_limits<int32_t>::max();
   _last_run = esp_timer_get_time() * 1000;
-  SetMode(heater::kModeReflow);  // TODO: configure
+  SetMode(heater::kModeDrying);  // TODO: configure
   LoadProfile("Qwik Leaded");    // TODO: configure
 
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater"));

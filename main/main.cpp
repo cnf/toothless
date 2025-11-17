@@ -64,9 +64,10 @@ extern "C" void app_main(void) {
   FLOG_INFO("Initializing pubsub msg bus");
   ps_init();
 
-  // FLOG_INFO("Initializing I2C");
-  // I2cManager::GetInstance()->Init();
-
+#if defined(CONFIG_IOM_I2C_SDA_PIN) && defined(CONFIG_IOM_I2C_SCL_PIN)
+  FLOG_INFO("Initializing I2C");
+  I2cManager::GetInstance()->Init();
+#endif
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
 

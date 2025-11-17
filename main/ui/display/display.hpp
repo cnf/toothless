@@ -57,6 +57,10 @@ class Display {
   /// @brief Check if display is in portrait orientation
   static bool IsPortrait();
 
+  static bool IsTall();
+
+  static bool IsWide();
+
  private:
   // static lv_display_t* _display;  // no shared_ptr, this is an lvgl managed object
 

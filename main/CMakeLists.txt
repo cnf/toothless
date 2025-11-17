@@ -23,7 +23,8 @@ set(PRIVREQ
   impl_waveshare_pi
   impl_lilygo_t_display_s3_long
   impl_cyb_4_3inch
-
+  impl_lilygo_t_hmi
+  
   io_manager
   # lvgl
 )
@@ -41,8 +42,9 @@ elseif(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
     set(SCREEN_DIR "640x180")
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
     # set(SCREEN_DIR "800x480")
-    set(SCREEN_DIR "480x320")
-
+    set(SCREEN_DIR "480x320") # BUG: Should be 800z480 but 320 for now to fit existing assets
+elseif(CONFIG_IMPL_LILYGO_T_HMI)
+    set(SCREEN_DIR "rectangular") # BUG: Should be 480x240 but 320 for now to fit existing assets
 endif()
 
 list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")

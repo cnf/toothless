@@ -72,7 +72,7 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
-      // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
+      FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
       TemperatureUpdateCurrent((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
       if (PS_IS_INT(msg)) {
@@ -224,11 +224,17 @@ void ReflowScreen::UpdateChart() {
 }
 
 esp_err_t ReflowScreen::Temperature() {
+  static float mult = 0.2;
+  if (!Display::IsTall()) {
+    mult = 0.15;
+  }
+  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
+  height = std::max<size_t>(height, 50);  // cap at 45px height FIXME: make font size configurable
   lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
   lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
   lv_obj_clear_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(temp_container, lv_pct(100), 60);
+  lv_obj_set_size(temp_container, lv_pct(100), height);
   lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
   lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
   lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
@@ -385,13 +391,19 @@ esp_err_t ReflowScreen::MidSection() {
 }
 
 esp_err_t ReflowScreen::BottomRow() {
+  static float mult = 0.2;
+  if (!Display::IsTall()) {
+    mult = 0.15;
+  }
+  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
+
   lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_remove_style_all(temp_container);
   lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
   lv_obj_set_style_pad_all(temp_container, 0, 0);
   lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
   lv_obj_remove_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(temp_container, lv_pct(100), 60);
+  lv_obj_set_size(temp_container, lv_pct(100), height);
   // lv_obj_set_size(temp_container, lv_pct(100), lv_pct(15));
   // lv_obj_set_style_min_height(temp_container, 60, 0);
   lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);

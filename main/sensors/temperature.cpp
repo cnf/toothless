@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "funlog.h"
+#include "sensors/temperature/m5_kmeter.hpp"
 #include "sensors/temperature/max6675.hpp"
 
 extern "C" {
@@ -13,10 +14,17 @@ extern "C" {
 
 namespace toothless {
 esp_err_t Temperature::Init() {
-  ESP_ERROR_CHECK(
-      Max6675Setup((int8_t)CONFIG_TL_TC_CLK_PIN, (int8_t)CONFIG_TL_TC_CS_PIN, (int8_t)CONFIG_TL_TC_MISO_PIN));
+  // ESP_ERROR_CHECK(
+  //     Max6675Setup((int8_t)CONFIG_TL_TC_CLK_PIN, (int8_t)CONFIG_TL_TC_CS_PIN, (int8_t)CONFIG_TL_TC_MISO_PIN));
+  // uint32_t temp;
+  // ESP_ERROR_CHECK(Max6675GetTemp(temp));
   uint32_t temp;
-  ESP_ERROR_CHECK(Max6675GetTemp(temp));
+  esp_err_t err = (M5KMeter::GetInstance()->ReadCelsius(temp));
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to get initial temperature: %s", esp_err_to_name(err));
+    return err;
+  }
+  FLOG_INFO("Initial thermocouple temperature: %.2f C", temp / 100.0);
   _initialized = true;
 
   _temperature_samples.fill(temp);
@@ -39,9 +47,10 @@ esp_err_t Temperature::Loop() {
   first reading
   */
   uint32_t temp;
-  esp_err_t err = Max6675GetTemp(temp);
+  // esp_err_t err = Max6675GetTemp(temp);
+  esp_err_t err = M5KMeter::GetInstance()->ReadCelsius(temp);
   if (err != ESP_OK) {
-    FLOG_ERROR("Failed to get temperature from Max6675: %s", esp_err_to_name(err));
+    FLOG_ERROR("Failed to get temperature: %s", esp_err_to_name(err));
     return err;
   }
   _temperature_average -= _temperature_samples[count % kTemperatureAverageSamples] / kTemperatureAverageSamples;

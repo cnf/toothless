@@ -9,6 +9,11 @@
 #include "i2c_manager.hpp"
 
 namespace toothless {
+static constexpr uint16_t kACSSRDefaultAddress = 0x50;
+static constexpr uint16_t kACSSRRelayRegister = 0x00;
+static constexpr uint16_t kACSSRLEDRegister = 0x10;
+static constexpr uint16_t kACSSRAddressRegister = 0x20;
+static constexpr uint16_t kACSSRVersionRegister = 0xFE;
 
 class M5I2CElement : public BaseElement {
  public:
@@ -20,5 +25,9 @@ class M5I2CElement : public BaseElement {
   std::shared_ptr<I2cManager> _i2c_mgr;
   esp_err_t PowerOn(uint8_t duty);
   esp_err_t PowerOff();
+  esp_err_t Power(bool on);
+  uint8_t Version();
+  esp_err_t SetLEDColor(uint32_t colorHEX);
 };
+
 }  // namespace toothless

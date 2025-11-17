@@ -11,6 +11,7 @@
 #include "ui/display/display.hpp"
 #include "ui/screens/dryer_screen.hpp"
 #include "ui/screens/reflow_screen.hpp"
+#include "ui/screens/screen_sizes.hpp"
 #include "ui/screens/settings_screen.hpp"
 
 namespace toothless {
@@ -26,6 +27,7 @@ UserInterface::UserInterface() {
   // _chart_history = ChartHistory();
   _chart_history.New("sensor.temperature.chamber");
   _chart_history.New("heater.target.temperature", true);
+  sizes::CreateSizes();
 }
 
 UserInterface::~UserInterface() {
@@ -53,7 +55,7 @@ esp_err_t UserInterface::Start() {
 }
 
 esp_err_t UserInterface::Init() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _subscription = ps_new_subscriber(10, PS_STRLIST("ui.action", "heater.mode"));
 
   // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");

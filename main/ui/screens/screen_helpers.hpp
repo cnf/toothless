@@ -3,10 +3,26 @@
 #include <lvgl.h>
 
 #include <functional>
+#include <optional>
+#include <string>
 
-#include "ui/screens/screen.hpp"
+#include "impl_config.hpp"
+// #include "ui/display/display.hpp"
 
 namespace toothless {
+
+#if CONFIG_IMPL_DISPLAY_HRES >= 400
+constexpr bool kSidebarEnabledByDefault = true;
+#else
+constexpr bool kSidebarEnabledByDefault = false;
+#endif
+
+#if CONFIG_IMPL_DISPLAY_VRES >= 300
+constexpr bool kTallDisplay = true;
+#else
+constexpr bool kTallDisplay = false;
+
+#endif
 
 struct NumpadContext {
   lv_obj_t* parent_screen = nullptr;                       // Screen where numpad is opened

@@ -5,6 +5,8 @@ menu "Toothless"
             bool "Lilygo T-Display S3 Long"
         config IMPL_CYB_4_3_INCH
             bool "Cheap Yellow Board 4.3inch Display"
+        config IMPL_LILYGO_T_HMI
+            bool "Lilygo T-HMI S3"
         config IMPL_M5DIAL
             bool "M5Stack Dial"
         config IMPL_WAVESHARE_35_RPI_G

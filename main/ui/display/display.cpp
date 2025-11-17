@@ -22,10 +22,10 @@ static std::mutex _lvgl_mutex;
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
   ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
-  // ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
+  ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
   _display_ptr = display::impl::GetDisplayObjPtr();
-  // SetTheme(_display_ptr);
+  SetTheme(_display_ptr);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
 
@@ -96,6 +96,16 @@ uint16_t Display::GetWidth() { return _resolution.width; }
 uint16_t Display::GetHeight() { return _resolution.height; }
 
 bool Display::IsPortrait() { return _resolution.is_portrait; }
+
+bool Display::IsTall() {
+  if (_resolution.height >= 300) return true;
+  return false;
+}
+
+bool Display::IsWide() {
+  if (_resolution.width >= 400) return true;
+  return false;
+}
 
 void Display::LvglTickCallback(void* arg) { lv_tick_inc(kLvglTickPeriodMs); }
 

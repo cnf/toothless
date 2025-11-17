@@ -1,0 +1,12 @@
+## IDF Component Manager Manifest File
+files:
+  use_gitignore: true
+dependencies:
+  ## Required IDF version
+  idf:
+    version: '>=5.5.0'
+  # espressif/esp32_display_panel: "1.*"
+  #espressif/esp_lcd_axs15231b: ^1.0.1
+  espressif/esp_lvgl_port: ^2.6.0
+  atanisoft/esp_lcd_touch_xpt2046: ^1.0.6
+  lvgl/lvgl: ^9.3.0
