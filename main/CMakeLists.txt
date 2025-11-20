@@ -39,12 +39,13 @@ set(REQ
 if(CONFIG_IMPL_COMP_WS_35_RPI_G)
     set(SCREEN_DIR "480x320")
 elseif(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
-    set(SCREEN_DIR "640x180")
+    set(SCREEN_DIR "180x640")
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
+    set(SCREEN_DIR "180x640") # TODO: just for developing until proper screen is available
+    # set(SCREEN_DIR "rectangular") 
     # set(SCREEN_DIR "800x480")
-    set(SCREEN_DIR "480x320") # BUG: Should be 800z480 but 320 for now to fit existing assets
 elseif(CONFIG_IMPL_LILYGO_T_HMI)
-    set(SCREEN_DIR "rectangular") # BUG: Should be 480x240 but 320 for now to fit existing assets
+    set(SCREEN_DIR "rectangular") 
 endif()
 
 list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
@@ -66,6 +67,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Werror=return-type    # This makes it an error, not just warning
     -Wmissing-declarations
     -Wunused-variable
+    -Wno-narrowing
 )
 
 

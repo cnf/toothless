@@ -7,6 +7,7 @@ set(PRIVREQ
   esp_timer
   lvgl
   # esp_app_format
+  io_manager
 )
 set(REQ 
 )

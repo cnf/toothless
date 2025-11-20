@@ -185,7 +185,8 @@ void TimeRollerOpen(const TimeRollerContext& ctx) {
   if (!Display::IsTall()) {
     mult = 0.15;
   }
-  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
+  // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
+  static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
 
   FLOG_INFO("Open Time Roller");
   if (_overlay_active) return;  // already active
@@ -289,6 +290,7 @@ void TimeRollerHandler(lv_event_t* e) {
   }
 }
 
+// TODO: make this a INTEGER roller ...., and make the total_seconds math configurable by passing context
 void TimeRollerCleanupHandler(lv_event_t* e) {
   FLOG_INFO("Time Roller cleanup started");
   TimeRollerState* state = (TimeRollerState*)lv_event_get_user_data(e);
@@ -451,6 +453,7 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
     mult = 0.15;
   }
   static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
+  // static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
   static lv_obj_t* start_stop;
   lv_obj_t* wrapper = lv_obj_create(container);
   lv_obj_remove_style_all(wrapper);
@@ -498,7 +501,7 @@ lv_obj_t* CreateModeButton(lv_obj_t* container) {
 
   lv_obj_set_style_align(button, LV_ALIGN_BOTTOM_RIGHT, 0);  // or LV_ALIGN_RIGHT
 
-  lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, startstop_label);
+  lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, container);
 
   return startstop_label;
 }
@@ -578,6 +581,8 @@ lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow) {
     mult = 0.15;
   }
   static size_t btn_height = lv_display_get_vertical_resolution(NULL) * mult;
+  // static size_t btn_height = lv_obj_get_height(ctx.parent_screen) * mult;
+
   // if (Display::IsTall()) {
   // }
   lv_obj_t* btn = lv_button_create(parent);
@@ -606,6 +611,7 @@ lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_
 void ButtonEventHandler(lv_event_t* e) {
   FLOG_INFO("Event Handler Called");
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
+  lv_obj_t* screen = (lv_obj_t*)lv_event_get_user_data(e);
 
   // lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
   lv_obj_t* label = lv_obj_get_child_by_type(button, 0, &lv_label_class);
@@ -630,7 +636,11 @@ void ButtonEventHandler(lv_event_t* e) {
     // }
     // TODO: figure out stop confirmation
   } else if (lv_strcmp(text, "Mode") == 0) {
-    CreateModeSwitcher(lv_display_get_screen_active(NULL));
+    if (screen) {
+      CreateModeSwitcher(screen);
+    } else {
+      CreateModeSwitcher(lv_display_get_screen_active(NULL));
+    }
   } else if (lv_strcmp(text, LV_SYMBOL_SETTINGS) == 0) {
     FLOG_DEBUG("Settings Button clicked!");
     PS_PUB_NIL("ui.action.settings");

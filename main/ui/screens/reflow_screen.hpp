@@ -18,6 +18,8 @@ struct ReflowScreenLabels : public ScreenLabels {
   lv_obj_t* startstop_label;
   lv_obj_t* stage;
   lv_obj_t* profile;
+  lv_obj_t* left;   // TODO: make conditional
+  lv_obj_t* right;  // TODO: make conditional
 };
 
 struct ChartInfo {

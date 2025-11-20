@@ -23,7 +23,7 @@ esp_err_t M5I2CElement::Init() {
   ESP_ERROR_CHECK_WITHOUT_ABORT(_i2c_mgr->AddDevice(&device_config, &_dev_handle));
   FLOG_INFO("M5 AC SSR Element initialized, version: %d", Version());
 
-  return ESP_OK;
+  return PowerOff();
 };
 
 bool M5I2CElement::IsOn() const {

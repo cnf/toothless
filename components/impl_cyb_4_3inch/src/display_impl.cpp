@@ -6,10 +6,15 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_rgb.h>
 #include <esp_lcd_panel_vendor.h>
+#include <esp_lcd_touch_gt911.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
+#include <map>
+
+#include "funlog.h"
+#include "i2c_manager.hpp"
 #include "sdkconfig.h"
 
 namespace display {
@@ -18,6 +23,9 @@ namespace impl {
 spi_host_device_t _spi_host;
 lv_display_t* _display;
 uint64_t _lvgl_sleep;
+
+i2c_master_dev_handle_t _dev_handle;
+i2c_master_bus_handle_t _bus_handle;
 
 esp_err_t DisplayPanelSetup() {
   ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
@@ -142,23 +150,31 @@ esp_err_t DisplayPanelSetup() {
 }  // namespace impl
 
 esp_err_t TouchPanelSetup() {
-  /*
-  // bool swapxy, mirror_x, mirror_y;
-  uint16_t hres, vres;
-
-  hres = kHRes;
-  vres = kVRes;
-
-  LV_LOG_USER("Initialize AXS15231B touch controller");
+  // i2c_device_config_t i2c_dev_conf = {
+  //     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+  //     .device_address = kTouchI2cAddress,
+  //     .scl_speed_hz = I2cManager::kClockSpeedHz,
+  // };
+  // esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
+  // if (err != ESP_OK) {
+  //   LV_LOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
+  //   return err;
+  // }
+  _bus_handle = I2cManager::GetInstance()->GetBusHandle();
 
   esp_lcd_panel_io_handle_t tp_io_handle = nullptr;
-  esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_AXS15231B_CONFIG();
+  esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
+  tp_io_config.scl_speed_hz = I2cManager::kClockSpeedHz;
+
+  esp_lcd_touch_io_gt911_config_t tp_gt911_config = {
+      .dev_addr = kTouchI2cAddress,
+  };
 
   esp_lcd_touch_config_t tp_cfg = {
-      .x_max = hres,
-      .y_max = vres,
-      // .rst_gpio_num = -1,
-      // .int_gpio_num = -1,
+      .x_max = 800,  // kLcdHRes,
+      .y_max = 480,  // kLcdVRes,
+      .rst_gpio_num = kTouchI2cResetPin,
+      .int_gpio_num = GPIO_NUM_NC,
       .levels =
           {
               .reset = 0,
@@ -170,11 +186,14 @@ esp_err_t TouchPanelSetup() {
               .mirror_x = 0,
               .mirror_y = 0,
           },
-      .driver_data = &tp_io_config,
+      .process_coordinates = TouchMapCoordinates,
+      .driver_data = &tp_gt911_config,
   };
 
+  esp_lcd_new_panel_io_i2c_v2(_bus_handle, &tp_io_config, &tp_io_handle);
+
   esp_lcd_touch_handle_t tp;
-  esp_lcd_touch_new_i2c_axs15231b(tp_io_handle, &tp_cfg, &tp);
+  esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &tp);
 
   static lv_indev_t* indev;
   indev = lv_indev_create();  // Input device driver (SetupTouchPanel)
@@ -183,7 +202,7 @@ esp_err_t TouchPanelSetup() {
   lv_indev_set_user_data(indev, tp);
 
   lv_indev_set_read_cb(indev, LvglTouchCallback);
-  */
+
   return ESP_OK;
 }
 
@@ -192,8 +211,8 @@ void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
   //   width = IMPL_LILYGO_TDISPLAY_S3_LONG_VRES;
   //   height = IMPL_LILYGO_TDISPLAY_S3_LONG_HRES;
   // } else {
-  width = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_HRES;
-  height = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_VRES;
+  width = kLcdHRes;
+  height = kLcdVRes;
   // }
 }
 
@@ -232,6 +251,16 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
   LV_LOG_TRACE("LVGL flush time: %lli us", (esp_timer_get_time() - starter));
 }
 
+uint16_t map(uint16_t n, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max) {
+  return (n - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+void TouchMapCoordinates(esp_lcd_touch_handle_t tp, uint16_t* x, uint16_t* y, uint16_t* strength, uint8_t* point_num,
+                         uint8_t max_point_num) {
+  *x = map(*x, TOUCH_H_RES_MIN, TOUCH_H_RES_MAX, 0, 800);
+  *y = map(*y, TOUCH_V_RES_MIN, TOUCH_V_RES_MAX, 0, 480);
+};
+
 // static bool example_notify_lvgl_flush_ready(esp_lcd_panel_handle_t panel,
 // const esp_lcd_rgb_panel_event_data_t* event_data, void* user_ctx) {};
 bool LvglFlushReadyCallback(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t* edata, void* user_ctx) {
@@ -242,33 +271,34 @@ bool LvglFlushReadyCallback(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_pane
 };
 
 void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
-  // uint16_t touchpad_x[1] = {0};
-  // uint16_t touchpad_y[1] = {0};
-  // uint8_t touchpad_cnt = 0;
+  uint16_t touchpad_x[1] = {0};
+  uint16_t touchpad_y[1] = {0};
+  uint8_t touchpad_cnt = 0;
 
   // // Get the touch controller handle from LVGL input device user data
-  // esp_lcd_touch_handle_t touch_handle = (esp_lcd_touch_handle_t)lv_indev_get_user_data(indev);
+  esp_lcd_touch_handle_t touch_handle = (esp_lcd_touch_handle_t)lv_indev_get_user_data(indev);
 
   // // Read current touch data from the controller
-  // esp_err_t ret = esp_lcd_touch_read_data(touch_handle);
-  // if (ret != ESP_OK) {
-  //   // If read failed, report no touch
-  //   data->state = LV_INDEV_STATE_RELEASED;
-  //   return;
-  // }
+  esp_err_t ret = esp_lcd_touch_read_data(touch_handle);
+  if (ret != ESP_OK) {
+    // If read failed, report no touch
+    data->state = LV_INDEV_STATE_RELEASED;
+    return;
+  }
 
   // // Get coordinates and touch state
-  // bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt,
-  // 1);
+  bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
 
-  // if (touchpad_pressed && touchpad_cnt > 0) {
-  //   data->point.x = touchpad_x[0];
-  //   data->point.y = touchpad_y[0];
-  //   data->state = LV_INDEV_STATE_PRESSED;
-  // } else {
-  //   // No touch detected
-  //   data->state = LV_INDEV_STATE_RELEASED;
-  // }
+  if (touchpad_pressed && touchpad_cnt > 0) {
+    data->point.x = touchpad_x[0];
+    data->point.y = touchpad_y[0];
+    data->state = LV_INDEV_STATE_PRESSED;
+    LV_LOG_TRACE("Touch data: x=%d y=%d state=%d", data->point.x, data->point.y, data->state);
+
+  } else {
+    // No touch detected
+    data->state = LV_INDEV_STATE_RELEASED;
+  }
   return;
 }
 

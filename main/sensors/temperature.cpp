@@ -35,6 +35,7 @@ esp_err_t Temperature::Loop() {
   static uint64_t count;
 
   if (!_initialized) {
+    FLOG_ERROR("Temperature sensor not initialized");
     return ESP_ERR_INVALID_STATE;
   }
   // TODO: rolling average

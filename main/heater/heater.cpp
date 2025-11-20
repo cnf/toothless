@@ -32,9 +32,13 @@ using namespace heater;
 
 bool Heater::Init() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  // _element = std::make_unique<GPIOElement>();
-  _element = std::make_unique<M5I2CElement>();
-  _element->Init();
+  _element = std::make_unique<GPIOElement>();
+  // _element = std::make_unique<M5I2CElement>();
+  esp_err_t err = _element->Init();
+  if (err != ESP_OK) {
+    FLOG_ERROR("Heater element initialization failed");
+    _element = std::make_unique<M5I2CElement>();
+  }
   _time_slice = 200;
   _kp = 0.01;  // expected 0.01 - 2.0
   _kd = 0;     // expected 0.0 - 50

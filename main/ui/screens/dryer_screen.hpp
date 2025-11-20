@@ -16,6 +16,8 @@ struct DryerScreenLabels : public ScreenLabels {
   lv_obj_t* timer_target;
   lv_obj_t* heater_led;
   lv_obj_t* start_stop_button;
+  lv_obj_t* left;   // TODO: make conditional
+  lv_obj_t* right;  // TODO: make conditional
 };
 
 class DryerScreen : public Screen {

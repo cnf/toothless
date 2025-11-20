@@ -9,9 +9,9 @@ extern "C" {
 
 namespace toothless {
 esp_err_t Sensors::Init() {
-  _sensor_list.push_back(std::make_shared<Temperature>());
+  // _sensor_list.push_back(std::make_shared<Temperature>());
   for (auto& sensor : _sensor_list) {
-    sensor->Init();
+    esp_err_t err = sensor->Init();
   }
   return ESP_OK;
 }
@@ -22,7 +22,7 @@ void Sensors::Loop() {
   for (auto& sensor : _sensor_list) {
     sensor->Loop();
   }
-  // PS_PUB_INT("sensor.temperature.chamber", (20 + uint8_t(toggle)) * 100);  // BUG: just for testing
+  PS_PUB_INT("sensor.temperature.chamber", (120 + uint8_t(toggle)) * 100);  // BUG: just for testing
   // FLOG_INFO("LOOP");
   return;
 }

@@ -39,12 +39,12 @@ endmenu
 config IOM_I2C_SDA_PIN
     int
     default 19
-    depends on IMPL_LCYB_4_3_INCH
+    depends on IMPL_CYB_4_3_INCH
 
 config IOM_I2C_SCL_PIN
     int
     default 20
-    depends on IMPL_LCYB_4_3_INCH
+    depends on IMPL_CYB_4_3_INCH
 
 
 #define TOUCH_GT911

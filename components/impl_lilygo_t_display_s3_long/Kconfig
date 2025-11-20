@@ -1,13 +1,13 @@
 menu "Display Impl: LilyGo T-Display S3 Long"
     config IMPL_LILYGO_TDISPLAY_S3_LONG_HRES
         int "Display Horizontal Resolution"
-        default 640
+        default 180
         help
             Horizontal resolution of the Waveshare 3.5inch RPi display.
 
     config IMPL_LILYGO_TDISPLAY_S3_LONG_VRES
         int "Display Vertical Resolution"
-        default 180
+        default 640
         help
             Vertical resolution of the Waveshare 3.5inch RPi display.
 
@@ -18,7 +18,6 @@ menu "Display Impl: LilyGo T-Display S3 Long"
             SPI host to use for display communication.
 
 endmenu
-
 
 config IOM_I2C_SDA_PIN
     int

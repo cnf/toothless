@@ -13,10 +13,11 @@ dependencies:
   # espressif/fmt: ^11.0.1
   espressif/esp_lvgl_port: ^2.6.0
   lvgl/lvgl: ^9.3.0
+  QDispatch:
+    git: https://github.com/cnf/QDispatch
+    version: '*'
   pubsub-c:
     git: https://github.com/FunShoot/pubsub-c
     version: '*'
     # path: ports/esp-idf
-  QDispatch:
-    git: https://github.com/cnf/QDispatch.git
-    version: master
+

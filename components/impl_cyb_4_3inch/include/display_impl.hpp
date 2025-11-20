@@ -1,12 +1,12 @@
 #pragma once
 
 #include <esp_lcd_panel_io.h>
+#include <esp_lcd_panel_rgb.h>
+#include <esp_lcd_touch.h>
 #include <hal/spi_types.h>
 #include <lvgl.h>
 
 #include <memory>
-
-#include "esp_lcd_panel_rgb.h"
 // #include <mutex>
 
 #define DISPLAY_BL_ON_LEVEL 1
@@ -51,6 +51,14 @@ static constexpr uint8_t kLcdVSyncPulseWidth = 4;          /* vsync_pulse_width 
 static constexpr uint8_t kLcdVSyncBackPorch = 8;           /* vsync_back_porch */
 static constexpr uint8_t kLcdPixelClockActiveNegative = 1; /* pclk_active_neg */
 
+static constexpr gpio_num_t kTouchI2cResetPin = GPIO_NUM_38;  //<! i2c reset pin for touch controller
+static constexpr uint8_t kTouchI2cAddress = 0x5D;             //<! i2c address for touch controller
+
+#define TOUCH_H_RES_MIN 0
+#define TOUCH_H_RES_MAX 475
+#define TOUCH_V_RES_MIN 0
+#define TOUCH_V_RES_MAX 271
+
 // static constexpr uint16_t kLcdColorDepth = LV_COLOR_FORMAT_RGB565;  //<! color depth used in the lcd panel
 static constexpr uint8_t kLvglDrawBufferLines = 40;  // number of display lines in each draw buffer
 // static constexpr size_t kDrawBufferSize = CONFIG_IMPL_CYB_4_3_INCH_HRES * kLvglDrawBufferLines *
@@ -66,6 +74,9 @@ lv_display_t* GetDisplayObjPtr();
 esp_err_t SetupQSPI();
 
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map);
+
+void TouchMapCoordinates(esp_lcd_touch_handle_t tp, uint16_t* x, uint16_t* y, uint16_t* strength, uint8_t* point_num,
+                         uint8_t max_point_num);
 
 bool LvglFlushReadyCallback(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t* edata, void* user_ctx);
 
