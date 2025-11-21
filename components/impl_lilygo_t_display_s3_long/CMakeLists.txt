@@ -5,6 +5,7 @@ set(PRIVREQ
   esp_lcd
   esp_lvgl_port
   esp_driver_spi
+  esp_mm
   lvgl
   # esp_app_format
   io_manager

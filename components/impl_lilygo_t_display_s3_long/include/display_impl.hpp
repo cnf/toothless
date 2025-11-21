@@ -35,7 +35,7 @@ static constexpr gpio_num_t kTouchIntPin = GPIO_NUM_11;     //<! touch irq pin
 static constexpr gpio_num_t kTouchResetPin = GPIO_NUM_16;   //<! touch reset pin
 
 //  Use of buffers at least 1/10 display size is recommended.
-static constexpr unsigned int kLcdPixelClockHz = 30 * 1000 * 1000;  //<! spi clock frequency for lcd
+static constexpr unsigned int kLcdPixelClockHz = 10 * 1000 * 1000;  //<! spi clock frequency for lcd
 static constexpr uint8_t kLcdCmdBits = 32;                          //<! bit number used to represent command
 static constexpr uint8_t kLcdParamBits = 8;                         //<! bit number used to represent parameter
 
@@ -54,12 +54,12 @@ static constexpr size_t kFramebufferSize = 640 * 180 * sizeof(lv_color16_t);
 /// 22 is similar to 20
 /// 32 is similar to 16
 /// 40 draws a screen full of random noise and then has SOME partial renders show up,garbled.
-static constexpr uint8_t kLvglDrawBufferLines = 18;  //<! number of display lines in each draw buffer
-static constexpr size_t kMainResolutionSize = 640;   //<! main resolution size (width in pixels) used by calculations
+// static constexpr uint8_t kLvglDrawBufferLines = 20;  //<! number of display lines in each draw buffer
+// static constexpr size_t kMainResolutionSize = 640;   //<! main resolution size (width in pixels) used by calculations
 
 // for portrait mode
-// static constexpr uint8_t kLvglDrawBufferLines = 64;  //<! number of display lines in each draw buffer
-// static constexpr size_t kMainResolutionSize = 180;   //<! main resolution size (width in pixels) used by
+static constexpr uint8_t kLvglDrawBufferLines = 80;  //<! number of display lines in each draw buffer
+static constexpr size_t kMainResolutionSize = 180;   //<! main resolution size (width in pixels) used by
 // calculationss
 
 /// @brief Send buffer size used for SPI transfers, in pixels
@@ -76,8 +76,8 @@ static constexpr size_t kDrawBufferSize = kSendBufSize * sizeof(lv_color16_t);
 
 /// @brief Maximum transfer size for SPI transfers, in bytes
 /// @note [draw buffer size] + 8 bytes overhead
-static constexpr size_t kMaxTransferSize = kDrawBufferSize + 8;
-// static constexpr size_t kMaxTransferSize = (kFramebufferSize) + 8;
+// static constexpr size_t kMaxTransferSize = kDrawBufferSize + 8;
+static constexpr size_t kMaxTransferSize = (kFramebufferSize) + 8;
 
 esp_err_t DisplayPanelSetup();
 esp_err_t PanelInit();
@@ -99,6 +99,8 @@ bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event
 void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data);
 
 void TurnOn();
+
+void TestPanelGeometry();
 
 void ShowBootScreen();
 

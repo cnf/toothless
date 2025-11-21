@@ -110,7 +110,7 @@ void UserInterface::Loop() {
 }
 
 esp_err_t UserInterface::SwitchTo(ScreenList screen) {
-  // return ESP_OK;
+  return ESP_OK;
   FLOG_INFO("Switching Screens: %d", screen);
   // If we're already switching, ignore the request
   if (_switching_screen_state) {

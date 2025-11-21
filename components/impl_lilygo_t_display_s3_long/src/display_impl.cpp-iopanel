@@ -149,9 +149,11 @@ static esp_err_t draw_bitmap(esp_lcd_panel_t* panel, int x_start, int y_start, i
   // transfer frame buffer
   // size_t len = (x_end - x_start) * (y_end - y_start) * sizeof(lv_color16_t);
   if (_first_flush_of_frame) {
+    FLOG_INFO("First flush of frame");
     tx_color(_io_handle, CMD_RAMWR, color_data, len);  // 2C
     _first_flush_of_frame = false;
   } else {
+    FLOG_INFO("Subsequent flush of frame");
     tx_color(_io_handle, CMD_RAMWRC, color_data, len);  // 3C
   }
 
@@ -257,7 +259,7 @@ esp_err_t DisplayPanelSetup() {
 
   // lv_display_set_rotation(_display, LV_DISPLAY_ROTATION_90);  // FIXME: Uncomment to rotate display
 
-  LvgLBufferSetup();
+  LvgLBufferSetupPartial();
 
   LV_LOG_USER("Assign Flush Callback");
   // set the callback which can copy the rendered image to an area of the display
@@ -284,7 +286,7 @@ esp_err_t PanelReset() {
   return ESP_OK;
 };
 
-esp_err_t LvgLBufferSetup() {
+esp_err_t LvgLBufferSetupPartial() {
   LV_LOG_USER("Assigning DMA Buffers");
 
 #ifndef CONFIG_SPIRAM
@@ -404,25 +406,26 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
   // lv_draw_sw_rgb565_swap(px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
   // lv_draw_sw_rgb565_swap(px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
   FLOG_INFO("Draw bitmap: x1=%d y1=%d x2=%d y2=%d", x_start, y_start, x_end, y_end);
-  // esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end + 1, y_end + 1, px_map);
+  esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end + 1, y_end + 1, px_map);
   // draw_bitmap(panel_handle, x_start, y_start, x_end + 1, y_end + 1, px_map);
   // draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, px_map);
   // Now send window as: x1, y1, x1+width-1, y1+height-1
   // This matches what the WORKING code does!
   // draw_bitmap(panel_handle, x_start, y_start, x_start + width - 1, y_start + height - 1, px_map);
   // In LvglFlushCallback - DON'T subtract, just pass coordinates as-is!
-  draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, px_map);
+  // draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, px_map);
 
-  if (lv_display_flush_is_last(_display)) {
-    _first_flush_of_frame = true;
-    FLOG_INFO("LVGL frame rendered");
-  }
+  // if (lv_display_flush_is_last(_display)) {
+  //   _first_flush_of_frame = true;
+  //   FLOG_INFO("LVGL frame rendered");
+  // }
+  // _first_flush_of_frame = false;
 
-  // LcdPushPixels(x1, y1, x2, y2, px_map);
+  // // LcdPushPixels(x1, y1, x2, y2, px_map);
 
+  // delay(25);
   FLOG_INFO("Draw bitmap done");
   lv_display_flush_ready(disp);
-  // lv_bitmap
 }
 
 bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t* edata, void* user_data) {
