@@ -176,7 +176,50 @@ static void amoled_write_cmd(uint32_t cmd, const uint8_t* pdat, uint32_t lenght)
 //   } while (len > 0);
 // }
 
-static void amoled_push_buffer(uint16_t* data, uint32_t len) {
+// static void amoled_push_buffer(uint16_t* data, uint32_t len) {
+//   bool first_send = true;
+//   uint16_t* p = data;
+
+//   // Cache sync
+//   uintptr_t addr = (uintptr_t)data;
+//   uintptr_t aligned_addr = addr & ~(32 - 1);
+//   size_t size = len * sizeof(uint16_t);
+//   size_t aligned_size = (size + (addr - aligned_addr) + 31) & ~(32 - 1);
+//   esp_cache_msync((void*)aligned_addr, aligned_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
+//   setCS();
+
+//   do {
+//     spi_transaction_ext_t t = {0};
+//     t.base.flags = SPI_TRANS_MODE_QIO;
+//     t.base.cmd = 0x32;
+
+//     if (first_send) {
+//       t.base.addr = 0x002C00;
+//       first_send = false;
+//     } else {
+//       t.base.addr = 0x003C00;
+//     }
+
+//     size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
+
+//     // // Skip first 4 pixels of THIS chunk
+//     // uint16_t* chunk_start = p + 4;      // Skip 4 pixels (8 bytes)
+//     // size_t send_size = chunk_size - 4;  // Send 4 fewer pixels
+
+//     // t.base.tx_buffer = chunk_start;  // Start 4 pixels into the chunk
+//     // t.base.length = send_size * 16;  // Adjust bit count
+
+//     spi_device_polling_transmit(_spi, (spi_transaction_t*)&t);
+
+//     len -= chunk_size;  // Still advance full chunk size
+//     p += chunk_size;
+//   } while (len > 0);
+
+//   clrCS();
+// }
+
+static void amoled_push_buffer_hmmm(uint16_t* data, uint32_t len) {
   bool first_send = true;
   uint16_t* p = data;
   int chunk_num = 0;  //<! for debug logging only
@@ -196,6 +239,136 @@ static void amoled_push_buffer(uint16_t* data, uint32_t len) {
   // for (uint32_t i = 0; i < len; i++) {
   //   data[i] = (data[i] << 8) | (data[i] >> 8);  // Swap bytes
   // }
+
+  do {
+    spi_transaction_ext_t t = {0};
+    t.base.flags = SPI_TRANS_MODE_QIO;
+    t.base.cmd = 0x32;
+
+    if (first_send) {
+      t.base.addr = 0x002C00;
+      first_send = false;
+    } else {
+      t.base.addr = 0x003C00;
+    }
+    FLOG_INFO("address: 0x%06X", t.base.addr);
+
+    size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
+    t.base.tx_buffer = p;
+    t.base.length = chunk_size * 16;
+
+    FLOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num, chunk_size, chunk_size * 16,
+              first_send);
+    chunk_num++;
+
+    spi_device_polling_transmit(_spi, (spi_transaction_t*)&t);
+    // esp_rom_delay_us(1000);  // Small delay to ensure proper timing between chunks
+    vTaskDelay(1 / portTICK_PERIOD_MS);  // FIXME: has no effect
+
+    len -= chunk_size;
+    p += chunk_size;
+  } while (len > 0);
+
+  clrCS();
+}
+
+static void amoled_push_buffer_no_change(uint16_t* data, uint32_t len) {
+  uintptr_t addr = (uintptr_t)data;
+  uintptr_t aligned_addr = addr & ~(32 - 1);
+  size_t size = len * sizeof(uint16_t);
+  size_t aligned_size = (size + (addr - aligned_addr) + 31) & ~(32 - 1);
+  esp_cache_msync((void*)aligned_addr, aligned_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
+  bool first_send = true;
+  uint16_t* p = data;
+
+  setCS();
+
+  do {
+    spi_transaction_ext_t t;
+    memset(&t, 0, sizeof(t));  // ← CRITICAL: Zero out the entire structure
+
+    t.base.flags = SPI_TRANS_MODE_QIO;
+    t.base.cmd = 0x32;
+
+    if (first_send) {
+      t.base.addr = 0x002C00;
+      first_send = false;
+    } else {
+      t.base.addr = 0x003C00;
+    }
+
+    size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
+    t.base.tx_buffer = p;
+    t.base.length = chunk_size * 16;
+
+    // Queue and immediately wait for completion
+    ESP_ERROR_CHECK(spi_device_queue_trans(_spi, (spi_transaction_t*)&t, portMAX_DELAY));
+
+    spi_transaction_t* ret_trans;
+    ESP_ERROR_CHECK(spi_device_get_trans_result(_spi, &ret_trans, portMAX_DELAY));
+
+    len -= chunk_size;
+    p += chunk_size;
+  } while (len > 0);
+
+  clrCS();
+}
+
+static void amoled_push_buffer_only_updates_same_part(uint16_t* data, uint32_t len) {
+  uint16_t* p = data;
+  int chunk_num = 0;
+
+  // Cache sync ONCE
+  uintptr_t addr = (uintptr_t)data;
+  uintptr_t aligned_addr = addr & ~(32 - 1);
+  size_t size = len * sizeof(uint16_t);
+  size_t aligned_size = (size + (addr - aligned_addr) + 31) & ~(32 - 1);
+  esp_cache_msync((void*)aligned_addr, aligned_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
+  do {
+    setCS();
+
+    spi_transaction_ext_t t = {0};
+    t.base.flags = SPI_TRANS_MODE_QIO;
+    t.base.cmd = 0x32;
+    t.base.addr = 0x002C00;  // ALWAYS use RAMWR, never RAMWRC
+
+    size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
+    t.base.tx_buffer = p;
+    t.base.length = chunk_size * 16;
+
+    spi_device_polling_transmit(_spi, (spi_transaction_t*)&t);
+
+    clrCS();
+
+    FLOG_INFO("Chunk %d: %zu pixels sent", chunk_num++, chunk_size);
+
+    len -= chunk_size;
+    p += chunk_size;
+  } while (len > 0);
+}
+
+static void amoled_push_buffer(uint16_t* data, uint32_t len) {
+  bool first_send = true;
+  uint16_t* p = data;
+  int chunk_num = 0;  //<! for debug logging only
+
+  // Calculate aligned address and size for cache sync
+  uintptr_t addr = (uintptr_t)data;
+  uintptr_t aligned_addr = addr & ~(32 - 1);  // Align down to 32-byte boundary
+  size_t size = len * sizeof(uint16_t);
+  size_t aligned_size = (size + (addr - aligned_addr) + 31) & ~(32 - 1);  // Round up to 32-byte boundary
+
+  // Flush CPU cache to ensure PSRAM has latest pixel data
+  esp_cache_msync((void*)aligned_addr, aligned_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
+  setCS();
+
+  // color invert byte swap
+  for (uint32_t i = 0; i < len; i++) {
+    data[i] = (data[i] << 8) | (data[i] >> 8);  // Swap bytes
+  }
 
   do {
     spi_transaction_ext_t t = {0};
@@ -285,6 +458,8 @@ static void amoled_set_window(uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye
   for (uint32_t i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
     amoled_write_cmd(t[i].addr, t[i].param, t[i].len);
   }
+  // Small delay to let panel process window commands
+  esp_rom_delay_us(10);  // FIXME: useless, remove
 }
 
 // void display_push_colors(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t* data) {
@@ -1166,6 +1341,15 @@ void ShowBootScreen() {
 
 // Add this test function to display_impl.cpp
 void TestPanelGeometry() {
+  static constexpr uint16_t kBlue = 0x001f;
+  static constexpr uint16_t kRed = 0xf800;
+  static constexpr uint16_t kGreen = 0x07e0;
+  static constexpr uint16_t kPurple = kBlue | kRed;
+  static constexpr uint16_t kYellow = kGreen | kRed;
+  static constexpr uint16_t kCyan = kBlue | kGreen;
+  static constexpr uint16_t kBlack = 0x0000;
+  static constexpr uint16_t kWhite = kBlue | kGreen | kRed;
+
   FLOG_INFO("Testing panel geometry with color blocks");
 
   // Allocate test buffer (full frame)
@@ -1207,18 +1391,32 @@ void TestPanelGeometry() {
   vTaskDelay(3000 / portTICK_PERIOD_MS);  // Show for 3 seconds
   esp_task_wdt_reset();
 
-  // Test pattern 2: Horizontal stripes every 60 rows
-  for (int y = 0; y < 180; y++) {
+  // // Test pattern 2: Horizontal stripes every 60 rows
+  // for (int y = 0; y < 180; y++) {
+  //   uint16_t color;
+  //   if (y < 60)
+  //     color = 0xF800;  // Red
+  //   else if (y < 120)
+  //     color = 0x07E0;  // Green
+  //   else
+  //     color = 0x001F;  // Blue
+
+  //   for (int x = 0; x < 640; x++) {
+  //     test_buf[y * 640 + x] = color;
+  //   }
+  // }
+  // Test pattern 2: Horizontal stripes every 213 rows (to match portrait orientation)
+  for (int y = 0; y < 640; y++) {  // ← 640 rows (height)
     uint16_t color;
-    if (y < 60)
+    if (y < 213)
       color = 0xF800;  // Red
-    else if (y < 120)
+    else if (y < 426)
       color = 0x07E0;  // Green
     else
       color = 0x001F;  // Blue
 
-    for (int x = 0; x < 640; x++) {
-      test_buf[y * 640 + x] = color;
+    for (int x = 0; x < 180; x++) {   // ← 180 columns (width)
+      test_buf[y * 180 + x] = color;  // ← Correct portrait indexing
     }
   }
 
@@ -1231,35 +1429,54 @@ void TestPanelGeometry() {
 
   // Test pattern 3: Small squares at corners to verify coordinate mapping
   // Clear to black
+  // for (int i = 0; i < 180 * 640; i++) {
+  //   test_buf[i] = 0x0000;
+  // }
+
+  // // Top-left: Red 50×50
+  // for (int y = 0; y < 50; y++) {
+  //   for (int x = 0; x < 50; x++) {
+  //     test_buf[y * 180 + x] = kRed;
+  //   }
+
+  //   for (int x = 180 - 50; x < 180; x++) {
+  //     test_buf[y * 180 + x] = kGreen;
+  //   }
+  // }
+
+  // // Bottom-left: Blue 50×50
+  // for (int y = 640 - 50; y < 640; y++) {
+  //   for (int x = 0; x < 50; x++) {
+  //     test_buf[y * 180 + x] = kBlue;
+  //   }
+
+  //   for (int x = 180 - 50; x < 180; x++) {
+  //     test_buf[y * 180 + x] = kYellow;
+  //   }
+  // }
+
+  // FLOG_INFO("Sending corner squares pattern");
+  // amoled_set_window(0, 0, 179, 639);
+  // amoled_push_buffer(test_buf, 180 * 640);
+
+  vTaskDelay(3000 / portTICK_PERIOD_MS);
+  esp_task_wdt_reset();
+
+  // Test pattern 3.1: Small squares at corners to verify coordinate mapping
+  // Clear to black
   for (int i = 0; i < 180 * 640; i++) {
     test_buf[i] = 0x0000;
   }
 
-  // Top-left: Red 50×50
-  for (int y = 0; y < 50; y++) {
-    for (int x = 0; x < 50; x++) {
-      test_buf[y * 640 + x] = 0xF800;
-    }
-  }
+  for (int yStart = 20; yStart < 640; yStart += 80) {
+    for (int y = yStart; y < yStart + 40; ++y) {
+      for (int x = 0; x < 40; x++) {
+        test_buf[y * 180 + x] = kRed;
+      }
 
-  // Top-right: Green 50×50
-  for (int y = 0; y < 50; y++) {
-    for (int x = 640 - 50; x < 640; x++) {
-      test_buf[y * 640 + x] = 0x07E0;
-    }
-  }
-
-  // Bottom-left: Blue 50×50
-  for (int y = 180 - 50; y < 180; y++) {
-    for (int x = 0; x < 50; x++) {
-      test_buf[y * 640 + x] = 0x001F;
-    }
-  }
-
-  // Bottom-right: Yellow 50×50
-  for (int y = 180 - 50; y < 180; y++) {
-    for (int x = 640 - 50; x < 640; x++) {
-      test_buf[y * 640 + x] = 0xFFE0;
+      for (int x = 180 - 40; x < 180; x++) {
+        test_buf[y * 180 + x] = kBlue;
+      }
     }
   }
 
@@ -1267,29 +1484,29 @@ void TestPanelGeometry() {
   amoled_set_window(0, 0, 179, 639);
   amoled_push_buffer(test_buf, 180 * 640);
 
-  vTaskDelay(3000 / portTICK_PERIOD_MS);
-  esp_task_wdt_reset();
+  // vTaskDelay(3000 / portTICK_PERIOD_MS);
+  // esp_task_wdt_reset();
 
-  // Test 4: Fill buffer as 640×180 (landscape) instead of 180×640 (portrait)
-  for (int y = 0; y < 640; y++) {  // ← 640 rows
-    uint16_t color;
-    if (y < 213)
-      color = 0x07E0;  // Green
-    else if (y < 426)
-      color = 0xF800;  // Red
-    else
-      color = 0x001F;  // Blue
+  // // Test 4: Fill buffer as 640×180 (landscape) instead of 180×640 (portrait)
+  // for (int y = 0; y < 640; y++) {  // ← 640 rows
+  //   uint16_t color;
+  //   if (y < 213)
+  //     color = 0x07E0;  // Green
+  //   else if (y < 426)
+  //     color = 0xF800;  // Red
+  //   else
+  //     color = 0x001F;  // Blue
 
-    for (int x = 0; x < 180; x++) {  // ← 180 columns
-      test_buf[y * 180 + x] = color;
-    }
-  }
+  //   for (int x = 0; x < 180; x++) {  // ← 180 columns
+  //     test_buf[y * 180 + x] = color;
+  //   }
+  // }
 
-  amoled_set_window(0, 0, 179, 639);
-  amoled_push_buffer(test_buf, 180 * 640);
+  // amoled_set_window(0, 0, 179, 639);
+  // amoled_push_buffer(test_buf, 180 * 640);
 
-  heap_caps_free(test_buf);
-  FLOG_INFO("Test patterns complete");
+  // heap_caps_free(test_buf);
+  // FLOG_INFO("Test patterns complete");
 }
 
 void Backlight() {
