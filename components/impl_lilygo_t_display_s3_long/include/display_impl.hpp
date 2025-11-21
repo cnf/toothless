@@ -35,7 +35,7 @@ static constexpr gpio_num_t kTouchIntPin = GPIO_NUM_11;     //<! touch irq pin
 static constexpr gpio_num_t kTouchResetPin = GPIO_NUM_16;   //<! touch reset pin
 
 //  Use of buffers at least 1/10 display size is recommended.
-static constexpr unsigned int kLcdPixelClockHz = 10 * 1000 * 1000;  //<! spi clock frequency for lcd
+static constexpr unsigned int kLcdPixelClockHz = 30 * 1000 * 1000;  //<! spi clock frequency for lcd
 static constexpr uint8_t kLcdCmdBits = 32;                          //<! bit number used to represent command
 static constexpr uint8_t kLcdParamBits = 8;                         //<! bit number used to represent parameter
 
@@ -78,6 +78,9 @@ static constexpr size_t kDrawBufferSize = kSendBufSize * sizeof(lv_color16_t);
 /// @note [draw buffer size] + 8 bytes overhead
 // static constexpr size_t kMaxTransferSize = kDrawBufferSize + 8;
 static constexpr size_t kMaxTransferSize = (kFramebufferSize) + 8;
+
+static constexpr size_t kRotationBufferSize =
+    192 * kLvglDrawBufferLines * sizeof(lv_color16_t);  //<! rotation buffer size in bytes
 
 esp_err_t DisplayPanelSetup();
 esp_err_t PanelInit();
