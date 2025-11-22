@@ -6,6 +6,7 @@ file(GLOB_RECURSE SRC
   "ui/chart_history.cpp"
   "ui/display/*.cpp"
   "ui/fonts/*.c"
+  "ui/themes/*.cpp"
   "ui/screens/screen_helpers.cpp"
   )
 

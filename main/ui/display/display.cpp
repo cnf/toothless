@@ -10,7 +10,8 @@
 #include "config.h"
 #include "display_impl.hpp"
 #include "funlog.h"
-#include "theme.hpp"
+#include "ui/themes/style_registry.hpp"
+#include "ui/themes/widget_factories.hpp"
 
 namespace toothless {
 
@@ -25,7 +26,8 @@ esp_err_t Display::Init() {
   ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
   _display_ptr = display::impl::GetDisplayObjPtr();
-  SetTheme(_display_ptr);
+  // ui::theme::SetTheme(_display_ptr);
+  themes::Init(themes::ThemeId::REFLOW_DARK);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
 
