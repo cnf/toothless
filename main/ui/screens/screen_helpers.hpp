@@ -40,17 +40,17 @@ struct NumpadState {
   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
 };
 
-struct TimeRollerContext {
+struct NumberRollerContext {
   lv_obj_t* parent_screen = nullptr;                       // Screen where roller is opened
   lv_obj_t* backdrop = nullptr;                            // Where to create backdrop
   lv_obj_t* target_spinbox = nullptr;                      // Spinbox to update
   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
 };
 
-struct TimeRollerState {
-  lv_obj_t* roller_hours;  // Roller object
-  lv_obj_t* roller_minutes;
-  lv_obj_t* roller_seconds;
+struct NumberRollerState {
+  lv_obj_t* col_a;  // Roller object
+  lv_obj_t* col_b;
+  lv_obj_t* col_c;
   lv_obj_t* ok_btn;
   lv_obj_t* backdrop;                                      // Backdrop object
   lv_obj_t* target_spinbox;                                // Spinbox being edited
@@ -91,7 +91,7 @@ void NumpadKeyHandler(lv_event_t* e);
 
 void NumPadCleanupHandler(lv_event_t* e);
 
-void TimeRollerOpen(const TimeRollerContext& ctx);
+void TimeRollerOpen(const NumberRollerContext& ctx);
 
 void TimeRollerHandler(lv_event_t* e);
 

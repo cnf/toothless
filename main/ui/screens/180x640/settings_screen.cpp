@@ -10,6 +10,8 @@
 #include "funlog.h"
 #include "ui/display/display.hpp"
 #include "ui/screens/screen_helpers.hpp"
+#include "ui/themes/style_registry.hpp"
+#include "ui/themes/widget_factories.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -23,8 +25,9 @@ SettingsScreen::~SettingsScreen() {}
 
 lv_obj_t* SettingsScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _screen = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
+  // _screen = lv_obj_create(NULL);
+  // lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
+  _screen = ui::CreateScreen();
 
   _labels->sidebar = true;
   lv_obj_set_style_pad_all(_screen, 10, 0);

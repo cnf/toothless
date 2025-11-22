@@ -21,9 +21,12 @@ extern lv_style_t disabled;   ///< Disabled state for all buttons
 
 /// Screen and container styles
 namespace screens {
-extern lv_style_t background;  ///< Main screen background
-extern lv_style_t card;        ///< Card/panel surface
-extern lv_style_t menu_bg;     ///< Menu background
+extern lv_style_t background;       ///< Main screen background
+extern lv_style_t subscreen;        ///< Sub-screen (transparent overlay)
+extern lv_style_t card;             ///< Card/panel surface
+extern lv_style_t rowcontainer;     ///< Row container
+extern lv_style_t columncontainer;  ///< Column container
+extern lv_style_t menu_bg;          ///< Menu background
 }  // namespace screens
 
 /// Text/label styles
@@ -44,6 +47,7 @@ extern lv_style_t grid_lines;   ///< Grid line style
 extern lv_style_t line_temp;    ///< Temperature line color
 extern lv_style_t line_target;  ///< Target temperature line
 extern lv_style_t cursor;       ///< Chart cursor
+extern lv_style_t indicator;    ///< Chart indicator style
 }  // namespace charts
 
 /// Control styles (sliders, switches, etc.)
@@ -54,6 +58,8 @@ extern lv_style_t slider_knob;       ///< Slider handle
 extern lv_style_t switch_bg;         ///< Switch background
 extern lv_style_t switch_indicator;  ///< Switch active indicator
 extern lv_style_t switch_knob;       ///< Switch knob/handle
+extern lv_style_t roller;            ///< Roller widget style
+extern lv_style_t roller_selected;   ///< Roller selected item style
 }  // namespace controls
 
 /// LED indicator styles
@@ -61,6 +67,26 @@ namespace indicators {
 extern lv_style_t led_on;   ///< LED indicator ON state
 extern lv_style_t led_off;  ///< LED indicator OFF state
 }  // namespace indicators
+
+namespace menus {
+extern lv_style_t messagebox;
+extern lv_style_t messagebox_backdrop;
+extern lv_style_t messagebox_title;
+extern lv_style_t messagebox_message;
+extern lv_style_t messagebox_button;
+extern lv_style_t menu_background;  ///< Menu background style
+}  // namespace menus
+
+namespace fonts {
+extern lv_font_t tiny;
+extern lv_font_t small;
+extern lv_font_t medium;
+extern lv_font_t large;
+extern lv_font_t xlarge;
+extern lv_font_t numbers_small;
+extern lv_font_t numbers_medium;
+extern lv_font_t numbers_large;
+}  // namespace fonts
 
 /// Initialize all styles with specified theme
 /// @param theme Theme ID to initialize

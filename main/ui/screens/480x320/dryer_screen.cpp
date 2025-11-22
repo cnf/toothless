@@ -295,18 +295,18 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
 void DryerScreen::TimerHandler(lv_event_t* e) {
   DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
 
-  TimeRollerContext ctx{.parent_screen = obj->GetScreen(),
-                        .backdrop = obj->_labels->backdrop,            // backdrop
-                        .target_spinbox = obj->_labels->timer_target,  // spinbox
-                        .on_confirm = [obj](std::optional<int32_t> val) {
-                          if (val.has_value() && !std::isnan(val.value())) {
-                            FLOG_INFO("Value: %li", val.value());
-                            PS_PUB_INT("heater.timer.set", val.value());
-                          } else {
-                            PS_PUB_NIL("heater.timer.set");
-                          }
-                          // lv_label_set_text(obj->_labels->set_target, )
-                        }};
+  NumberRollerContext ctx{.parent_screen = obj->GetScreen(),
+                          .backdrop = obj->_labels->backdrop,            // backdrop
+                          .target_spinbox = obj->_labels->timer_target,  // spinbox
+                          .on_confirm = [obj](std::optional<int32_t> val) {
+                            if (val.has_value() && !std::isnan(val.value())) {
+                              FLOG_INFO("Value: %li", val.value());
+                              PS_PUB_INT("heater.timer.set", val.value());
+                            } else {
+                              PS_PUB_NIL("heater.timer.set");
+                            }
+                            // lv_label_set_text(obj->_labels->set_target, )
+                          }};
 
   TimeRollerOpen(ctx);
 }
@@ -314,7 +314,7 @@ void DryerScreen::TimerHandler(lv_event_t* e) {
 void DryerScreen::TargetHandler(lv_event_t* e) {
   DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
   // FLOG_INFO("TargetHandler called");
-  // TimeRollerContext ctx = {
+  // NumberRollerContext ctx = {
   //     .parent_screen = obj->GetScreen(),
   //     .backdrop = obj->_labels->backdrop,            // backdrop
   //     .target_spinbox = obj->_labels->temperature_target,  // spinbox

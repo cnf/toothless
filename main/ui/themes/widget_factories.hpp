@@ -4,11 +4,23 @@
 
 #include <lvgl.h>
 
+#include <functional>
+#include <string>
+
 namespace toothless::ui {
 
 // ============================================================================
 // BUTTON FACTORIES
 // ============================================================================
+
+/// @brief  Create a primary action button (Start, Confirm, etc.)
+/// @param parent Parent object
+/// @param text Button label text
+/// @param width width
+/// @param height height
+/// @param grow If true, button grows to fill available space
+/// @return Created button object
+lv_obj_t* CreatePrimaryButton(lv_obj_t* parent, const char* text, int32_t width, int32_t height, bool grow);
 
 /// Create a primary action button (Start, Confirm, etc.)
 /// @param parent Parent object
@@ -40,8 +52,9 @@ lv_obj_t* CreateSuccessButton(lv_obj_t* parent, const char* text, bool grow = fa
 
 /// Create a settings icon button
 /// @param parent Parent object
+/// @param grow If true, button grows to fill available space
 /// @return Created button object with gear icon
-lv_obj_t* CreateSettingsButton(lv_obj_t* parent);
+lv_obj_t* CreateSettingsButton(lv_obj_t* parent, bool grow = false);
 
 // ============================================================================
 // SCREEN & CONTAINER FACTORIES
@@ -51,10 +64,25 @@ lv_obj_t* CreateSettingsButton(lv_obj_t* parent);
 /// @return Created screen object
 lv_obj_t* CreateScreen();
 
+/// @brief Create a sub-screen container, for split screen layouts
+/// @param parent Parent object
+/// @return Created sub-screen object
+lv_obj_t* CreateSubScreen(lv_obj_t* parent);
+
 /// Create a card/panel container
 /// @param parent Parent object
 /// @return Created card object
 lv_obj_t* CreateCard(lv_obj_t* parent);
+
+/// Create a row container for horizontal layouts
+/// @param parent Parent object
+/// @return Created row container
+lv_obj_t* CreateRowContainer(lv_obj_t* parent);
+
+/// Create a column container for vertical layouts
+/// @param parent Parent object
+/// @return Created column container
+lv_obj_t* CreateColumnContainer(lv_obj_t* parent);
 
 /// Create a menu background container
 /// @param parent Parent object
@@ -127,15 +155,22 @@ lv_obj_t* CreateSlider(lv_obj_t* parent, int32_t min, int32_t max, int32_t value
 /// @return Created switch object
 lv_obj_t* CreateSwitch(lv_obj_t* parent, bool initial_state = false);
 
+/// Create a styled roller widget
+/// @param parent Parent object
+/// @param options
+/// @param selected
+/// @return
+lv_obj_t* CreateRoller(lv_obj_t* parent, const char* options, int32_t selected);
+
 // ============================================================================
 // CHART FACTORIES
 // ============================================================================
 
-/// Create a styled line chart for temperature display
+/// Create a styled line chart
 /// @param parent Parent object
 /// @param points_capacity Maximum number of data points
 /// @return Created chart object
-lv_obj_t* CreateTemperatureChart(lv_obj_t* parent, uint16_t points_capacity);
+lv_obj_t* CreateChart(lv_obj_t* parent, uint16_t points_capacity);
 
 // ============================================================================
 // INDICATOR FACTORIES
@@ -146,6 +181,11 @@ lv_obj_t* CreateTemperatureChart(lv_obj_t* parent, uint16_t points_capacity);
 /// @param initial_state Initial ON/OFF state
 /// @return Created LED object
 lv_obj_t* CreateLEDIndicator(lv_obj_t* parent, bool initial_state = false);
+
+lv_obj_t* CreateMessageBox(lv_obj_t* parent, std::string title, std::string message = "",
+                           std::string confirm_text = "OK", std::string cancel_text = "Cancel",
+                           std::function<void(void*)> on_confirm = nullptr,
+                           std::function<void(void*)> on_cancel = nullptr, void* user_data = nullptr);
 
 // ============================================================================
 // HELPER FUNCTIONS

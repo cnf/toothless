@@ -14,7 +14,9 @@ namespace toothless {
 
 lv_obj_t* LocalCreateBottomRow(lv_obj_t* container);
 
-void LocalTempRollerOpen(const TimeRollerContext& ctx);
+lv_obj_t* LocalCreateModeButton(lv_obj_t* container);
+
+void LocalTempRollerOpen(const NumberRollerContext& ctx);
 
 void LocalTempRollerCleanupHandler(lv_event_t* e);
 

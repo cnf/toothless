@@ -28,6 +28,7 @@ esp_err_t Display::Init() {
   _display_ptr = display::impl::GetDisplayObjPtr();
   // ui::theme::SetTheme(_display_ptr);
   themes::Init(themes::ThemeId::REFLOW_DARK);
+  // themes::Init(themes::ThemeId::JADE);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
 

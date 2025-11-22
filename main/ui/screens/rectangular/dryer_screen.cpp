@@ -6,7 +6,8 @@
 #include "heater/heater.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/screen_helpers.hpp"
-#include "ui/screens/screen_sizes.hpp"
+#include "ui/themes/style_registry.hpp"
+#include "ui/themes/widget_factories.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -33,12 +34,11 @@ lv_obj_t* DryerScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
   // FIXME: should probably make queue size configurable
-  _screen = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
-  lv_obj_set_style_pad_all(_screen, 10, 0);            // Global 2% border
+
+  _screen = ui::CreateScreen();
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  // lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
+  lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
 
   MainSection();
   _labels->start_stop_button = CreateBottomRow(_screen);
@@ -75,10 +75,10 @@ esp_err_t DryerScreen::UpdateAllDisplays() {
       if (!_labels->heater_led) continue;
       switch (msg->bool_val) {
         case true:
-          lv_led_on(_labels->heater_led);
+          ui::SetLEDState(_labels->heater_led, true);
           break;
         case false:
-          lv_led_off(_labels->heater_led);
+          ui::SetLEDState(_labels->heater_led, false);
           break;
       }
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
@@ -102,15 +102,16 @@ esp_err_t DryerScreen::UpdateAllDisplays() {
 }
 
 esp_err_t DryerScreen::Temperature() {
-  lv_obj_t* temp_container = lv_obj_create(_screen);
+  lv_obj_t* temp_container = ui::CreateRowContainer(_screen);
+  // lv_obj_t* temp_container = lv_obj_create(_screen);
   lv_obj_add_flag(temp_container, LV_OBJ_FLAG_HIDDEN);  // Hide until we add more temps
-  lv_obj_set_style_pad_all(temp_container, 0, 0);       // Remove all padding
-  lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_remove_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(temp_container, lv_pct(100), lv_pct(10));
-  lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
-  lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
+  // lv_obj_set_style_pad_all(temp_container, 0, 0);       // Remove all padding
+  // lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
+  // lv_obj_remove_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
+  // lv_obj_set_size(temp_container, lv_pct(100), lv_pct(10));
+  // lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
+  // lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
+  // lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
 
   // _labels->temp_current = TemperatureBlock(temp_container, "Current", "--°C");
   lv_obj_t* temperature_obj = lv_obj_create(temp_container);
@@ -197,14 +198,15 @@ void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "--:--"); };
 // }
 
 void DryerScreen::MainSection() {
-  lv_obj_t* wrapper = lv_obj_create(_screen);
-  lv_obj_remove_style_all(wrapper);
-  lv_obj_set_style_bg_opa(wrapper, LV_OPA_TRANSP, 0);
-  lv_obj_set_size(wrapper, lv_pct(100), 0);
+  lv_obj_t* wrapper = ui::CreateColumnContainer(_screen);
+  // lv_obj_t* wrapper = lv_obj_create(_screen);
+  // lv_obj_remove_style_all(wrapper);
+  // lv_obj_set_style_bg_opa(wrapper, LV_OPA_TRANSP, 0);
+  lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_grow(wrapper, 1);  // This wrapper grows to fill remaining space
-  lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_all(wrapper, 0, 0);
+  // lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
+  // lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
+  // lv_obj_set_style_pad_all(wrapper, 0, 0);
   // lv_obj_set_style_pad_gap(wrapper, 10, 0);  // Gap between temp blocks
 
   CreateTemperature(wrapper);
@@ -214,55 +216,37 @@ void DryerScreen::MainSection() {
 void DryerScreen::CreateTemperature(lv_obj_t* parent) {
   // Temperature row
 
-  lv_obj_t* wrapper = lv_obj_create(parent);
-  lv_obj_remove_style_all(wrapper);
-  lv_obj_set_style_bg_opa(wrapper, LV_OPA_TRANSP, 0);
+  lv_obj_t* wrapper = ui::CreateRowContainer(parent);
   lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_ROW);
+
   lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
   lv_obj_set_flex_grow(wrapper, 0);
-  lv_obj_set_style_pad_all(wrapper, 25, 0);
+  // lv_obj_set_style_pad_all(wrapper, 25, 0);
 
-  // lv_obj_set_style_border_width(wrapper, 1, 0);
   {
-    lv_obj_t* taco = lv_obj_create(wrapper);
-    lv_obj_remove_style_all(taco);
-    lv_obj_set_style_bg_opa(taco, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(taco, 0, 0);
-
+    lv_obj_t* taco = ui::CreateRowContainer(wrapper);
     lv_obj_set_size(taco, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_layout(taco, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(taco, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(taco, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-    lv_obj_t* temperature = lv_label_create(taco);
-    lv_label_set_text(temperature, "24.89");
-    lv_obj_set_style_text_font(temperature, &sizes::font::numbers_large, 0);
-    _labels->temperature_current = temperature;
-    lv_obj_t* unit = lv_label_create(taco);
-    lv_label_set_text(unit, "°C");
-    lv_obj_set_style_text_font(unit, &sizes::font::numbers_small, 0);
+    _labels->temperature_current = ui::CreateValueLarge(taco, 00.0f, "%.01f");
+    lv_obj_set_style_text_font(_labels->temperature_current, &themes::fonts::numbers_large, 0);
+    lv_obj_t* unit = ui::CreateUnitLabel(taco, "°C");
+    lv_obj_set_style_text_font(unit, &themes::fonts::numbers_small, 0);
   }
 
   HeaterLED(wrapper);
 }
 
 void DryerScreen::CreateTimer(lv_obj_t* parent) {
-  lv_obj_t* wrapper = lv_obj_create(parent);
-  lv_obj_remove_style_all(wrapper);
-  lv_obj_set_style_bg_opa(wrapper, LV_OPA_TRANSP, 0);
-  // lv_obj_set_style_pad_all(wrapper, 25, 0);
-  // lv_obj_set_style_pad_gap(wrapper, 10, 0);
-  lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_t* wrapper = ui::CreateRowContainer(parent);
 
-  lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_ROW);
+  lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   lv_obj_set_flex_grow(wrapper, 1);
   {
-    lv_obj_t* taco = lv_obj_create(wrapper);
+    lv_obj_t* taco = ui::CreateRowContainer(wrapper);
+    // lv_obj_t* taco = lv_obj_create(wrapper);
     lv_obj_remove_style_all(taco);
     lv_obj_set_style_bg_opa(taco, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(taco, 0, 0);
@@ -274,11 +258,11 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
 
     _labels->temperature_target = lv_label_create(taco);
     lv_label_set_text(_labels->temperature_target, "---");
-    lv_obj_set_style_text_font(_labels->temperature_target, &sizes::font::numbers_medium, 0);
+    lv_obj_set_style_text_font(_labels->temperature_target, &themes::fonts::numbers_medium, 0);
 
     lv_obj_t* target_unit = lv_label_create(taco);
     lv_label_set_text(target_unit, "°C");
-    lv_obj_set_style_text_font(target_unit, &AdwaitaMonoB_32, 0);
+    lv_obj_set_style_text_font(target_unit, &themes::fonts::numbers_small, 0);
     lv_obj_set_align(target_unit, LV_ALIGN_TOP_LEFT);
 
     lv_obj_add_flag(taco, LV_OBJ_FLAG_CLICKABLE);
@@ -287,7 +271,7 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
 
   _labels->timer = lv_label_create(wrapper);
   lv_label_set_text(_labels->timer, "00:00");
-  lv_obj_set_style_text_font(_labels->timer, &sizes::font::numbers_medium, 0);
+  lv_obj_set_style_text_font(_labels->timer, &themes::fonts::numbers_medium, 0);
   lv_obj_align(_labels->timer, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_add_flag(_labels->timer, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(_labels->timer, TimerHandler, LV_EVENT_CLICKED, this);
@@ -296,38 +280,24 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
 void DryerScreen::TimerHandler(lv_event_t* e) {
   DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
 
-  TimeRollerContext ctx{.parent_screen = obj->GetScreen(),
-                        .backdrop = obj->_labels->backdrop,            // backdrop
-                        .target_spinbox = obj->_labels->timer_target,  // spinbox
-                        .on_confirm = [obj](std::optional<int32_t> val) {
-                          if (val.has_value() && !std::isnan(val.value())) {
-                            FLOG_INFO("Value: %li", val.value());
-                            PS_PUB_INT("heater.timer.set", val.value());
-                          } else {
-                            PS_PUB_NIL("heater.timer.set");
-                          }
-                          // lv_label_set_text(obj->_labels->set_target, )
-                        }};
+  NumberRollerContext ctx{.parent_screen = obj->GetScreen(),
+                          .backdrop = obj->_labels->backdrop,            // backdrop
+                          .target_spinbox = obj->_labels->timer_target,  // spinbox
+                          .on_confirm = [obj](std::optional<int32_t> val) {
+                            if (val.has_value() && !std::isnan(val.value())) {
+                              FLOG_INFO("Value: %li", val.value());
+                              PS_PUB_INT("heater.timer.set", val.value());
+                            } else {
+                              PS_PUB_NIL("heater.timer.set");
+                            }
+                            // lv_label_set_text(obj->_labels->set_target, )
+                          }};
 
   TimeRollerOpen(ctx);
 }
 
 void DryerScreen::TargetHandler(lv_event_t* e) {
   DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
-  // FLOG_INFO("TargetHandler called");
-  // TimeRollerContext ctx = {
-  //     .parent_screen = obj->GetScreen(),
-  //     .backdrop = obj->_labels->backdrop,            // backdrop
-  //     .target_spinbox = obj->_labels->temperature_target,  // spinbox
-  //     .on_confirm = [obj](std::optional<int32_t> val) {
-  //       if (val.has_value() && !std::isnan(val.value())) {
-  //         FLOG_INFO("Value: %li", val.value());
-  //         PS_PUB_INT("heater.target.temperature", val.value());
-  //       } else {
-  //         PS_PUB_NIL("heater.target.temperature");
-  //       }
-  //       // lv_label_set_text(obj->_labels->set_target, )
-  //     }};
 
   NumpadContext ctx{.parent_screen = obj->GetScreen(),
                     .backdrop = obj->_labels->backdrop,          // backdrop
@@ -346,72 +316,69 @@ void DryerScreen::TargetHandler(lv_event_t* e) {
 }
 
 void DryerScreen::HeaterLED(lv_obj_t* parent) {
-  _labels->heater_led = lv_led_create(parent);
-  lv_obj_align(_labels->heater_led, LV_ALIGN_CENTER, 0, 0);
+  _labels->heater_led = ui::CreateLEDIndicator(parent, false);
   lv_obj_set_size(_labels->heater_led, 65, 65);
-  lv_obj_set_style_radius(_labels->heater_led, LV_RADIUS_CIRCLE, 0);
-
-  lv_led_off(_labels->heater_led);
-  lv_led_set_color(_labels->heater_led, lv_palette_main(LV_PALETTE_RED));
+  // lv_led_set_color(_labels->heater_led, lv_palette_main(LV_PALETTE_RED));
 }
 
-esp_err_t DryerScreen::BottomRow() {
-  lv_obj_t* temp_container;
-  {
-    temp_container = lv_obj_create(_screen);
-    lv_obj_remove_style_all(temp_container);  // Make it invisible
-    lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
-    lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_remove_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(temp_container, lv_pct(100), lv_pct(15));
-    lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
-    lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
-    // lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
-  }
-  StartButton(temp_container);
-  return ESP_OK;
-}
+// esp_err_t DryerScreen::BottomRow() {
+//   lv_obj_t* temp_container;
+//   {
+//     temp_container = ui::CreateRowContainer(_screen);
+//     // temp_container = lv_obj_create(_screen);
+//     // lv_obj_remove_style_all(temp_container);  // Make it invisible
+//     // lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
+//     // lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
+//     // lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
+//     // lv_obj_remove_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
+//     lv_obj_set_size(temp_container, lv_pct(100), lv_pct(15));
+//     // lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
+//     // lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
+//     lv_obj_set_style_pad_gap(temp_container, 10, 0);  // Gap between temp blocks
+//     // lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+//   }
+//   StartButton(temp_container);
+//   return ESP_OK;
+// }
 
-/// @brief Button to start reflow
-/// @return
-esp_err_t DryerScreen::StartButton(lv_obj_t* container) {
-  lv_obj_t* start_btn = lv_button_create(container);
-  lv_obj_set_size(start_btn, lv_pct(50), lv_pct(100));
-  // lv_obj_align(start_btn, LV_ALIGN_BOTTOM_LEFT, lv_pct(2), lv_pct(-2));
+// /// @brief Button to start reflow
+// /// @return
+// esp_err_t DryerScreen::StartButton(lv_obj_t* container) {
+//   lv_obj_t* start_btn = lv_button_create(container);
+//   lv_obj_set_size(start_btn, lv_pct(50), lv_pct(100));
+//   // lv_obj_align(start_btn, LV_ALIGN_BOTTOM_LEFT, lv_pct(2), lv_pct(-2));
 
-  lv_obj_t* start_label = lv_label_create(start_btn);
-  lv_label_set_text(start_label, "Start");
-  lv_obj_center(start_label);
-  lv_obj_set_flex_grow(start_btn, 1);  // Equal width temperature_objs
+//   lv_obj_t* start_label = lv_label_create(start_btn);
+//   lv_label_set_text(start_label, "Start");
+//   lv_obj_center(start_label);
+//   lv_obj_set_flex_grow(start_btn, 1);  // Equal width temperature_objs
 
-  // Register event with screen object as user data
-  lv_obj_add_event_cb(start_btn, StartButtonEventHandler, LV_EVENT_CLICKED, this);
-  return ESP_OK;
-}
+//   // Register event with screen object as user data
+//   lv_obj_add_event_cb(start_btn, StartButtonEventHandler, LV_EVENT_CLICKED, this);
+//   return ESP_OK;
+// }
 
-void DryerScreen::StartButtonEventHandler(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
+// void DryerScreen::StartButtonEventHandler(lv_event_t* e) {
+//   lv_event_code_t code = lv_event_get_code(e);
 
-  // lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
+//   // lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
 
-  if (code == LV_EVENT_CLICKED) {
-    FLOG_DEBUG("Start Button clicked");
+//   if (code == LV_EVENT_CLICKED) {
+//     FLOG_DEBUG("Start Button clicked");
 
-    // Get the screen object if you passed it as user_data
-    DryerScreen* screen = (DryerScreen*)lv_event_get_user_data(e);
-    if (screen) {
-      screen->HandleStartButtonPress();
-    }
-  }
-}
+//     // Get the screen object if you passed it as user_data
+//     DryerScreen* screen = (DryerScreen*)lv_event_get_user_data(e);
+//     if (screen) {
+//       screen->HandleStartButtonPress();
+//     }
+//   }
+// }
 
-void DryerScreen::HandleStartButtonPress() {
-  // TODO: this can probably just live in StartButtonEventHandler
-  PS_PUB_NIL("ui.action.start");
-  // Switch to running screen
-  // userInterface->SwitchTo(ScreenList::kReflowScreen);
-}
+// void DryerScreen::HandleStartButtonPress() {
+//   // TODO: this can probably just live in StartButtonEventHandler
+//   PS_PUB_NIL("ui.action.start");
+//   // Switch to running screen
+//   // userInterface->SwitchTo(ScreenList::kReflowScreen);
+// }
 
 }  // namespace toothless

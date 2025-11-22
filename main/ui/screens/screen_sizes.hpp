@@ -3,6 +3,8 @@
 #include <esp_err.h>
 #include <lvgl.h>
 
+#include "sdkconfig.h"
+
 LV_FONT_DECLARE(AdwaitaMonoB_96);
 LV_FONT_DECLARE(AdwaitaMonoB_64);
 LV_FONT_DECLARE(AdwaitaMonoB_48);
@@ -13,7 +15,7 @@ namespace toothless {
 namespace sizes {
 namespace font {
 
-#if CONFIG_IMPL_WSRPIG_VRES >= 400
+#if CONFIG_IMPL_DISPLAY_HRES >= 400
 static lv_font_t tiny = lv_font_montserrat_12;
 static lv_font_t small = lv_font_montserrat_18;
 static lv_font_t medium = lv_font_montserrat_22;
