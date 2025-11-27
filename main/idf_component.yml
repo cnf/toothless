@@ -7,9 +7,7 @@ dependencies:
     version: '>=5.5.0'
   # espressif/esp-now: =* # this isn't needed for espnow, just for extra helpers.
   espressif/esp32_display_panel: "1.*"
-  # espressif/esp_lcd_st7796: ^1.3.6
-  # atanisoft/esp_lcd_touch_xpt2046: ^1.0.6
-  # espressif/button: ^4.1.3
+  joltwallet/littlefs: ^1.20.3
   # espressif/fmt: ^11.0.1
   espressif/esp_lvgl_port: ^2.6.0
   lvgl/lvgl: ^9.3.0

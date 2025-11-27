@@ -21,12 +21,24 @@ extern lv_style_t disabled;   ///< Disabled state for all buttons
 
 /// Screen and container styles
 namespace screens {
-extern lv_style_t background;       ///< Main screen background
-extern lv_style_t subscreen;        ///< Sub-screen (transparent overlay)
-extern lv_style_t card;             ///< Card/panel surface
-extern lv_style_t rowcontainer;     ///< Row container
-extern lv_style_t columncontainer;  ///< Column container
-extern lv_style_t menu_bg;          ///< Menu background
+extern lv_style_t background;               ///< Main screen background
+extern lv_style_t subscreen;                ///< Sub-screen (transparent overlay)
+extern lv_style_t card;                     ///< Card/panel surface
+extern lv_style_t rowcontainer;             ///< Row container
+extern lv_style_t columncontainer;          ///< Column container
+extern lv_style_t menu;                     ///< Menu style
+extern lv_style_t menu_header;              ///< Menu header style
+extern lv_style_t menu_page;                ///< Menu page style
+extern lv_style_t menu_container;           ///< Menu container style
+extern lv_style_t menu_section;             ///< Menu section style
+extern lv_style_t menu_selected;            ///< Menu selected item
+extern lv_style_t menu_unselected;          ///< Menu unselected item
+extern lv_style_t menu_bg;                  ///< Menu background
+extern lv_style_t sidebar;                  ///< Sidebar style
+extern lv_style_t sidebar_bg;               ///< Sidebar background style
+extern lv_style_t sidebar_button;           ///< Sidebar button style
+extern lv_style_t sidebar_button_active;    ///< Sidebar active button style
+extern lv_style_t sidebar_button_inactive;  ///< Sidebar inactive button style
 }  // namespace screens
 
 /// Text/label styles
@@ -38,6 +50,7 @@ extern lv_style_t small;        ///< Small text (12pt)
 extern lv_style_t value_large;  ///< Large numeric value display (48pt)
 extern lv_style_t value_small;  ///< Small numeric value (24pt)
 extern lv_style_t unit;         ///< Unit label (°C, sec, etc.)
+extern lv_style_t textentry;    ///< Text entry field style
 }  // namespace text
 
 /// Chart styles
@@ -52,14 +65,17 @@ extern lv_style_t indicator;    ///< Chart indicator style
 
 /// Control styles (sliders, switches, etc.)
 namespace controls {
-extern lv_style_t slider_main;       ///< Slider track
-extern lv_style_t slider_indicator;  ///< Slider filled part
-extern lv_style_t slider_knob;       ///< Slider handle
-extern lv_style_t switch_bg;         ///< Switch background
-extern lv_style_t switch_indicator;  ///< Switch active indicator
-extern lv_style_t switch_knob;       ///< Switch knob/handle
-extern lv_style_t roller;            ///< Roller widget style
-extern lv_style_t roller_selected;   ///< Roller selected item style
+extern lv_style_t slider_main;        ///< Slider track
+extern lv_style_t slider_indicator;   ///< Slider filled part
+extern lv_style_t slider_knob;        ///< Slider handle
+extern lv_style_t switch_bg;          ///< Switch background
+extern lv_style_t switch_indicator;   ///< Switch active indicator
+extern lv_style_t switch_knob;        ///< Switch knob/handle
+extern lv_style_t roller;             ///< Roller widget style
+extern lv_style_t roller_selected;    ///< Roller selected item style
+extern lv_style_t dropdown;           ///< Dropdown widget style
+extern lv_style_t dropdown_selected;  ///< Dropdown selected item style
+extern lv_style_t dropdown_button;    ///< Dropdown button style
 }  // namespace controls
 
 /// LED indicator styles
@@ -88,9 +104,13 @@ extern lv_font_t numbers_medium;
 extern lv_font_t numbers_large;
 }  // namespace fonts
 
+namespace debug {
+extern lv_style_t debug;
+}  // namespace debug
+
 /// Initialize all styles with specified theme
 /// @param theme Theme ID to initialize
-void Init(ThemeId theme = ThemeId::REFLOW_DARK);
+void Init(ThemeId theme = ThemeId::TOOTHLESS);
 
 /// Switch to a different theme at runtime
 /// @param new_theme New theme to apply

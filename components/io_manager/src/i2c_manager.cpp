@@ -47,6 +47,7 @@ esp_err_t I2cManager::Init() {
   }
 
   _initialized = true;
+  Scan();
   return ESP_OK;
 }
 
@@ -128,6 +129,15 @@ esp_err_t I2cManager::Scan() {
     usleep(10000);  // Small delay to avoid bus overload
     slave = slave + 1;
   }
+  return ESP_OK;
+}
+
+esp_err_t I2cManager::GetScannedAddresses(std::vector<uint8_t>& addresses) const {
+  std::lock_guard<std::mutex> lock(_mutex);
+  if (!_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  addresses = _device_addresses;
   return ESP_OK;
 }
 

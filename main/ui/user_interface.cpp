@@ -10,9 +10,11 @@
 #include "ui/chart_history.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/dryer_screen.hpp"
+#include "ui/screens/profiles_screen.hpp"
 #include "ui/screens/reflow_screen.hpp"
 #include "ui/screens/screen_sizes.hpp"
 #include "ui/screens/settings_screen.hpp"
+#include "ui/themes/style_registry.hpp"
 
 namespace toothless {
 
@@ -22,6 +24,7 @@ UserInterface::UserInterface() {
   _current_screen_obj = nullptr;  // Initialize before calling SwitchTo
   _current_screen = nullptr;
   _switching_screen_state = false;
+  _config = std::make_shared<SettingsMap>();
 
   // TODO: make topic strings configurations
   // _chart_history = ChartHistory();
@@ -40,6 +43,11 @@ UserInterface::~UserInterface() {
     ps_free_subscriber(_subscription);
     _subscription = nullptr;
   }
+  if (_config_entries) {
+    delete _config_entries;
+    _config_entries = nullptr;
+  }
+  FLOG_INFO("UserInterface destructed");
 }
 
 esp_err_t UserInterface::Start() {
@@ -55,14 +63,22 @@ esp_err_t UserInterface::Start() {
 }
 
 esp_err_t UserInterface::Init() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _subscription = ps_new_subscriber(10, PS_STRLIST("ui.action", "heater.mode"));
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  _config_entries = new ConfigEntries;
+  _config_entries->insert(std::end(*_config_entries), std::begin(ui_config_entries), std::end(ui_config_entries));
+  RegisterConfig(_config_entries, topics::ui::name);
+  FLOG_DEBUG("Waiting for settings...");
+  GetSettings(_config, topics::ui::name);
+
+  _subscription = ps_new_subscriber(10, PS_STRLIST(topics::ui::name, topics::heater::mode));
 
   // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
 
   _display = Display::GetDisplayPtr();
   FLOG_DEBUG("Display ptr: %p, lv_display_get_default: %p, free heap: %u", _display, lv_display_get_default(),
              esp_get_free_heap_size());
+
+  themes::SwitchTheme(themes::FromString(std::get<std::string>(_config->at("theme"))));
 
   // lv_timer_t* ui_timer = lv_timer_create([this](void*) { this->Loop(); }, 100, this);
   // lv_timer_t* t =
@@ -143,6 +159,10 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
       new_screen = std::make_unique<SettingsScreen>();
       FLOG_DEBUG("Switching to SETTINGS Screen");
       break;
+    case ScreenList::kProfilesScreen:
+      FLOG_DEBUG("Switching to PROFILES Screen");
+      new_screen = std::make_unique<ProfilesScreen>();
+      break;
     default:
       FLOG_ERROR("ScreenState %d not implemented", screen);
       _switching_screen_state = false;  // ← Also reset flag
@@ -184,6 +204,8 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
 }
 
 esp_err_t UserInterface::HandleSubscriptions() {
+  bool new_settings = false;
+  size_t len = 0;
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     FLOG_DEBUG("MSG TOPIC: %s", msg->topic);
@@ -205,6 +227,8 @@ esp_err_t UserInterface::HandleSubscriptions() {
       SwitchTo(ScreenList::kDryerScreen);
     } else if (ps_has_topic(msg, "ui.action.settings")) {
       SwitchTo(ScreenList::kSettingsScreen);
+    } else if (ps_has_topic(msg, "ui.action.profiles")) {
+      SwitchTo(ScreenList::kProfilesScreen);
     } else if (ps_has_topic(msg, "heater.mode.set")) {
     } else if (ps_has_topic(msg, "heater.mode") && PS_IS_INT(msg)) {
       heater::Mode new_mode = static_cast<heater::Mode>(msg->int_val);
@@ -263,11 +287,30 @@ esp_err_t UserInterface::HandleSubscriptions() {
       //     FLOG_ERROR("Unhandled screen state: %d", static_cast<int>(_current_screen_state));
       //     break;
       // }
+    } else if (ps_has_topic_suffix(msg, kTopicConfigGet) && PS_IS_NIL(msg)) {
+      FLOG_DEBUG("Sending config map");
+      GetSettings(_config, topics::ui::name);
+      new_settings = true;
+      len++;
+    } else if (ps_has_topic_suffix(msg, kTopicConfigSet) && PS_IS_NIL(msg)) {
+      FLOG_DEBUG("Applying settings");
+      new_settings = true;
+      len++;
     } else {
       FLOG_ERROR("Unhandled topic: %s", msg->topic);
     }
     ps_unref_msg(msg);
   }
+  if (new_settings) {
+    ApplySettings();
+  }
+  return ESP_OK;
+}
+
+esp_err_t UserInterface::ApplySettings() {
+  FLOG_INFO("Applying UI settings");
+  themes::SwitchTheme(themes::FromString(std::get<std::string>(_config->at("theme"))));
+
   return ESP_OK;
 }
 

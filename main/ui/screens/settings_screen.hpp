@@ -1,9 +1,13 @@
 #pragma once
 
 #include <esp_err.h>
+#include <lvgl.h>
 
+#include <map>
 #include <memory>
+#include <string>
 
+#include "config_mgr.hpp"
 #include "ui/screens/screen.hpp"
 
 namespace toothless {
@@ -21,6 +25,7 @@ struct SettingsScreenLabels : public ScreenLabels {
   lv_obj_t* menu;
   bool sidebar;
   lv_obj_t* root_page;
+  lv_obj_t* section;
   // lv_obj_t *backdrop;
   lv_obj_t* set_target = nullptr;
   // lv_obj_t *slider = nullptr;
@@ -38,21 +43,44 @@ class SettingsScreen : public Screen {
   lv_obj_t* Create() override;
   void Loop() override;
   ScreenLabels* GetLabels() override { return _labels.get(); };
+  // void BuildSettingsUI(lv_obj_t* parent, const char* namespace_name);
+  void BuildSettingsUI(lv_obj_t* parent, const char* namespace_name, const char* title);
+
+  void BuildFromEntries(lv_obj_t* parent, const char* namespace_name, const ConfigEntries& entries,
+                        const SettingsMap& current_values, std::string title = "");
 
  private:
+  struct WidgetData {
+    std::string namespace_name;
+    std::string key;
+    ConfigValueTypes type;
+  };
   std::unique_ptr<SettingsScreenLabels> _labels;
+  std::map<lv_obj_t*, WidgetData*> _widget_map;
 
-  // Pending change state (not yet published)
-  // bool _has_pending = false;
-  // int32_t _pending_value = 0;
-  // lv_obj_t *_confirm_msgbox = nullptr;
-  // // Event guard to avoid re-entrant LVGL event loops when updating controls
-  // bool _suppress_events = false;
-  // Track the OK button created with the keyboard so we can delete it
+  // Widget builders per type
+  lv_obj_t* BuildBoolSetting(lv_obj_t* parent, const ConfigEntry& entry, bool current_value);
+  lv_obj_t* BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry, int current_value);
+  lv_obj_t* BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry& entry, double current_value);
+  lv_obj_t* BuildStringSetting(lv_obj_t* parent, const ConfigEntry& entry, const std::string& current_value);
+  lv_obj_t* BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& entry, const std::string& current_value);
+
+  // Helpers
+  std::vector<std::string> ParseEnumFromFormat(const std::string& format);
+  Validator ParseValidatorFromFormat(const std::string& format);
+
+  // Event handlers
+  static void OnSwitchChanged(lv_event_t* e);
+  static void OnSliderChanged(lv_event_t* e);
+  static void OnRollerChanged(lv_event_t* e);
+  static void OnDropdownChanged(lv_event_t* e);
 
   // UI construction helpers
+  esp_err_t GenerateFromConfig();
   esp_err_t CreateTitle();
+  esp_err_t LocalCreateTitle();
   static void MenuBackEventHandler(lv_event_t* e);
+  esp_err_t LocalCreateMenu();
   esp_err_t CreateMenu();
 
   /// @brief
@@ -71,6 +99,7 @@ class SettingsScreen : public Screen {
   lv_obj_t* CreateSubMode(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubDisplay(lv_obj_t* parent, lv_obj_t* section);
   lv_obj_t* CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* section);
+  lv_obj_t* CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root);
   static void ResetHandler(lv_event_t* e);
   esp_err_t CreateSettingsList();
   esp_err_t CreateBackButton();

@@ -27,6 +27,13 @@ struct ScreenLabels {
   int32_t pending_value = 0;
 };
 
+struct Subjects {
+  lv_subject_t temperature;
+  lv_subject_t target;
+  lv_subject_t probe;
+  lv_subject_t heater_state;
+};
+
 class Screen {  // Abstract interface
  public:
   Screen() {};

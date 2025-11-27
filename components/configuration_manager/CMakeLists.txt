@@ -5,9 +5,11 @@ file(GLOB_RECURSE SRC "*.cpp" "*.c")
 set(INCL "include")
 set(PRIVREQ 
   esp_app_format
+  esp_timer
   pubsub-c
   FunLog
   nvs_flash
+  lvgl
 )
 set(REQ 
  

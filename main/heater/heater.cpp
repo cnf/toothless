@@ -8,30 +8,48 @@
 #include "heater/elements/element.hpp"
 #include "heater/elements/gpio_element.hpp"
 #include "heater/elements/m5_acssr_element.hpp"
+#include "heater/profiles/profile_manager.hpp"
 
 namespace toothless {
-Profile::Stage lead_free_stages[] = {
-    {25, 150, 90000, Profile::Shape::Smooth, "Preheat"},
-    {150, 180, 90000, Profile::Shape::Linear, "Soak"},
-    {180, 240, 30000, Profile::Shape::Smooth, "Ramp to Peak"},
-    {240, 100, 120000, Profile::Shape::Smooth, "Cooldown"},
-};
+// Profile::Stage lead_free_stages[] = {
+//     {25, 150, 90000, Profile::Shape::Smooth, "Preheat"},
+//     {150, 180, 90000, Profile::Shape::Linear, "Soak"},
+//     {180, 240, 30000, Profile::Shape::Smooth, "Ramp to Peak"},
+//     {240, 100, 120000, Profile::Shape::Smooth, "Cooldown"},
+// };
 
-Profile lead_free(lead_free_stages, 4);
+// Profile lead_free(lead_free_stages, 4);
 
-Profile::Stage leaded_stages[] = {
-    {25, 90, 90000, Profile::Shape::Smooth, "Preheat"},     //
-    {90, 130, 90000, Profile::Shape::Linear, "Soak"},       //
-    {130, 138, 45000, Profile::Shape::Smooth, "Ramp Up"},   //
-    {138, 165, 30000, Profile::Shape::Smooth, "Reflow"},    //
-    {165, 100, 30000, Profile::Shape::Linear, "Cooldown"},  //
-};
-Profile leaded(leaded_stages, 5);
+// Profile::Stage leaded_stages[] = {
+//     {25, 90, 90000, Profile::Shape::Smooth, "Preheat"},     //
+//     {90, 130, 90000, Profile::Shape::Linear, "Soak"},       //
+//     {130, 138, 45000, Profile::Shape::Smooth, "Ramp Up"},   //
+//     {138, 165, 30000, Profile::Shape::Smooth, "Reflow"},    //
+//     {165, 100, 30000, Profile::Shape::Linear, "Cooldown"},  //
+// };
+// Profile leaded(leaded_stages, 5);
 
 using namespace heater;
 
 bool Heater::Init() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+
+  // Set up Config
+  _config = std::make_shared<SettingsMap>();
+  _config_entries = new ConfigEntries;
+  _config_entries->insert(std::end(*_config_entries), std::begin(config_entries), std::end(config_entries));
+
+  // Set up Profile manager
+  _profile_mgr = ProfileManager::GetInstance();  // std::make_shared<ProfileManager>();
+  // _profile_mgr->Init();
+  _profile_mgr->CreateDefaults();
+  UpdateProfileConfigEntry();
+
+  // Register Config
+  RegisterConfig(_config_entries, topics::heater::name);
+  FLOG_DEBUG("Waiting for settings...");
+  GetSettings(_config, topics::heater::name);
+
   _element = std::make_unique<GPIOElement>();
   // _element = std::make_unique<M5I2CElement>();
   esp_err_t err = _element->Init();
@@ -47,10 +65,12 @@ bool Heater::Init() {
   _temperature_integral = 0;
   _previous_temperature = std::numeric_limits<int32_t>::max();
   _last_run = esp_timer_get_time() * 1000;
-  SetMode(heater::kModeDrying);  // TODO: configure
-  LoadProfile("Qwik Leaded");    // TODO: configure
+  // SetMode(heater::Mode::kModeDrying);  // TODO: configure
 
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater"));
+  SetMode(FromString(std::get<std::string>(_config->at("mode"))));
+  LoadProfile(std::get<std::string>(_config->at("profile")));
+
+  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater", "profiles.changed"));
   return true;
 }
 
@@ -68,15 +88,15 @@ void Heater::Loop() {
     return;
   }
   switch (_mode) {
-    case heater::kModeReflow:
+    case heater::Mode::kModeReflow:
       LoopProfile();
       break;
-    case heater::kModeDrying:
+    case heater::Mode::kModeDrying:
       LoopDryer();
       break;
-    case heater::kModeHeating:
+    case heater::Mode::kModeHeating:
       break;
-    case heater::kModeCooldown:
+    case heater::Mode::kModeCooldown:
       break;
     default:
       AssertOff();
@@ -153,10 +173,19 @@ esp_err_t Heater::HandleSubscriptions() {
       }
     } else if (ps_has_topic(msg, "heater.profile.get")) {
       if (_current_profile) {
-        PS_PUB_STR_FL("heater.profile", "Qwik Leaded", PS_FL_STICKY);  // TODO: profile name
+        PS_PUB_STR_FL("heater.profile", _current_profile->Name().c_str(), PS_FL_STICKY);  // TODO: profile name
       } else {
         PS_PUB_NIL_FL("heater.profile", PS_FL_STICKY);
       }
+    } else if (ps_has_topic(msg, "heater.profile.set")) {
+      if (PS_IS_STR(msg)) {
+        LoadProfile(std::string(msg->str_val));
+      } else {
+        FLOG_ERROR("Invalid heater profile message");
+      }
+    } else if (ps_has_topic(msg, "profiles.changed")) {
+      FLOG_INFO("Profile list changed, refreshing config");
+      RefreshProfileConfig();
     } else {
       FLOG_VERBOSE("unknown message : %s", msg->topic);
     }
@@ -167,10 +196,29 @@ esp_err_t Heater::HandleSubscriptions() {
 
 void Heater::AssertOff() { HeaterOff(); }
 
+// esp_err_t Heater::LoadProfile(std::string name) {
+//   _current_profile = &leaded;
+//   // PS_PUB_STR_FL("heater.profile", _current_profile, PS_FL_STICKY);
+//   PS_PUB_STR_FL("heater.profile", name.c_str(), PS_FL_STICKY);
+//   return ESP_OK;
+// }
+
 esp_err_t Heater::LoadProfile(std::string name) {
-  _current_profile = &leaded;
-  // PS_PUB_STR_FL("heater.profile", _current_profile, PS_FL_STICKY);
+  _current_profile = _profile_mgr->GetProfile(name);
+  if (!_current_profile) {
+    FLOG_ERROR("Profile '%s' not found", name.c_str());
+    return ESP_ERR_NOT_FOUND;
+  }
   PS_PUB_STR_FL("heater.profile", name.c_str(), PS_FL_STICKY);
+  return ESP_OK;
+}
+
+esp_err_t Heater::RefreshProfileConfig() {
+  UpdateProfileConfigEntry();
+
+  // Notify config system that options have changed
+  PS_PUB_NIL("config.refresh.heater");
+
   return ESP_OK;
 }
 
@@ -179,18 +227,18 @@ std::optional<uint16_t> Heater::GetTemperature() { return std::nullopt; }
 uint64_t Heater::GetTimeSecondsLeft() {
   uint32_t elapsed;
   switch (_mode) {
-    case heater::kModeReflow:
+    case heater::Mode::kModeReflow:
       if (!_current_profile) return 0;
       elapsed = (esp_timer_get_time() / 1000 - _start_time_ms);
       return (_current_profile->TotalDuration() - elapsed) / 1000;
       break;
-    case heater::kModeDrying:
+    case heater::Mode::kModeDrying:
       return _time_remaining_ms / 1000;
       break;
-    case heater::kModeHeating:
+    case heater::Mode::kModeHeating:
       return 0;
       break;
-    case heater::kModeCooldown:
+    case heater::Mode::kModeCooldown:
       return 0;  // 5 minutes
       break;
     default:
@@ -221,23 +269,23 @@ esp_err_t Heater::SetState(heater::State state) {
 
 esp_err_t Heater::SetMode(heater::Mode new_mode) {
   switch (new_mode) {
-    case heater::kModeHeating:
-      _mode = heater::kModeHeating;
+    case heater::Mode::kModeHeating:
+      _mode = heater::Mode::kModeHeating;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
       FLOG_DEBUG("Heater mode: HEATING");
       break;
-    case heater::kModeDrying:
-      _mode = heater::kModeDrying;
+    case heater::Mode::kModeDrying:
+      _mode = heater::Mode::kModeDrying;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
       FLOG_DEBUG("Heater mode: DRYING");
       break;
-    case heater::kModeReflow:
-      _mode = heater::kModeReflow;
+    case heater::Mode::kModeReflow:
+      _mode = heater::Mode::kModeReflow;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
       FLOG_DEBUG("Heater mode: REFLOW");
       break;
-    case heater::kModeCooldown:
-      _mode = heater::kModeCooldown;
+    case heater::Mode::kModeCooldown:
+      _mode = heater::Mode::kModeCooldown;
       PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
       FLOG_DEBUG("Heater mode: COOLDOWN");
       break;
@@ -297,6 +345,61 @@ esp_err_t Heater::HeaterOn(float power) {
 
 esp_err_t Heater::HeaterOff() { return _element->Off(); }
 
+void Heater::UpdateProfileConfigEntry() {
+  for (auto& entry : *_config_entries) {
+    if (std::string(entry.key) == "profile") {
+      auto profile_names = _profile_mgr->ListProfiles();
+
+      if (profile_names.empty()) {
+        FLOG_WARN("No profiles available for config");
+        entry.format = "enum=None";
+        return;
+      }
+
+      // Build enum string with NORMALIZED names
+      std::string enum_str = "enum=";
+      for (size_t i = 0; i < profile_names.size(); ++i) {
+        if (i > 0) enum_str += "|";
+        // **NORMALIZE PROFILE NAMES IN FORMAT**
+        std::string normalized = profile_names[i];
+        std::replace(normalized.begin(), normalized.end(), ' ', '_');
+        std::transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+        enum_str += normalized;
+      }
+
+      entry.format = enum_str;
+
+      // Update default value to normalized first profile if current isn't valid
+      std::string current_default = std::get<std::string>(entry.default_value);
+      std::string normalized_default = current_default;
+      std::replace(normalized_default.begin(), normalized_default.end(), ' ', '_');
+      std::transform(normalized_default.begin(), normalized_default.end(), normalized_default.begin(), ::tolower);
+
+      bool found = false;
+      for (const auto& name : profile_names) {
+        std::string norm_name = name;
+        std::replace(norm_name.begin(), norm_name.end(), ' ', '_');
+        std::transform(norm_name.begin(), norm_name.end(), norm_name.begin(), ::tolower);
+
+        if (norm_name == normalized_default) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found && !profile_names.empty()) {
+        std::string first = profile_names[0];
+        std::replace(first.begin(), first.end(), ' ', '_');
+        std::transform(first.begin(), first.end(), first.begin(), ::tolower);
+        entry.default_value = first;
+      }
+
+      FLOG_DEBUG("Updated profile config: %s", enum_str.c_str());
+      break;
+    }
+  }
+}
+
 void Heater::Tune() {
   /*
   uint32_t _time_slice;           // time slice in ms
@@ -355,14 +458,14 @@ esp_err_t Heater::StateToOn() {
   }
 
   switch (_mode) {
-    case heater::kModeDrying:
+    case heater::Mode::kModeDrying:
       // _timer_ms = 20000;  // BUG: remove, only for testing
       // SetTarget(3000);  // BUG: remove, only for testing
       if (_time_remaining_ms == 0 && _timer_ms != 0) {
         _time_remaining_ms = _timer_ms;
       }
       break;
-    case heater::kModeReflow:
+    case heater::Mode::kModeReflow:
       if (!_current_profile) {
         FLOG_ERROR("No profile loaded, cannot start profile mode");
         return ESP_ERR_INVALID_STATE;
@@ -381,13 +484,13 @@ esp_err_t Heater::StateToOn() {
 
 esp_err_t Heater::StateToOff() {
   switch (_mode) {
-    case heater::kModeDrying:
+    case heater::Mode::kModeDrying:
       ClearTimer();
       ClearTarget();
       _state = heater::kStateOff;
       // ClearTarget();
       break;
-    case heater::kModeReflow:
+    case heater::Mode::kModeReflow:
       ClearTarget();
       _start_time_ms = 0;
       PS_PUB_NIL("heater.profile.stage");
@@ -407,10 +510,10 @@ esp_err_t Heater::StateToOff() {
 
 esp_err_t Heater::StateToPause() {
   switch (_mode) {
-    case heater::kModeDrying:
+    case heater::Mode::kModeDrying:
       _state = heater::kStatePause;
       break;
-    case heater::kModeReflow:
+    case heater::Mode::kModeReflow:
       return ESP_ERR_NOT_SUPPORTED;
       break;
     default:

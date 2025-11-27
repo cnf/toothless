@@ -17,7 +17,14 @@ extern "C" {
 
 namespace toothless {
 
-ReflowScreen::ReflowScreen() { _labels = std::make_unique<ReflowScreenLabels>(); }
+ReflowScreen::ReflowScreen() {
+  _labels = std::make_unique<ReflowScreenLabels>();
+  _subjects = std::make_unique<ReflowSubjects>();
+  // lv_subject_init_float(&_subjects->probe_value, -99.9f);
+  lv_subject_init_int(&_subjects->probe, 123);
+  lv_subject_init_int(&_subjects->temperature, -10);
+  lv_subject_init_int(&_subjects->target, -100);
+}
 
 ReflowScreen::ReflowScreen(ChartHistory* chart_hist) : ReflowScreen() {
   _chart = std::make_unique<ChartInfo>();
@@ -44,7 +51,6 @@ lv_obj_t* ReflowScreen::Create() {
   _screen = ui::CreateScreen();
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
 
   Temperature();
   Chart();
@@ -70,21 +76,28 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
-      TemperatureUpdateCurrent((uint32_t)msg->int_val);
+      lv_subject_set_int(&_subjects->temperature, (float)msg->int_val / 100);
+      // TemperatureUpdateCurrent((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
       if (PS_IS_INT(msg)) {
-        TemperatureUpdateTarget(msg->int_val);
+        lv_subject_set_int(&_subjects->target, (float)msg->int_val / 100);
+        // TemperatureUpdateTarget(msg->int_val);
       } else {
-        TemperatureClearTarget();
+        lv_subject_set_int(&_subjects->target, -100);
+        // TemperatureClearTarget();
       }
     } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
       // FLOG_INFO("Power: %d", msg->bool_val);
       switch (msg->bool_val) {
         case true:
-          ui::SetLEDState(_labels->heater_led, true);
+          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
+          if (_labels->temp_current)
+            lv_obj_set_style_text_color(_labels->temp_current, lv_palette_main(LV_PALETTE_RED), 0);
+
           break;
         case false:
-          ui::SetLEDState(_labels->heater_led, false);
+          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
+          if (_labels->temp_current) lv_obj_set_style_text_color(_labels->temp_current, lv_color_white(), 0);
           break;
       }
     } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
@@ -216,21 +229,26 @@ esp_err_t ReflowScreen::Temperature() {
     mult = 0.15;
   }
   static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
-  height = std::max<size_t>(height, 50);
+  height = std::max<size_t>(height, 60);
   lv_obj_t* temp_container = ui::CreateRowContainer(_screen);
   lv_obj_set_size(temp_container, lv_pct(100), height);
   lv_obj_set_style_pad_gap(temp_container, 10, 0);  // Gap between temp blocks
+  lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-  _labels->temp_current = TemperatureBlock(temp_container, "Current", "--");
-  HeaterLED(temp_container);
-  _labels->temp_target = TemperatureBlock(temp_container, "Target", "--");
+  _labels->temp_current =
+      ui::CreateLabeledIntUnit(temp_container, "Current", "°C", &_subjects->temperature, "%d", true);
 
+  // HeaterLED(temp_container);
+  _labels->temp_target = ui::CreateLabeledIntUnit(temp_container, "Target", "°C", &_subjects->target, "%d", true);
+  _labels->temp_probe = ui::CreateLabeledIntUnit(temp_container, "Probe", "°C", &_subjects->probe, "%d", true);
   return ESP_OK;
 }
 
 lv_obj_t* ReflowScreen::TemperatureBlock(lv_obj_t* parent, const char* title, const char* temp) {
   lv_obj_t* obj;
   lv_obj_t* temperature_obj = ui::CreateColumnContainer(parent);
+  lv_obj_set_style_border_width(temperature_obj, 3, 0);
+  lv_obj_set_style_border_color(temperature_obj, lv_color_hex(0x220099), 0);
 
   lv_obj_set_flex_grow(temperature_obj, 1);
   lv_obj_set_style_pad_gap(temperature_obj, 2, 0);
@@ -249,6 +267,7 @@ lv_obj_t* ReflowScreen::TemperatureBlock(lv_obj_t* parent, const char* title, co
 };
 
 void ReflowScreen::HeaterLED(lv_obj_t* parent) {
+  // FIXME: Make this use an observer
   lv_obj_t* led_cell = ui::CreateColumnContainer(parent);
   lv_obj_set_size(led_cell, 0, lv_pct(100));
   lv_obj_set_flex_grow(led_cell, 0);
@@ -269,7 +288,7 @@ void ReflowScreen::TemperatureUpdateCurrent(int32_t temp) {
   char temp_str[16];
 
   float clamped_temp = std::clamp(temperature, -999.99f, 9999.99f);
-  snprintf(temp_str, sizeof(temp_str), "%.1f", clamped_temp);
+  snprintf(temp_str, sizeof(temp_str), "%.0f", clamped_temp);
   lv_label_set_text(_labels->temp_current, temp_str);
 }
 
@@ -280,7 +299,7 @@ void ReflowScreen::TemperatureUpdateTarget(int32_t temp) {
   lv_label_set_text(_labels->temp_target, temp_str);
 }
 
-void ReflowScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temp_target, "--°C"); }
+void ReflowScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temp_target, ".."); }
 
 esp_err_t ReflowScreen::MidSection() {
   lv_obj_t* mid = ui::CreateRowContainer(_screen);

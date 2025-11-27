@@ -59,12 +59,12 @@ esp_err_t DisplayPanelSetup() {
                       .pclk_idle_high = false  // end pclk_active_neg
                   }  // end flags
           },
-      .data_width = 16,            // RGB565 in parallel mode, thus 16 bits in width
-      .bits_per_pixel = 0,         //
-      .num_fbs = 2,                // allocate double frame buffer
-      .bounce_buffer_size_px = 0,  //
-      .sram_trans_align = 0,       //
-      .psram_trans_align = 64,     //
+      .data_width = 16,                        // RGB565 in parallel mode, thus 16 bits in width
+      .bits_per_pixel = 0,                     //
+      .num_fbs = 2,                            // allocate double frame buffer
+      .bounce_buffer_size_px = kLcdHRes * 10,  // small buffer for when psram isn't available (like on nvs writes)
+      .sram_trans_align = 0,                   //
+      .psram_trans_align = 64,                 //
       .hsync_gpio_num = kLcdHSyncPin,
       .vsync_gpio_num = kLcdVSyncPin,
       .de_gpio_num = kLcdDePin,
@@ -104,21 +104,22 @@ esp_err_t DisplayPanelSetup() {
     LV_LOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_INVALID_STATE;
   }
-  LV_LOG_USER("Display resolution: %dx%d", kLcdHRes, kLcdVRes);
+  lv_display_set_dpi(_display, kLcdDPI);
+  LV_LOG_USER("Display resolution: %dx%d, %d DPI", kLcdHRes, kLcdVRes, kLcdDPI);
 
   {
     LV_LOG_USER("Allocating LVGL buffers from PSRAM");
-    void* buf1 = heap_caps_malloc(kLcdHRes * kLcdVRes / 10, MALLOC_CAP_SPIRAM);
+    void* buf1 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
     assert(buf1);
-    void* buf2 = heap_caps_malloc(kLcdHRes * kLcdVRes / 10, MALLOC_CAP_SPIRAM);
+    void* buf2 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
     assert(buf2);
 
     LV_LOG_USER("Register buffers and display callback with LVGL");
-    lv_display_set_buffers(_display, buf1, buf2, kLcdHRes * kLcdVRes / 10, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_buffers(_display, buf1, buf2, kDrawBufferSize, LV_DISPLAY_RENDER_MODE_PARTIAL);
     // lv_display_set_buffers(_display, buf1, buf2, kLcdHRes * kLcdVRes / 10, LV_DISPLAY_RENDER_MODE_FULL);
     lv_display_set_user_data(_display, panel_handle);
     lv_display_set_flush_cb(_display, LvglFlushCallback);
-    LV_LOG_USER("buf1=%p buf2=%p expect_bytes=%u", buf1, buf2, (unsigned)(kLcdHRes * kLcdVRes / 10));
+    LV_LOG_USER("buf1=%p buf2=%p expect_bytes=%u", buf1, buf2, (unsigned)(kDrawBufferSize));
   }
 
   // void* buf1 = NULL;
@@ -235,7 +236,7 @@ esp_err_t SetupQSPI() {
 
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
   [[maybe_unused]] uint32_t starter = esp_timer_get_time();
-  LV_LOG_USER("LVGL Flush Callback: area x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2, area->y2);
+  LV_LOG_TRACE("LVGL Flush Callback: area x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2, area->y2);
 
   esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
 
@@ -265,7 +266,7 @@ void TouchMapCoordinates(esp_lcd_touch_handle_t tp, uint16_t* x, uint16_t* y, ui
 // const esp_lcd_rgb_panel_event_data_t* event_data, void* user_ctx) {};
 bool LvglFlushReadyCallback(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t* edata, void* user_ctx) {
   lv_display_t* disp = (lv_display_t*)user_ctx;
-  LV_LOG_USER("LVGL flush ready callback triggered");
+  LV_LOG_TRACE("LVGL flush ready callback triggered");
   lv_display_flush_ready(disp);
   return false;
 };

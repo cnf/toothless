@@ -47,9 +47,9 @@ void SetLogLevels() {
   // esp_log_level_set("efuse", ESP_LOG_ERROR);
   // esp_log_level_set("gpio", ESP_LOG_ERROR);
   esp_log_level_set("heater.cpp", ESP_LOG_INFO);
-  esp_log_level_set("lvgl_port.cpp", ESP_LOG_DEBUG);
-  esp_log_level_set("screen_helpers.cpp", ESP_LOG_DEBUG);
-  esp_log_level_set("user_interface.cpp", ESP_LOG_DEBUG);
+  // esp_log_level_set("lvgl_port.cpp", ESP_LOG_DEBUG);
+  // esp_log_level_set("screen_helpers.cpp", ESP_LOG_DEBUG);
+  // esp_log_level_set("user_interface.cpp", ESP_LOG_DEBUG);
 }
 
 using namespace toothless;
@@ -63,6 +63,9 @@ extern "C" void app_main(void) {
 
   FLOG_INFO("Initializing pubsub msg bus");
   ps_init();
+
+  ConfigManager config_manager;
+  config_manager.Start();
 
 #if defined(CONFIG_IOM_I2C_SDA_PIN) && defined(CONFIG_IOM_I2C_SCL_PIN)
   FLOG_INFO("Initializing I2C");

@@ -29,6 +29,7 @@ struct NumpadContext {
   lv_obj_t* backdrop = nullptr;                            // Where to create backdrop
   lv_obj_t* target_spinbox = nullptr;                      // Spinbox to update
   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
+  std::optional<int32_t> initial_value = std::nullopt;     // Initial value to show
 };
 
 struct NumpadState {

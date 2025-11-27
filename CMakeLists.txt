@@ -27,6 +27,8 @@ project(Toothless LANGUAGES CXX)
 idf_component_set_property(pubsub-c COMPILE_OPTIONS "-w" APPEND)
 idf_component_set_property(atanisoft__esp_lcd_touch_xpt2046 COMPILE_OPTIONS "-w" APPEND)
 idf_component_set_property(espressif__esp32_display_panel COMPILE_OPTIONS "-w" APPEND)
+idf_component_set_property(lvgl__lvgl COMPILE_OPTIONS "-w" APPEND)
+
 
 
 ## Link time optimization

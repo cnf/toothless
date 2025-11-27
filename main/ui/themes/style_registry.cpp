@@ -31,7 +31,19 @@ lv_style_t subscreen;
 lv_style_t card;
 lv_style_t rowcontainer;
 lv_style_t columncontainer;
+lv_style_t menu;
+lv_style_t menu_header;
+lv_style_t menu_page;
+lv_style_t menu_container;
+lv_style_t menu_section;
+lv_style_t menu_selected;
+lv_style_t menu_unselected;
 lv_style_t menu_bg;
+lv_style_t sidebar;
+lv_style_t sidebar_bg;
+lv_style_t sidebar_button;
+lv_style_t sidebar_button_active;
+lv_style_t sidebar_button_inactive;
 }  // namespace screens
 
 // Text styles
@@ -43,6 +55,7 @@ lv_style_t small;
 lv_style_t value_large;
 lv_style_t value_small;
 lv_style_t unit;
+lv_style_t textentry;
 }  // namespace text
 
 // Chart styles
@@ -65,6 +78,9 @@ lv_style_t switch_indicator;
 lv_style_t switch_knob;
 lv_style_t roller;
 lv_style_t roller_selected;
+lv_style_t dropdown;
+lv_style_t dropdown_selected;
+lv_style_t dropdown_button;
 }  // namespace controls
 
 // LED indicators
@@ -94,11 +110,14 @@ lv_font_t numbers_medium;
 lv_font_t numbers_large;
 }  // namespace fonts
 
+namespace debug {
+lv_style_t debug;
+}  // namespace debug
+
 // Current theme state
 static ColorPalette current_palette;
 static Settings current_settings;
-// static ThemeId current_theme = ThemeId::REFLOW_DARK;
-static ThemeId current_theme = ThemeId::EMERALD;
+static ThemeId current_theme = ThemeId::TOOTHLESS;
 static bool initialized = false;
 
 // Style initialization functions
@@ -108,9 +127,8 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::primary, current_palette.primary);
   lv_style_set_text_color(&buttons::primary, current_palette.on_primary);
   lv_style_set_radius(&buttons::primary, 8);
-  lv_style_set_pad_all(&buttons::primary, 12);
+  // lv_style_set_pad_all(&buttons::primary, 12);
   lv_style_set_text_font(&buttons::primary, &fonts::medium);
-
   // if (current) lv_style_set_border_width(&buttons::primary, 0);
   lv_style_set_shadow_width(&buttons::primary, 4);
   lv_style_set_shadow_color(&buttons::primary, lv_color_black());
@@ -121,26 +139,28 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::secondary, current_palette.secondary);
   lv_style_set_text_color(&buttons::secondary, current_palette.on_secondary);
   lv_style_set_radius(&buttons::secondary, 8);
-  lv_style_set_pad_all(&buttons::secondary, 12);
+  // lv_style_set_pad_all(&buttons::secondary, 12);
   lv_style_set_border_width(&buttons::secondary, 0);
   lv_style_set_text_font(&buttons::secondary, &fonts::medium);
+  // lv_style_set_width(&buttons::secondary, LV_SIZE_CONTENT);
 
   // Danger button
   lv_style_init(&buttons::danger);
   lv_style_set_bg_color(&buttons::danger, current_palette.danger);
   lv_style_set_text_color(&buttons::danger, lv_color_white());
   lv_style_set_radius(&buttons::danger, 8);
-  lv_style_set_pad_all(&buttons::danger, 12);
+  // lv_style_set_pad_all(&buttons::danger, 12);
   lv_style_set_border_width(&buttons::danger, 2);
   lv_style_set_border_color(&buttons::danger, lv_palette_darken(LV_PALETTE_RED, 3));
   lv_style_set_text_font(&buttons::danger, &fonts::medium);
+  // lv_style_set_width(&buttons::danger, LV_SIZE_CONTENT);
 
   // Success button
   lv_style_init(&buttons::success);
   lv_style_set_bg_color(&buttons::success, current_palette.success);
   lv_style_set_text_color(&buttons::success, lv_color_white());
   lv_style_set_radius(&buttons::success, 8);
-  lv_style_set_pad_all(&buttons::success, 12);
+  // lv_style_set_pad_all(&buttons::success, 12);
   lv_style_set_text_font(&buttons::success, &fonts::medium);
 
   // Settings button (icon button)
@@ -148,7 +168,7 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::settings, current_palette.primary);
   lv_style_set_text_color(&buttons::settings, current_palette.on_primary);
   lv_style_set_radius(&buttons::settings, 8);
-  lv_style_set_pad_all(&buttons::settings, 12);
+  // lv_style_set_pad_all(&buttons::settings, 12);
   // lv_style_set_border_width(&buttons::settings, 10);
   // lv_style_set_border_color(&buttons::settings, current_palette.border);
   lv_style_set_shadow_width(&buttons::primary, 4);
@@ -174,7 +194,7 @@ static void init_screen_styles() {
   lv_style_set_bg_color(&screens::background, current_palette.background);
   lv_style_set_bg_opa(&screens::background, LV_OPA_COVER);
   lv_style_set_text_color(&screens::background, current_palette.on_background);
-  lv_style_set_pad_all(&screens::background, current_settings.screen_padding);
+  // lv_style_set_pad_all(&screens::background, current_settings.screen_padding);
   lv_style_set_layout(&screens::background, LV_LAYOUT_FLEX);
   lv_style_set_text_font(&screens::background, &fonts::medium);
 
@@ -194,10 +214,9 @@ static void init_screen_styles() {
 
   // Card/panel surface
   lv_style_init(&screens::card);
-  lv_style_set_bg_color(&screens::card, current_palette.surface);
+  lv_style_set_bg_color(&screens::card, lv_color_lighten(current_palette.surface, LV_OPA_10));
   lv_style_set_bg_opa(&screens::card, LV_OPA_COVER);
   lv_style_set_radius(&screens::card, 12);
-  lv_style_set_pad_all(&screens::card, 16);
   lv_style_set_border_color(&screens::card, current_palette.border);
   if (current_settings.borders) {
     lv_style_set_border_width(&screens::card, 8);
@@ -208,20 +227,23 @@ static void init_screen_styles() {
   lv_style_set_shadow_opa(&screens::card, LV_OPA_20);
   lv_style_set_layout(&screens::card, LV_LAYOUT_FLEX);
   lv_style_set_flex_flow(&screens::card, LV_FLEX_FLOW_ROW);
-  lv_style_set_flex_main_place(&screens::card, LV_FLEX_ALIGN_SPACE_BETWEEN);
-  lv_style_set_flex_cross_place(&screens::card, LV_FLEX_ALIGN_CENTER);
+  lv_style_set_flex_main_place(&screens::card, LV_FLEX_ALIGN_START);
+  lv_style_set_flex_cross_place(&screens::card, LV_FLEX_ALIGN_START);
   lv_style_set_flex_track_place(&screens::card, LV_FLEX_ALIGN_START);
   lv_style_set_text_font(&screens::card, &fonts::medium);
+  lv_style_set_pad_gap(&screens::card, LV_DPX(5));
 
   // Row container
   lv_style_init(&screens::rowcontainer);
   lv_style_set_layout(&screens::rowcontainer, LV_LAYOUT_FLEX);
   lv_style_set_bg_opa(&screens::rowcontainer, LV_OPA_TRANSP);
   lv_style_set_flex_flow(&screens::rowcontainer, LV_FLEX_FLOW_ROW);
-  lv_style_set_flex_main_place(&screens::rowcontainer, LV_FLEX_ALIGN_SPACE_BETWEEN);
+  lv_style_set_flex_main_place(&screens::rowcontainer, LV_FLEX_ALIGN_START);
   lv_style_set_flex_cross_place(&screens::rowcontainer, LV_FLEX_ALIGN_CENTER);
   lv_style_set_flex_track_place(&screens::rowcontainer, LV_FLEX_ALIGN_START);
   lv_style_set_pad_all(&screens::rowcontainer, 0);
+  // lv_style_set_pad_row(&screens::rowcontainer, 5);
+  // lv_style_set_pad_gap(&screens::rowcontainer, 5);
   lv_style_set_border_width(&screens::rowcontainer, 0);
 
   // Column container
@@ -229,18 +251,122 @@ static void init_screen_styles() {
   lv_style_set_layout(&screens::columncontainer, LV_LAYOUT_FLEX);
   lv_style_set_bg_opa(&screens::columncontainer, LV_OPA_TRANSP);
   lv_style_set_flex_flow(&screens::columncontainer, LV_FLEX_FLOW_COLUMN);
-  lv_style_set_flex_main_place(&screens::columncontainer, LV_FLEX_ALIGN_SPACE_BETWEEN);
-  lv_style_set_flex_cross_place(&screens::columncontainer, LV_FLEX_ALIGN_CENTER);
+  lv_style_set_size(&screens::columncontainer, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_style_set_flex_main_place(&screens::columncontainer, LV_FLEX_ALIGN_START);
+  lv_style_set_flex_cross_place(&screens::columncontainer, LV_FLEX_ALIGN_START);
   lv_style_set_flex_track_place(&screens::columncontainer, LV_FLEX_ALIGN_START);
   lv_style_set_pad_all(&screens::columncontainer, 0);
+  // lv_style_set_pad_column(&screens::columncontainer, 5);
+  // lv_style_set_pad_gap(&screens::columncontainer, 5);
   lv_style_set_border_width(&screens::columncontainer, 0);
+
+  // Menu style
+  lv_style_init(&screens::menu);
+  lv_style_set_bg_color(&screens::menu, current_palette.background);
+  lv_style_set_bg_opa(&screens::menu, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::menu, 0);
+  lv_style_set_pad_row(&screens::menu, 0);
+  lv_style_remove_prop(&screens::menu, LV_OBJ_FLAG_SCROLL_ELASTIC);
+  // lv_style_set_size(&screens::menu, lv_pct(100), lv_pct(100));
+
+  // Menu header style
+  lv_style_init(&screens::menu_header);
+  lv_style_set_bg_color(&screens::menu_header, current_palette.background);
+  lv_style_set_bg_opa(&screens::menu_header, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::menu_header, 12);
+  lv_style_set_height(&screens::menu_header, lv_pct(13));
+  // lv_style_set_border_color(&screens::menu_header, current_palette.border);
+  // if (current_settings.borders) {
+  //   lv_style_set_border_width(&screens::menu_header, 4);
+  // } else {
+  //   lv_style_set_border_width(&screens::menu_header, 0);
+  // }
+
+  // Menu page style
+  lv_style_init(&screens::menu_page);
+  lv_style_set_bg_color(&screens::menu_page, current_palette.background);
+  lv_style_set_bg_opa(&screens::menu_page, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::menu_page, 10);
+  lv_style_remove_prop(&screens::menu_page, LV_OBJ_FLAG_SCROLL_ELASTIC);
+
+  // Menu container
+  lv_style_init(&screens::menu_container);
+  lv_style_set_bg_opa(&screens::menu_container, LV_OPA_TRANSP);
+  // lv_style_set_pad_all(&screens::menu_container, 8);
+  lv_style_set_radius(&screens::menu_container, 8);
+
+  // Menu section
+  lv_style_init(&screens::menu_section);
+  lv_style_set_bg_color(&screens::menu_section, current_palette.surface);
+  lv_style_set_bg_opa(&screens::menu_section, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::menu_section, 8);
+  lv_style_set_pad_row(&screens::menu_section, 4);
+  lv_style_remove_prop(&screens::menu_section, LV_OBJ_FLAG_SCROLL_ELASTIC);
 
   // Menu background
   lv_style_init(&screens::menu_bg);
-  lv_style_set_bg_color(&screens::menu_bg, current_palette.surface);
+  lv_style_set_bg_color(&screens::menu_bg, current_palette.background);
   lv_style_set_bg_opa(&screens::menu_bg, LV_OPA_COVER);
   lv_style_set_pad_all(&screens::menu_bg, 8);
   lv_style_set_pad_row(&screens::menu_bg, 4);
+  lv_style_remove_prop(&screens::menu_bg, LV_OBJ_FLAG_SCROLL_ELASTIC);
+
+  // Menu selected item
+  lv_style_init(&screens::menu_selected);
+  lv_style_set_bg_color(&screens::menu_selected, current_palette.primary);
+  lv_style_set_bg_opa(&screens::menu_selected, LV_OPA_COVER);
+  lv_style_set_text_color(&screens::menu_selected, current_palette.on_primary);
+  lv_style_set_radius(&screens::menu_selected, 8);
+  lv_style_set_pad_all(&screens::menu_selected, 12);
+  lv_style_set_text_font(&screens::menu_selected, &fonts::medium);
+
+  // Menu unselected item
+  lv_style_init(&screens::menu_unselected);
+  // lv_style_set_bg_color(&screens::menu_unselected, current_palette.surface);
+  lv_style_set_bg_opa(&screens::menu_unselected, LV_OPA_TRANSP);
+  lv_style_set_text_color(&screens::menu_unselected, current_palette.text);
+  lv_style_set_radius(&screens::menu_unselected, 8);
+  lv_style_set_pad_all(&screens::menu_unselected, 12);
+  lv_style_set_text_font(&screens::menu_unselected, &fonts::medium);
+
+  // Sidebar
+  lv_style_init(&screens::sidebar);
+  lv_style_set_bg_color(&screens::sidebar, current_palette.surface);
+  lv_style_set_bg_opa(&screens::sidebar, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::sidebar, 8);
+  // lv_style_set_size(&screens::sidebar, lv_pct(20), lv_pct(100));
+
+  // Sidebar background
+  lv_style_init(&screens::sidebar_bg);
+  lv_style_set_bg_color(&screens::sidebar_bg, current_palette.background);
+  lv_style_set_bg_opa(&screens::sidebar_bg, LV_OPA_COVER);
+  lv_style_set_pad_all(&screens::sidebar_bg, 8);
+
+  // Sidebar button
+  lv_style_init(&screens::sidebar_button);
+  lv_style_set_bg_color(&screens::sidebar_button, current_palette.surface);
+  lv_style_set_bg_opa(&screens::sidebar_button, LV_OPA_COVER);
+  lv_style_set_radius(&screens::sidebar_button, 8);
+  lv_style_set_pad_all(&screens::sidebar_button, 12);
+  lv_style_set_text_font(&screens::sidebar_button, &fonts::medium);
+
+  // Sidebar button active
+  lv_style_init(&screens::sidebar_button_active);
+  lv_style_set_bg_color(&screens::sidebar_button_active, current_palette.primary);
+  lv_style_set_bg_opa(&screens::sidebar_button_active, LV_OPA_COVER);
+  lv_style_set_text_color(&screens::sidebar_button_active, current_palette.on_primary);
+  lv_style_set_radius(&screens::sidebar_button_active, 8);
+  lv_style_set_pad_all(&screens::sidebar_button_active, 12);
+  lv_style_set_text_font(&screens::sidebar_button_active, &fonts::medium);
+
+  // Sidebar button inactive
+  lv_style_init(&screens::sidebar_button_inactive);
+  lv_style_set_bg_color(&screens::sidebar_button_inactive, current_palette.surface);
+  lv_style_set_bg_opa(&screens::sidebar_button_inactive, LV_OPA_COVER);
+  lv_style_set_text_color(&screens::sidebar_button_inactive, current_palette.text);
+  lv_style_set_radius(&screens::sidebar_button_inactive, 8);
+  lv_style_set_pad_all(&screens::sidebar_button_inactive, 12);
+  lv_style_set_text_font(&screens::sidebar_button_inactive, &fonts::medium);
 }
 
 static void init_text_styles() {
@@ -253,16 +379,24 @@ static void init_text_styles() {
   lv_style_init(&text::heading);
   lv_style_set_text_font(&text::heading, &fonts::medium);
   lv_style_set_text_color(&text::heading, current_palette.on_background);
+  lv_style_set_width(&text::heading, lv_pct(100));
+  lv_style_set_height(&text::heading, LV_SIZE_CONTENT);
 
   // Body text
   lv_style_init(&text::body);
   lv_style_set_text_font(&text::body, &fonts::medium);
   lv_style_set_text_color(&text::body, current_palette.text);
+  lv_style_set_pad_all(&text::body, 8);
+  lv_style_set_width(&text::body, LV_SIZE_CONTENT);
+  // lv_style_set_size(&text::body, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  // lv_style_set_flex_grow(&text::body, 1);
+  // lv_style_set_prop(&text::body, LV_LABEL_LONG_MODE_WRAP, LV_PART_MAIN);
 
   // Small text
   lv_style_init(&text::small);
   lv_style_set_text_font(&text::small, &fonts::small);
-  lv_style_set_text_color(&text::small, lv_palette_lighten(LV_PALETTE_GREY, 2));
+  lv_style_set_text_color(&text::small, lv_palette_lighten(LV_PALETTE_GREY, 1));
+  lv_style_set_pad_all(&text::small, 4);
 
   // Large numeric value (temperature display)
   lv_style_init(&text::value_large);
@@ -279,6 +413,16 @@ static void init_text_styles() {
   lv_style_init(&text::unit);
   lv_style_set_text_font(&text::unit, &fonts::numbers_small);
   lv_style_set_text_color(&text::unit, lv_palette_lighten(LV_PALETTE_GREY, 1));
+
+  // Text entry field
+  lv_style_init(&text::textentry);
+  lv_style_set_bg_color(&text::textentry, current_palette.surface);
+  lv_style_set_bg_opa(&text::textentry, LV_OPA_COVER);
+  lv_style_set_text_color(&text::textentry, current_palette.text);
+  lv_style_set_border_color(&text::textentry, current_palette.border);
+  lv_style_set_border_width(&text::textentry, 2);
+  lv_style_set_radius(&text::textentry, 8);
+  lv_style_set_pad_all(&text::textentry, 8);
 }
 
 static void init_chart_styles() {
@@ -352,7 +496,7 @@ static void init_control_styles() {
 
   // Switch - active indicator
   lv_style_init(&controls::switch_indicator);
-  lv_style_set_bg_color(&controls::switch_indicator, current_palette.success);
+  lv_style_set_bg_color(&controls::switch_indicator, current_palette.primary);
   lv_style_set_bg_opa(&controls::switch_indicator, LV_OPA_COVER);
 
   // Switch - knob
@@ -376,6 +520,24 @@ static void init_control_styles() {
   lv_style_init(&controls::roller_selected);
   lv_style_set_bg_color(&controls::roller_selected, current_palette.primary);
   lv_style_set_bg_opa(&controls::roller_selected, LV_OPA_COVER);
+
+  // Dropdown style
+  lv_style_init(&controls::dropdown);
+  lv_style_set_bg_color(&controls::dropdown, current_palette.surface);
+  lv_style_set_bg_opa(&controls::dropdown, LV_OPA_COVER);
+  lv_style_set_text_color(&controls::dropdown, current_palette.text);
+  lv_style_set_border_color(&controls::dropdown, current_palette.border);
+  lv_style_set_text_font(&controls::dropdown, &fonts::medium);
+  lv_style_set_width(&controls::dropdown, LV_SIZE_CONTENT);
+  lv_style_set_flex_grow(&controls::dropdown, 1);
+
+  lv_style_init(&controls::dropdown_selected);
+  lv_style_set_bg_color(&controls::dropdown_selected, current_palette.primary);
+  lv_style_set_bg_opa(&controls::dropdown_selected, LV_OPA_COVER);
+
+  lv_style_init(&controls::dropdown_button);
+  lv_style_set_bg_color(&controls::dropdown_button, current_palette.surface);
+  lv_style_set_bg_opa(&controls::dropdown_button, LV_OPA_COVER);
 }
 
 static void init_indicator_styles() {
@@ -431,6 +593,15 @@ static void init_menu_styles() {
   lv_style_set_bg_opa(&menus::msgbox_backdrop, LV_OPA_50);
 }
 
+static void init_debug_styles() {
+  lv_style_init(&debug::debug);
+  lv_style_set_bg_color(&debug::debug, lv_color_hex(0xFF00FF));
+  lv_style_set_bg_opa(&debug::debug, LV_OPA_50);
+  lv_style_set_border_color(&debug::debug, lv_color_hex(0x00FFFF));
+  lv_style_set_border_width(&debug::debug, 2);
+  lv_style_set_text_color(&debug::debug, lv_color_hex(0x00FF00));
+}
+
 void Init(ThemeId theme) {
   current_theme = theme;
 
@@ -440,13 +611,13 @@ void Init(ThemeId theme) {
 
   // Load color palette for selected theme
   switch (theme) {
-    case ThemeId::REFLOW_DARK:
-      current_palette = PALETTE_REFLOW_DARK;
-      current_settings = SETTINGS_REFLOW;
+    case ThemeId::TOOTHLESS:
+      current_palette = PALETTE_TOOTHLESS;
+      current_settings = SETTINGS_TOOTHLESS;
       break;
-    case ThemeId::REFLOW_LIGHT:
-      current_palette = PALETTE_REFLOW_LIGHT;
-      current_settings = SETTINGS_REFLOW;
+    case ThemeId::TOOTHLESS_LIGHT:
+      current_palette = PALETTE_TOOTHLESS_LIGHT;
+      current_settings = SETTINGS_TOOTHLESS;
       break;
     case ThemeId::HIGH_CONTRAST:
       current_palette = PALETTE_HIGH_CONTRAST;
@@ -460,12 +631,12 @@ void Init(ThemeId theme) {
       current_palette = PALETTE_EMERALD;
       current_settings = SETTINGS_DEFAULT;
       break;
-    case ThemeId::JADE:
-      current_palette = PALETTE_JADE;
-      current_settings = SETTINGS_DEFAULT;
+    case ThemeId::BEELSE:
+      current_palette = PALETTE_BEELSE;
+      current_settings = SETTINGS_TOOTHLESS;
       break;
     default:
-      current_palette = PALETTE_REFLOW_DARK;
+      current_palette = PALETTE_TOOTHLESS;
       current_settings = SETTINGS_DEFAULT;
   }
 
@@ -510,7 +681,10 @@ void Init(ThemeId theme) {
     fonts::numbers_small = AdwaitaMonoB_28;
     fonts::numbers_medium = AdwaitaMonoB_64;
     fonts::numbers_large = AdwaitaMonoB_128;
-    current_settings.screen_padding = 24;
+    // if (current_settings.screen_padding > 0) {
+    //   current_settings.screen_padding = LV_DPX(32);
+    // }
+    // current_settings.screen_padding = LV_DPX(24);
   }
 
   // Initialize all style categories
@@ -540,9 +714,30 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&buttons::pressed);
   lv_style_reset(&buttons::disabled);
 
+  lv_style_reset(&menus::messagebox);
+  lv_style_reset(&menus::messagebox_title);
+  lv_style_reset(&menus::messagebox_message);
+  lv_style_reset(&menus::messagebox_button);
+  lv_style_reset(&menus::msgbox_backdrop);
+
   lv_style_reset(&screens::background);
   lv_style_reset(&screens::card);
+  lv_style_reset(&screens::subscreen);
+  lv_style_reset(&screens::rowcontainer);
+  lv_style_reset(&screens::columncontainer);
+  lv_style_reset(&screens::menu);
+  lv_style_reset(&screens::menu_header);
+  lv_style_reset(&screens::menu_page);
+  lv_style_reset(&screens::menu_container);
+  lv_style_reset(&screens::menu_section);
+  lv_style_reset(&screens::menu_selected);
+  lv_style_reset(&screens::menu_unselected);
   lv_style_reset(&screens::menu_bg);
+  lv_style_reset(&screens::sidebar);
+  lv_style_reset(&screens::sidebar_bg);
+  lv_style_reset(&screens::sidebar_button);
+  lv_style_reset(&screens::sidebar_button_active);
+  lv_style_reset(&screens::sidebar_button_inactive);
 
   lv_style_reset(&text::title);
   lv_style_reset(&text::heading);
@@ -551,6 +746,7 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&text::value_large);
   lv_style_reset(&text::value_small);
   lv_style_reset(&text::unit);
+  lv_style_reset(&text::textentry);
 
   lv_style_reset(&charts::background);
   lv_style_reset(&charts::grid_lines);
@@ -568,6 +764,8 @@ void SwitchTheme(ThemeId new_theme) {
 
   lv_style_reset(&indicators::led_on);
   lv_style_reset(&indicators::led_off);
+
+  lv_style_reset(&debug::debug);
 
   // Re-initialize with new theme
   Init(new_theme);

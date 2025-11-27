@@ -88,6 +88,11 @@ void NumpadOpen(const NumpadContext& ctx) {
   // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
   lv_textarea_set_max_length(state->numpadtextarea, 3);
   lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789");
+  if (ctx.initial_value.has_value()) {
+    lv_textarea_set_text(state->numpadtextarea, std::to_string(ctx.initial_value.value()).c_str());
+  } else {
+    lv_textarea_set_text(state->numpadtextarea, "");
+  }
   lv_textarea_set_text(state->numpadtextarea, "");
   lv_textarea_set_placeholder_text(state->numpadtextarea, "Enter value");
   lv_obj_set_size(state->numpadtextarea, lv_pct(100), lv_pct(15));
@@ -150,13 +155,14 @@ void NumPadCleanupHandler(lv_event_t* e) {
   std::optional<int32_t> optval = std::nullopt;
   if (lv_strcmp(txt, "") != 0) {
     uint16_t val = atoi(txt);
-    val = std::clamp<uint16_t>(val, static_cast<uint16_t>(0), static_cast<uint16_t>(kUIMaxTargetTemperatureC));
+    // val = std::clamp<uint16_t>(val, static_cast<uint16_t>(0), static_cast<uint16_t>(kUIMaxTargetTemperatureC));
 
-    if (state->target_spinbox != nullptr) {
-      lv_spinbox_set_value(state->target_spinbox, val);  // TODO: should be updated by pubsub
-      FLOG_INFO("Set spinbox to %d", val);
-    }
-    optval = val * 100;
+    // if (state->target_spinbox != nullptr) {
+    //   lv_spinbox_set_value(state->target_spinbox, val);  // TODO: should be updated by pubsub
+    //   FLOG_INFO("Set spinbox to %d", val);
+    // }
+    // optval = val * 100;
+    optval = val;
   }
   if (state->on_confirm) {
     FLOG_INFO("Running Callback");
@@ -220,9 +226,13 @@ void TimeRollerOpen(const NumberRollerContext& ctx) {
   state->col_a = ui::CreateRoller(col, minsecstr, 00);
   lv_obj_add_event_cb(state->col_a, TimeRollerHandler, LV_EVENT_ALL, state);
 
+  ui::CreateUnitLabel(col, ":");
+
   // Minutes roller
   state->col_b = ui::CreateRoller(col, minsecstr, 00);
   lv_obj_add_event_cb(state->col_b, TimeRollerHandler, LV_EVENT_ALL, state);
+
+  ui::CreateUnitLabel(col, ":");
 
   // Seconds roller
   state->col_c = ui::CreateRoller(col, minsecstr, 00);
@@ -306,33 +316,9 @@ void ConfirmationPopup(const ConfirmationContext& ctx) {
 
   // lv_obj_t* msgbox = ui::CreateMessageBox(state->backdrop, state->title, state->message, state->confirm_text,
   // state->cancel_text, ConfirmationHandler, ConfirmationHandler, state);
-  lv_obj_t* msgbox = lv_msgbox_create(state->backdrop);
-  lv_obj_set_size(msgbox, lv_pct(90), lv_pct(90));
-  lv_obj_set_style_bg_color(msgbox, lv_color_black(), 0);
-  lv_obj_set_style_border_width(msgbox, 0, 0);
-  lv_obj_set_flex_align(msgbox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-  lv_obj_move_to_index(msgbox, -1);
-  lv_obj_set_style_text_align(msgbox, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-  // FIXME: i think this will break...
-  lv_msgbox_add_text(msgbox, ctx.message.c_str());
-  lv_msgbox_add_title(msgbox, ctx.title.c_str());
-
-  lv_obj_t* cancel_button = lv_msgbox_add_footer_button(msgbox, state->cancel_text.c_str());
-  lv_obj_set_width(cancel_button, lv_pct(45));
-  lv_obj_set_height(cancel_button, 100);
-  // lv_obj_set_flex_grow(cancel_button, 1); // Chart grows to fill remaining space
-  lv_obj_add_event_cb(cancel_button, ConfirmationHandler, LV_EVENT_CLICKED, state);
-
-  lv_obj_t* confirm_button = lv_msgbox_add_footer_button(msgbox, state->confirm_text.c_str());
-  lv_obj_set_width(confirm_button, lv_pct(40));
-  lv_obj_set_height(confirm_button, 100);
-  // lv_obj_set_flex_grow(confirm_button, 1); // Chart grows to fill remaining space
-  lv_obj_add_event_cb(confirm_button, ConfirmationHandler, LV_EVENT_CLICKED, state);
-
-  lv_obj_t* footer = lv_msgbox_get_footer(msgbox);
-  lv_obj_set_height(footer, lv_pct(33));
+  // lv_obj_t* msgbox = lv_msgbox_create(state->backdrop);
+  lv_obj_t* msgbox = ui::CreateMessageBox(state->backdrop, state->title, state->message, state->confirm_text,
+                                          state->cancel_text, ConfirmationHandler, ConfirmationHandler, state);
 }
 
 void ConfirmationHandler(lv_event_t* e) {
@@ -353,6 +339,7 @@ void ConfirmationHandler(lv_event_t* e) {
   if (state->backdrop) {
     lv_obj_delete_async(state->backdrop);
   }
+  free(state);
 }
 
 lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
@@ -368,8 +355,9 @@ lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
   ui::CreateTitle(wrapper, "Select Mode");
 
   // CreateText(wrapper, LV_SYMBOL_WARNING, "Switching mode will stop the current one.", false);
-
-  lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, "Drying", lv_pct(100), LV_SIZE_CONTENT, true);
+  lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, "Select Profile", lv_pct(100), LV_SIZE_CONTENT, true);
+  lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
+  btn = ui::CreatePrimaryButton(wrapper, "Drying", lv_pct(100), LV_SIZE_CONTENT, true);
   lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
   btn = ui::CreatePrimaryButton(wrapper, "Reflow", lv_pct(100), LV_SIZE_CONTENT, true);
   lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
@@ -391,10 +379,14 @@ void ModeSwitcherHandler(lv_event_t* e) {
 
   if (lv_strcmp(text, "Drying") == 0) {
     FLOG_INFO("Setting Drying Mode");
-    PS_PUB_INT("heater.mode.set", heater::kModeDrying);
+    PS_PUB_INT("heater.mode.set", heater::Mode::kModeDrying);
   } else if (lv_strcmp(text, "Reflow") == 0) {
     FLOG_INFO("Setting Reflow Mode");
-    PS_PUB_INT("heater.mode.set", heater::kModeReflow);
+    PS_PUB_INT("heater.mode.set", heater::Mode::kModeReflow);
+  } else if (lv_strcmp(text, "Select Profile") == 0) {
+    FLOG_INFO("Selecting Profile");
+    // PS_PUB_INT("heater.mode.set", heater::Mode::kModeReflow);
+    PS_PUB_NIL("ui.action.profiles");
   } else if (lv_strcmp(text, "Cancel") == 0) {
   }
   lv_obj_delete_async(backdrop);
@@ -410,7 +402,9 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
   static lv_obj_t* start_stop;
   lv_obj_t* wrapper = ui::CreateRowContainer(container);
   lv_obj_set_size(wrapper, lv_pct(100), height);
-  lv_obj_set_style_pad_gap(wrapper, 10, 0);  // Gap between temp blocks
+  lv_obj_set_style_pad_gap(wrapper, 10, 0);
+  // lv_obj_set_style_border_width(wrapper, 3, 0);
+  // lv_obj_set_style_border_color(wrapper, lv_color_hex(0x009900), 0);
 
   start_stop = CreateStartStopButton(wrapper);
   CreateModeButton(wrapper);
@@ -432,7 +426,7 @@ lv_obj_t* CreateModeButton(lv_obj_t* container) {
 }
 
 lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
-  lv_obj_t* button = ui::CreateSettingsButton(container, true);
+  lv_obj_t* button = ui::CreateSettingsButton(container, LV_SIZE_CONTENT, lv_pct(100), false);
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, NULL);
   return button;
 }

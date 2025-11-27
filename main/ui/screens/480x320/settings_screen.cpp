@@ -23,6 +23,7 @@ SettingsScreen::~SettingsScreen() {}
 
 lv_obj_t* SettingsScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  FLOG_INFO("Creating 480x320 Settings Screen");
   _screen = lv_obj_create(NULL);
   lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
 
@@ -356,7 +357,7 @@ void SettingsScreen::SidebarHandler(lv_event_t* e) {
 }
 
 void SettingsScreen::BackButtonHandler(lv_event_t* e) {
-  FLOG_INFO("Back button pressed");
+  FLOG_INFO("Back POOP button pressed");
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
   if (!obj) return;
   if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
@@ -419,7 +420,7 @@ void SettingsScreen::SettingChangedHandler(lv_event_t* e) {
   // obj->_suppress_events = false;
 }
 
-void SettingsScreen::NumpadOpenHandler(lv_event_t* e) {
+void SettingsScreen::LocalNumpadOpenHandler(lv_event_t* e) {
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
 
   NumpadContext ctx{.parent_screen = obj->GetScreen(),
@@ -428,7 +429,7 @@ void SettingsScreen::NumpadOpenHandler(lv_event_t* e) {
                     .on_confirm = [obj](std::optional<int32_t> val) {
                       if (val.has_value() && !std::isnan(val.value())) {
                         FLOG_INFO("Value: %li", val.value());
-                        PS_PUB_INT("heater.target.temperature.set", val.value());
+                        PS_PUB_INT("heater.target.temperature.set", val.value() * 100);
                       } else {
                         PS_PUB_NIL("heater.target.temperature.set");
                       }

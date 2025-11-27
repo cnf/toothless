@@ -241,7 +241,7 @@ void DryerScreen::TargetHandler(lv_event_t* e) {
                           .on_confirm = [obj](std::optional<int32_t> val) {
                             if (val.has_value() && !std::isnan(val.value())) {
                               FLOG_INFO("Value: %li", val.value());
-                              PS_PUB_INT("heater.target.temperature.set", val.value());
+                              PS_PUB_INT("heater.target.temperature.set", val.value() * 100);
                             } else {
                               PS_PUB_NIL("heater.target.temperature.set");
                             }

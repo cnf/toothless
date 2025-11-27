@@ -1,6 +1,7 @@
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c")
 set(INCL "include")
 set(PRIVREQ 
+  esp_psram
   FunLog
   esp_lcd
   esp_lvgl_port

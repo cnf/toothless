@@ -8,6 +8,8 @@ file(GLOB_RECURSE SRC
   "ui/fonts/*.c"
   "ui/themes/*.cpp"
   "ui/screens/screen_helpers.cpp"
+  "ui/screens/settings_screen_base.cpp"
+  "ui/screens/profiles_screen.cpp"
   )
 
 set(INCL "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/main" "${INCLUDE_DIRECTORIES}")
@@ -20,6 +22,9 @@ set(PRIVREQ
   esp_driver_spi
   esp_timer
   esp_app_format
+  esp_psram
+  spi_flash
+  espcoredump
 
   impl_waveshare_pi
   impl_lilygo_t_display_s3_long
@@ -27,6 +32,7 @@ set(PRIVREQ
   impl_lilygo_t_hmi
   
   io_manager
+  configuration_manager
   # lvgl
 )
 
@@ -44,10 +50,11 @@ elseif(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
     # set(SCREEN_DIR "180x640") # TODO: just for developing until proper screen is available
     set(SCREEN_DIR "rectangular") 
-    # set(SCREEN_DIR "800x480")
 elseif(CONFIG_IMPL_LILYGO_T_HMI)
     set(SCREEN_DIR "rectangular") 
 endif()
+
+message(STATUS "Using screen directory: ${SCREEN_DIR}")
 
 list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
 

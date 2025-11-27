@@ -25,10 +25,11 @@
  */
 #pragma once
 
-#include <bit>
 #include <driver/i2c_master.h>
 #include <esp_err.h>
 #include <freertos/FreeRTOS.h>
+
+#include <bit>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -37,7 +38,8 @@
 /// @tparam T data type (e.g., uint16_t, uint32_t, float)
 /// @param x value to convert
 /// @return T in correct byte order
-template <typename T> T NetworkByteSwap(T x) {
+template <typename T>
+T NetworkByteSwap(T x) {
   if constexpr (std::endian::native == std::endian::big) {
     return x;
   } else {
@@ -49,7 +51,8 @@ template <typename T> T NetworkByteSwap(T x) {
 /// @tparam T data type (e.g., uint16_t, uint32_t,
 /// @param x value to convert
 /// @return T in correct byte order
-template <typename T> T SMBusByteSwap(T x) {
+template <typename T>
+T SMBusByteSwap(T x) {
   if constexpr (std::endian::native == std::endian::little) {
     return x;
   } else {
@@ -79,22 +82,22 @@ template <typename T> T SMBusByteSwap(T x) {
 /// i2c.AddDevice(0x3C, &dev);
 /// ```
 class I2cManager {
-private:
+ private:
   i2c_master_bus_handle_t _bus_handle = nullptr;
   // i2c_master_bus_handle_t _int_bus_handle = nullptr; //<! Optional internal bus handle
   mutable std::mutex _mutex;
   bool _initialized = false;
-  bool _internal = false;                 //<! Whether this instance is for internal I2C bus
-  std::vector<uint8_t> _device_addresses; //<! List of scanned device addresses
+  bool _internal = false;                  //<! Whether this instance is for internal I2C bus
+  std::vector<uint8_t> _device_addresses;  //<! List of scanned device addresses
 
   I2cManager(bool internal = false) : _internal(internal) {};
   // Delete copy/move operations
-  I2cManager(const I2cManager &) = delete;
-  I2cManager &operator=(const I2cManager &) = delete;
+  I2cManager(const I2cManager&) = delete;
+  I2cManager& operator=(const I2cManager&) = delete;
 
-public:
-  static constexpr uint32_t kClockSpeedHz = 400000; //<! Default I2C clock speed
-  static constexpr uint32_t kTimeoutMs = 1000;      //<! Default I2C timeout
+ public:
+  static constexpr uint32_t kClockSpeedHz = 400000;  //<! Default I2C clock speed
+  static constexpr uint32_t kTimeoutMs = 1000;       //<! Default I2C timeout
   /// @brief Get singleton instance. It wil be created on first call.
   /// @return Reference to singleton instance
   /// Get shared instance for main I2C bus
@@ -123,7 +126,7 @@ public:
   ///
   /// Device handle is filled on success
   /// @note Adding the same device again will result in duplicate entries!
-  esp_err_t AddDevice(i2c_device_config_t *config, i2c_master_dev_handle_t *dev_handle);
+  esp_err_t AddDevice(i2c_device_config_t* config, i2c_master_dev_handle_t* dev_handle);
 
   /// @brief Check if I2C bus is initialized
   /// @return true if initialized, false otherwise
@@ -139,32 +142,37 @@ public:
   /// @param data Pointer to buffer to store read data
   /// @param len Length of data to read
   /// @return @ref ESP_OK on success, error code otherwise
-  esp_err_t ReadRegister(i2c_master_dev_handle_t dev_handle, uint8_t reg, uint8_t *data, size_t len);
+  esp_err_t ReadRegister(i2c_master_dev_handle_t dev_handle, uint8_t reg, uint8_t* data, size_t len);
 
   /// @brief Read raw data from device
   /// @param dev_handle Device handle gotten from @ref I2cManager::AddDevice()
   /// @param data Pointer to buffer to store read data
   /// @param len Length of data to read
   /// @return @ref ESP_OK on success, error code otherwise
-  esp_err_t Read(i2c_master_dev_handle_t dev_handle, uint8_t *data, size_t len);
+  esp_err_t Read(i2c_master_dev_handle_t dev_handle, uint8_t* data, size_t len);
 
   /// @brief Write to device register
   /// @param dev_handle Device handle gotten from @ref I2cManager::AddDevice()
   /// @param reg Register address to write to
   /// @param data Pointer to buffer containing data to write
   /// @return @ref ESP_OK on success, error code otherwise
-  esp_err_t WriteRegister(i2c_master_dev_handle_t dev_handle, uint8_t reg, uint8_t *data, size_t len = 2);
+  esp_err_t WriteRegister(i2c_master_dev_handle_t dev_handle, uint8_t reg, uint8_t* data, size_t len = 2);
 
   /// @brief Write raw data to device
   /// @param dev_handle Device handle gotten from @ref I2cManager::AddDevice()
   /// @param data Pointer to buffer containing data to write
   /// @param len Length of data to write
   /// @return @ref ESP_OK on success, error code otherwise
-  esp_err_t Write(i2c_master_dev_handle_t dev_handle, const uint8_t *data, size_t len);
+  esp_err_t Write(i2c_master_dev_handle_t dev_handle, const uint8_t* data, size_t len);
 
   /// @brief Scan the I2C bus for all clients
   /// @return @ref ESP_OK on success, error code otherwise
   esp_err_t Scan();
+
+  /// @brief Get the list of scanned device addresses
+  /// @param addresses Vector to fill with 7-bit I2C addresses found during scan
+  /// @return @ref ESP_OK on success, error code otherwise
+  esp_err_t GetScannedAddresses(std::vector<uint8_t>& addresses) const;
 
   /// @brief  Probe an address to see if it is responding
   /// @param address 7-bit I2C address to probe

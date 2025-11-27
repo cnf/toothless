@@ -16,6 +16,7 @@ namespace impl {
 
 static constexpr size_t kLcdHRes = CONFIG_IMPL_CYB_4_3_INCH_HRES;  //<! horizontal resolution
 static constexpr size_t kLcdVRes = CONFIG_IMPL_CYB_4_3_INCH_VRES;  //<! vertical resolution
+static constexpr size_t kLcdDPI = 217;                             //<! display dpi
 
 static constexpr unsigned int kLcdPixelClockHz = 18 * 1000 * 1000;  //<! pixel clock frequency for lcd
 static constexpr uint8_t kLcdPixelClockPin = 42;                    /* PCLK */
@@ -60,9 +61,8 @@ static constexpr uint8_t kTouchI2cAddress = 0x5D;             //<! i2c address f
 #define TOUCH_V_RES_MAX 271
 
 // static constexpr uint16_t kLcdColorDepth = LV_COLOR_FORMAT_RGB565;  //<! color depth used in the lcd panel
-static constexpr uint8_t kLvglDrawBufferLines = 40;  // number of display lines in each draw buffer
-// static constexpr size_t kDrawBufferSize = CONFIG_IMPL_CYB_4_3_INCH_HRES * kLvglDrawBufferLines *
-//                                           sizeof(lv_color_t);  // FIXME: this is probably wrong for this display
+static constexpr uint8_t kLvglDrawBufferLines = 96;  // number of display lines in each draw buffer
+static constexpr size_t kDrawBufferSize = CONFIG_IMPL_CYB_4_3_INCH_HRES * kLvglDrawBufferLines * sizeof(lv_color_t);
 // static constexpr size_t kFullBufferSize =
 //     CONFIG_IMPL_CYB_4_3_INCH_HRES * CONFIG_IMPL_CYB_4_3_INCH_VRES * sizeof(lv_color_t);
 

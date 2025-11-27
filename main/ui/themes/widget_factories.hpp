@@ -29,12 +29,30 @@ lv_obj_t* CreatePrimaryButton(lv_obj_t* parent, const char* text, int32_t width,
 /// @return Created button object
 lv_obj_t* CreatePrimaryButton(lv_obj_t* parent, const char* text, bool grow = false);
 
+/// @brief  Create a secondary action button
+/// @param parent Parent object
+/// @param text Button label text
+/// @param width  width
+/// @param height height
+/// @param grow If true, button grows to fill available space
+/// @return Created button object
+lv_obj_t* CreateSecondaryButton(lv_obj_t* parent, const char* text, int32_t width, int32_t height, bool grow);
+
 /// Create a secondary action button
 /// @param parent Parent object
 /// @param text Button label text
 /// @param grow If true, button grows to fill available space
 /// @return Created button object
 lv_obj_t* CreateSecondaryButton(lv_obj_t* parent, const char* text, bool grow = false);
+
+/// Create a danger/stop button
+/// @param parent Parent object
+/// @param text Button label text (e.g., "Stop", "Delete")
+/// @param width width
+/// @param height height
+/// @param grow If true, button grows to fill available space
+/// @return Created button object
+lv_obj_t* CreateDangerButton(lv_obj_t* parent, const char* text, int32_t width, int32_t height, bool grow);
 
 /// Create a danger/stop button
 /// @param parent Parent object
@@ -46,9 +64,26 @@ lv_obj_t* CreateDangerButton(lv_obj_t* parent, const char* text, bool grow = fal
 /// Create a success/go button
 /// @param parent Parent object
 /// @param text Button label text
+/// @param width width
+/// @param height height
+/// @param grow If true, button grows to fill available space
+/// @return Created button object
+lv_obj_t* CreateSuccessButton(lv_obj_t* parent, const char* text, int32_t width, int32_t height, bool grow);
+
+/// Create a success/go button
+/// @param parent Parent object
+/// @param text Button label text
 /// @param grow If true, button grows to fill available space
 /// @return Created button object
 lv_obj_t* CreateSuccessButton(lv_obj_t* parent, const char* text, bool grow = false);
+
+/// @brief  Create a settings icon button
+/// @param parent Parent object
+/// @param width width
+/// @param height height
+/// @param grow If true, button grows to fill available space
+/// @return Created button object with gear icon
+lv_obj_t* CreateSettingsButton(lv_obj_t* parent, int32_t width, int32_t height, bool grow);
 
 /// Create a settings icon button
 /// @param parent Parent object
@@ -88,6 +123,53 @@ lv_obj_t* CreateColumnContainer(lv_obj_t* parent);
 /// @param parent Parent object
 /// @return Created menu container
 lv_obj_t* CreateMenuContainer(lv_obj_t* parent);
+
+/// Create a menu with title
+/// @param parent Parent object
+/// @param title Menu title text
+/// @return Created menu object
+lv_obj_t* CreateMenu(lv_obj_t* parent, const char* title = NULL);
+
+/// Create a menu page with title
+/// @param parent Parent object
+/// @param title Menu page title text
+/// @return Created menu page object
+lv_obj_t* CreateMenuPage(lv_obj_t* parent, const char* title = NULL);
+
+/// Create a menu section container
+/// @param parent Parent object
+/// @return Created menu section object
+lv_obj_t* CreateMenuSection(lv_obj_t* parent);
+
+/// @brief  Create a sidebar page and set it as the current sidebar page
+/// @param parent Parent menu object
+/// @param title Sidebar page title text
+/// @return Created sidebar page object
+lv_obj_t* CreateMenuRootPage(lv_obj_t* parent, const char* title = NULL);
+
+/// Create a sidebar section container
+/// @param parent Parent object
+/// @return Created sidebar section object
+lv_obj_t* CreateMenuRootSection(lv_obj_t* parent);
+
+/// Create a menu sidebar entry with optional icon
+/// @param parent Parent object
+/// @param title Entry title text
+/// @param icon Optional icon source (file path, symbol, etc.)
+/// @return Created sidebar entry object
+lv_obj_t* CreateMenuRootEntry(lv_obj_t* parent, const char* title, const char* icon = NULL);
+
+/// @brief Create a menu sidebar entry with custom object and optional icon
+/// @param parent Parent object
+/// @param obj Custom object to use as the entry label
+/// @param icon Optional icon source (file path, symbol, etc.)
+/// @return Created sidebar entry object
+lv_obj_t* CreateMenuRootEntry(lv_obj_t* parent, lv_obj_t* obj, const char* icon);
+
+/// Create and style a menu sidebar
+/// @param menu Menu object
+/// @return Created sidebar object
+lv_obj_t* StyleMenuSidebar(lv_obj_t* menu);
 
 // ============================================================================
 // TEXT/LABEL FACTORIES
@@ -129,13 +211,25 @@ lv_obj_t* CreateValueLarge(lv_obj_t* parent, float value, const char* format = "
 /// @param value Initial value
 /// @param format Printf-style format string
 /// @return Created label object
-lv_obj_t* CreateValueSmall(lv_obj_t* parent, int value, const char* format = "%d");
+lv_obj_t* CreateValueSmall(lv_obj_t* parent, float value, const char* format = "%d");
 
 /// Create a unit label (°C, sec, etc.)
 /// @param parent Parent object
 /// @param unit Unit text
 /// @return Created label object
 lv_obj_t* CreateUnitLabel(lv_obj_t* parent, const char* unit);
+
+/// Create a styled text area for text input
+/// @param parent Parent object
+/// @return Created text area object
+lv_obj_t* CreateTextArea(lv_obj_t* parent);
+
+/// Create an icon item with optional text
+/// @param parent Parent object
+/// @param txt Optional text label
+/// @param icon Icon source (file path, symbol, etc.)
+/// @return Created icon item object
+lv_obj_t* CreateIconItem(lv_obj_t* parent, const char* txt, const char* icon = NULL);
 
 // ============================================================================
 // CONTROL FACTORIES
@@ -157,10 +251,25 @@ lv_obj_t* CreateSwitch(lv_obj_t* parent, bool initial_state = false);
 
 /// Create a styled roller widget
 /// @param parent Parent object
-/// @param options
-/// @param selected
-/// @return
+/// @param options Options string (newline-separated)
+/// @param selected Initially selected option index
+/// @return Created roller object
 lv_obj_t* CreateRoller(lv_obj_t* parent, const char* options, int32_t selected);
+
+/// Create a small styled roller widget
+/// @param parent Parent object
+/// @param options Options string (newline-separated)
+/// @param selected Initially selected option index
+/// @return Created small roller object
+lv_obj_t* CreateSmallRoller(lv_obj_t* parent, const char* options, int32_t selected);
+
+/// @brief Create a styled dropdown widget
+/// @param parent Parent object
+/// @param name String shown when dropdown is not open
+/// @param options Options string (newline-separated)
+/// @param selected Initially selected option index
+/// @return Created dropdown object
+lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options, int32_t selected);
 
 // ============================================================================
 // CHART FACTORIES
@@ -184,12 +293,23 @@ lv_obj_t* CreateLEDIndicator(lv_obj_t* parent, bool initial_state = false);
 
 lv_obj_t* CreateMessageBox(lv_obj_t* parent, std::string title, std::string message = "",
                            std::string confirm_text = "OK", std::string cancel_text = "Cancel",
-                           std::function<void(void*)> on_confirm = nullptr,
-                           std::function<void(void*)> on_cancel = nullptr, void* user_data = nullptr);
+                           lv_event_cb_t on_confirm = nullptr, lv_event_cb_t on_cancel = nullptr,
+                           void* user_data = nullptr);
+
+lv_obj_t* CreateLabeledUnit(lv_obj_t* parent, const char* label_text, float value, const char* value_format,
+                            const char* unit_text, bool small = false);
+
+lv_obj_t* CreateLabeledUnit(lv_obj_t* parent, const char* label_text, const char* unit_text, lv_subject_t* subject,
+                            const char* value_format, bool small = false);
+
+lv_obj_t* CreateLabeledIntUnit(lv_obj_t* parent, const char* label_text, const char* unit_text, lv_subject_t* subject,
+                               const char* value_format, bool small);
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+void ValueFloatObserverHandler(lv_observer_t* observer, lv_subject_t* subject);
 
 /// Update a value label
 /// @param label Label object created by CreateValue* functions
@@ -201,5 +321,15 @@ void UpdateValueLabel(lv_obj_t* label, float value, const char* format = "%.0f")
 /// @param led LED object created by CreateLEDIndicator
 /// @param on True for ON, false for OFF
 void SetLEDState(lv_obj_t* led, bool on);
+
+/// Convert a snake_case string to Title Case
+/// @param snake_case Input snake_case string
+/// @return Converted Title Case string
+std::string SnakeToTitle(const std::string& snake_case);
+
+/// Convert a Title Case string to snake_case
+/// @param title_case Input Title Case string
+/// @return Converted snake_case string
+std::string TitleToSnake(const std::string& title_case);
 
 }  // namespace toothless::ui

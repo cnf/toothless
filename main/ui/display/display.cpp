@@ -27,7 +27,7 @@ esp_err_t Display::Init() {
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
   _display_ptr = display::impl::GetDisplayObjPtr();
   // ui::theme::SetTheme(_display_ptr);
-  themes::Init(themes::ThemeId::REFLOW_DARK);
+  themes::Init(themes::ThemeId::TOOTHLESS);
   // themes::Init(themes::ThemeId::JADE);
 
   display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);

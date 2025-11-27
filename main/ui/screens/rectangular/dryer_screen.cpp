@@ -38,7 +38,6 @@ lv_obj_t* DryerScreen::Create() {
   _screen = ui::CreateScreen();
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  lv_obj_set_style_pad_gap(_screen, 10, 0);            // 10px gap between items
 
   MainSection();
   _labels->start_stop_button = CreateBottomRow(_screen);
@@ -131,7 +130,7 @@ esp_err_t DryerScreen::Temperature() {
 
   // Temperature
   _labels->temperature_current = lv_label_create(temperature_obj);
-  lv_label_set_text(_labels->temperature_current, "----");
+  lv_label_set_text(_labels->temperature_current, "...");
   lv_obj_set_style_text_font(_labels->temperature_current, &lv_font_montserrat_22, 0);
 
   return ESP_OK;
@@ -148,7 +147,7 @@ void DryerScreen::TemperatureUpdateTarget(int32_t temp) {
   // lv_label_set_text(_labels->temp_target, temp_str);
 }
 
-void DryerScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temperature_target, "--"); }
+void DryerScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temperature_target, ".."); }
 
 void DryerScreen::TemperatureUpdateCurrent(int32_t temp) {
   if (!_labels->temperature_current) return;
@@ -180,7 +179,7 @@ void DryerScreen::TimerUpdate(uint32_t seconds) {
   // lv_label_set_text(_labels->timer, temp_str);
 }
 
-void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "--:--"); };
+void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "00:00"); };
 
 // void DryerScreen::UpdateTemperatureDisplay(uint32_t temp) {
 //   FLOG_DEBUG("Received temperature: %d", temp);
@@ -257,7 +256,7 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
     lv_obj_set_flex_align(taco, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     _labels->temperature_target = lv_label_create(taco);
-    lv_label_set_text(_labels->temperature_target, "---");
+    lv_label_set_text(_labels->temperature_target, "...");
     lv_obj_set_style_text_font(_labels->temperature_target, &themes::fonts::numbers_medium, 0);
 
     lv_obj_t* target_unit = lv_label_create(taco);
@@ -305,7 +304,7 @@ void DryerScreen::TargetHandler(lv_event_t* e) {
                     .on_confirm = [obj](std::optional<int32_t> val) {
                       if (val.has_value() && !std::isnan(val.value())) {
                         FLOG_INFO("Value: %li", val.value());
-                        PS_PUB_INT("heater.target.temperature.set", val.value());
+                        PS_PUB_INT("heater.target.temperature.set", val.value() * 100);
                       } else {
                         PS_PUB_NIL("heater.target.temperature.set");
                       }

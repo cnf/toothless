@@ -14,12 +14,17 @@ struct ReflowScreenLabels : public ScreenLabels {
   lv_obj_t* chart_scale_right;
   lv_obj_t* temp_current;
   lv_obj_t* temp_target;
+  lv_obj_t* temp_probe;
   lv_obj_t* heater_led;
   lv_obj_t* startstop_label;
   lv_obj_t* stage;
   lv_obj_t* profile;
   lv_obj_t* left;   // TODO: make conditional
   lv_obj_t* right;  // TODO: make conditional
+};
+
+struct ReflowSubjects : public Subjects {
+  lv_subject_t probe_value;
 };
 
 struct ChartInfo {
@@ -42,6 +47,7 @@ class ReflowScreen : public Screen {
 
  private:
   std::unique_ptr<ReflowScreenLabels> _labels;
+  std::unique_ptr<ReflowSubjects> _subjects;
   int32_t _target_temp;
   std::unique_ptr<ChartInfo> _chart;
 
