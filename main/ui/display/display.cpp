@@ -117,14 +117,13 @@ void Display::LvglPortTask(void* arg) {
 
   esp_task_wdt_add(NULL);
   // Configure WDT to log errors instead of panicking
-  // BUG: This doesn't actually trigger at all
+  // FIXME: This doesn't actually trigger at all
   // esp_task_wdt_config_t twdt_config = {
   //     .timeout_ms = 4000,   // 10 second timeout
   //     .idle_core_mask = 0,   // Don't monitor idle tasks
   //     .trigger_panic = false // Don't crash on timeout - just log!
   // };
   // esp_task_wdt_reconfigure(&twdt_config);
-  // vTaskDelay(pdMS_TO_TICKS(500)); // Wait 500ms for UI setup
 
   uint32_t time_till_next_ms = 0;
   [[maybe_unused]] uint64_t start;  // for log printing

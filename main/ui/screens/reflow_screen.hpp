@@ -25,6 +25,10 @@ struct ReflowScreenLabels : public ScreenLabels {
 
 struct ReflowSubjects : public Subjects {
   lv_subject_t probe_value;
+  lv_subject_t profile;
+  lv_subject_t show_profile;
+  lv_subject_t stage;
+  lv_subject_t show_stage;
 };
 
 struct ChartInfo {
@@ -63,7 +67,7 @@ class ReflowScreen : public Screen {
   esp_err_t Chart();
   void UpdateChart();
 
-  esp_err_t Temperature();
+  esp_err_t Temperature(lv_obj_t* parent);
   lv_obj_t* TemperatureBlock(lv_obj_t* parent, const char* title, const char* temp);
   void HeaterLED(lv_obj_t* parent);
 
@@ -72,7 +76,7 @@ class ReflowScreen : public Screen {
   void TemperatureClearTarget();
   static void TemperatureSetTargetHandler(lv_event_t* e);
 
-  esp_err_t MidSection();
+  esp_err_t MidSection(lv_obj_t* parent);
 
   esp_err_t BottomRow();
   esp_err_t StartButton(lv_obj_t* container);

@@ -38,28 +38,29 @@ lv_obj_t* DryerScreen::Create() {
   // FIXME: should probably make queue size configurable
 
   _screen = ui::CreateScreen();
-  lv_obj_set_style_pad_gap(_screen, 0, 0);  // 10px gap between items
-  lv_obj_set_style_pad_all(_screen, 0, 0);
 
   _labels->left = ui::CreateSubScreen(_screen);
-  lv_obj_set_size(_labels->left, 320, 180);
+  lv_obj_set_size(_labels->left, lv_pct(50), lv_pct(100));
 
   _labels->right = ui::CreateSubScreen(_screen);
-  lv_obj_set_size(_labels->right, 320, 180);
+  lv_obj_set_size(_labels->right, lv_pct(50), lv_pct(100));
 
   lv_obj_set_layout(_labels->right, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(_labels->right, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  // lv_obj_set_style_pad_gap(_labels->right, 10, 0);            // 10px gap between items
+  lv_obj_set_flex_flow(_labels->right, LV_FLEX_FLOW_COLUMN);
 
-  lv_obj_set_x(_labels->right, 320);
+  // lv_obj_set_style_border_width(_labels->right, 2, 0);
+  // lv_obj_set_style_border_color(_labels->right, lv_color_hex(0x999900), 0);
+  // lv_obj_set_style_pad_all(_labels->right, 0, 0);
+
+  lv_obj_set_x(_labels->right, lv_pct(50));  // 320);
 
   CreateTemperature(_labels->left);
 
   // MainSection();
   CreateTimer(_labels->right);
-  _labels->start_stop_button = LocalCreateBottomRow(_labels->right);
+  _labels->start_stop_button = CreateBottomRow(_labels->right);
 
-  _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);  // Update every 100ms
+  _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
   return _screen;
 }
 void DryerScreen::Loop() {}
@@ -88,13 +89,16 @@ esp_err_t DryerScreen::UpdateAllDisplays() {
       }
     } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
       // FLOG_INFO("Power: %d", msg->bool_val);
-      if (!_labels->heater_led) continue;
       switch (msg->bool_val) {
         case true:
-          ui::SetLEDState(_labels->heater_led, true);
+          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
+          if (_labels->temperature_current)
+            lv_obj_set_style_text_color(_labels->temperature_current, lv_palette_main(LV_PALETTE_RED), 0);
           break;
         case false:
-          ui::SetLEDState(_labels->heater_led, false);
+          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
+          if (_labels->temperature_current)
+            lv_obj_set_style_text_color(_labels->temperature_current, lv_color_white(), 0);
           break;
       }
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
@@ -156,6 +160,7 @@ void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "00:00"); };
 
 void DryerScreen::MainSection() {
   lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
+  lv_obj_set_style_flex_main_place(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
 
   CreateTemperature(wrapper);
   CreateTimer(wrapper);
@@ -166,49 +171,47 @@ void DryerScreen::CreateTemperature(lv_obj_t* parent) {
   lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_style_flex_track_place(wrapper, LV_FLEX_ALIGN_CENTER, 0);
 
-  lv_obj_set_style_pad_all(wrapper, 25, 0);
+  lv_obj_set_style_pad_gap(wrapper, 1, 0);
 
   {
     lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     _labels->temperature_current = ui::CreateValueLarge(wrapper, 00.0f, "%.f");
-    lv_obj_set_style_text_font(_labels->temperature_current, &AdwaitaMonoB_128, 0);
 
     lv_obj_t* unit = ui::CreateUnitLabel(wrapper, "°C");
-    lv_obj_set_style_text_font(unit, &AdwaitaMonoB_32, 0);
     lv_obj_set_align(unit, LV_ALIGN_TOP_LEFT);
   }
 }
 
 void DryerScreen::CreateTimer(lv_obj_t* parent) {
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
-  lv_obj_set_style_flex_track_place(wrapper, LV_FLEX_ALIGN_CENTER, 0);
+  // lv_obj_set_style_flex_track_place(wrapper, LV_FLEX_ALIGN_CENTER, 0);
+
   lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   lv_obj_set_flex_grow(wrapper, 1);
   {
     lv_obj_t* taco = ui::CreateRowContainer(wrapper);
+    lv_obj_set_style_pad_gap(taco, 1, 0);
 
     lv_obj_set_size(taco, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_flex_align(taco, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-    _labels->temperature_target = ui::CreateValueLarge(taco, 00.0f, "%.0f");
-    lv_label_set_text(_labels->temperature_target, "---");
-    lv_obj_set_style_text_font(_labels->temperature_target, &AdwaitaMonoB_48, 0);
+    _labels->temperature_target = ui::CreateValueSmall(taco, 00.0f, "%.0f");
+    lv_label_set_text(_labels->temperature_target, "--");
 
     lv_obj_t* target_unit = ui::CreateUnitLabel(taco, "°C");
-    lv_obj_set_style_text_font(target_unit, &AdwaitaMonoB_28, 0);
     lv_obj_set_align(target_unit, LV_ALIGN_TOP_LEFT);
 
     lv_obj_add_flag(taco, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(taco, TargetHandler, LV_EVENT_CLICKED, this);
   }
 
-  HeaterLED(wrapper);
+  // HeaterLED(wrapper);
 
-  _labels->timer = ui::CreateValueLarge(wrapper, 0, "%02d:%02d");
+  _labels->timer = ui::CreateValueSmall(wrapper, 0, "%02d:%02d");
   // lv_label_set_text(_labels->timer, "00:00");
-  lv_obj_set_style_text_font(_labels->timer, &AdwaitaMonoB_48, 0);
   lv_obj_align(_labels->timer, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_add_flag(_labels->timer, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(_labels->timer, TimerHandler, LV_EVENT_CLICKED, this);

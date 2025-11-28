@@ -35,6 +35,7 @@ class M5KMeter {
  public:
   M5KMeter();
   ~M5KMeter();
+  static bool Detect();
   esp_err_t Init();
   esp_err_t ReadCelsius(uint32_t& celsius);
   // esp_err_t ReadFahrenheit(float& fahrenheit);

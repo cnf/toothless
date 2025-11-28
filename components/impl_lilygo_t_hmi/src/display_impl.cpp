@@ -102,6 +102,7 @@ esp_err_t DisplayPanelSetup() {
     LV_LOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_INVALID_STATE;
   }
+  lv_display_set_dpi(_display, kLcdDPI);
   LV_LOG_USER("Display resolution: %dx%d", kHRes, kVRes);
   LV_LOG_USER("LV_COLOR_DEPTH=%d bytesPerPixel=%u sizeof(lv_color_t)=%u buffer_bytes=%u", LV_COLOR_DEPTH,
               (unsigned)kBytesPerPixel, (unsigned)sizeof(lv_color_t), (unsigned)kDisplayBufferBytes);

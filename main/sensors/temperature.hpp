@@ -1,5 +1,6 @@
 #pragma once
 
+#include "peripherals.hpp"
 #include "sensors/sensor.hpp"
 #include "topics/topics.hpp"
 
@@ -7,7 +8,11 @@ namespace toothless {
 inline constexpr size_t kTemperatureAverageSamples = 10;
 
 namespace topics::sensor::temperature {
+inline constexpr char const* const main = "sensor.temperature.main";
 inline constexpr char const* const base = "sensor.temperature.chamber";
+inline constexpr char const* const chamber = "sensor.temperature.chamber";
+inline constexpr char const* const probe = "sensor.temperature.probe";
+
 }  // namespace topics::sensor::temperature
 
 class Temperature : public Sensor {

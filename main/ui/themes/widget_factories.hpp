@@ -109,6 +109,11 @@ lv_obj_t* CreateSubScreen(lv_obj_t* parent);
 /// @return Created card object
 lv_obj_t* CreateCard(lv_obj_t* parent);
 
+/// Create a generic container
+/// @param parent Parent object
+/// @return Created container object
+lv_obj_t* CreateContainer(lv_obj_t* parent);
+
 /// Create a row container for horizontal layouts
 /// @param parent Parent object
 /// @return Created row container
@@ -211,7 +216,7 @@ lv_obj_t* CreateValueLarge(lv_obj_t* parent, float value, const char* format = "
 /// @param value Initial value
 /// @param format Printf-style format string
 /// @return Created label object
-lv_obj_t* CreateValueSmall(lv_obj_t* parent, float value, const char* format = "%d");
+lv_obj_t* CreateValueSmall(lv_obj_t* parent, float value, const char* format = "%li");
 
 /// Create a unit label (°C, sec, etc.)
 /// @param parent Parent object
@@ -280,6 +285,13 @@ lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options
 /// @param points_capacity Maximum number of data points
 /// @return Created chart object
 lv_obj_t* CreateChart(lv_obj_t* parent, uint16_t points_capacity);
+
+/// Create a styled chart scale
+/// @param parent Parent object
+/// @param tick_count Number of ticks on the scale
+/// @param left If true, scale is left-aligned; otherwise right-aligned
+/// @return Created chart scale object
+lv_obj_t* CreateChartScale(lv_obj_t* parent, size_t tick_count, bool left);
 
 // ============================================================================
 // INDICATOR FACTORIES

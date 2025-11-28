@@ -20,7 +20,7 @@ lv_obj_t* LocalCreateBottomRow(lv_obj_t* container) {
 
 void LocalTempRollerOpen(const NumberRollerContext& ctx) {
   // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
-  static size_t height = 60;
+  // static size_t height = 60;
 
   FLOG_INFO("Open Target Roller");
   // if (_overlay_active) return;  // already active
@@ -48,23 +48,27 @@ void LocalTempRollerOpen(const NumberRollerContext& ctx) {
   col = ui::CreateRowContainer(state->backdrop);
 
   lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  // lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_size(col, lv_pct(100), 0);
+  lv_obj_set_size(col, lv_pct(100), LV_SIZE_CONTENT);
+  // lv_obj_set_width(col, lv_pct(100));
   lv_obj_set_flex_grow(col, 1);
 
-  state->col_a = ui::CreateRoller(col, digit_list, 0);
+  state->col_a = ui::CreateSmallRoller(col, digit_list, 0);
   lv_obj_add_event_cb(state->col_a, TimeRollerHandler, LV_EVENT_ALL, state);
 
-  state->col_b = ui::CreateRoller(col, digit_list, 0);
+  state->col_b = ui::CreateSmallRoller(col, digit_list, 0);
   lv_obj_add_event_cb(state->col_b, TimeRollerHandler, LV_EVENT_ALL, state);
 
-  state->col_c = ui::CreateRoller(col, digit_list, 0);
+  state->col_c = ui::CreateSmallRoller(col, digit_list, 0);
   lv_obj_add_event_cb(state->col_c, TimeRollerHandler, LV_EVENT_ALL, state);
 
   {
     col = ui::CreateRowContainer(state->backdrop);
-    lv_obj_set_size(col, lv_pct(100), 60);
-    lv_obj_t* ok_btn = ui::CreatePrimaryButton(col, "Set Target", lv_pct(100), LV_SIZE_CONTENT, true);
+
+    lv_obj_set_width(col, lv_pct(100));
+    lv_obj_set_height(col, LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(col, 0);
+
+    lv_obj_t* ok_btn = ui::CreatePrimaryButton(col, "Set Target", lv_pct(100), NULL, true);
     lv_obj_add_event_cb(ok_btn, LocalTempRollerCleanupHandler, LV_EVENT_CLICKED, state);
   }
 }
@@ -86,7 +90,7 @@ void LocalTempRollerCleanupHandler(lv_event_t* e) {
   lv_roller_get_selected_str(state->col_c, buf, sizeof(buf));
   int seconds = atoi(buf);
   FLOG_INFO("Got numbers: %d%d%d", hours, minutes, seconds);
-  int32_t total_seconds = (hours * 100 + minutes * 10 + seconds) * 100;  // TODO: units
+  int32_t total_seconds = (hours * 100 + minutes * 10 + seconds);  // TODO: units
 
   if (state->on_confirm) {
     FLOG_INFO("Running Callback");

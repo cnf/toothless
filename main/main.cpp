@@ -46,26 +46,21 @@ void SetLogLevels() {
   // esp_log_level_set("tmc2208", ESP_LOG_ERROR);
   // esp_log_level_set("efuse", ESP_LOG_ERROR);
   // esp_log_level_set("gpio", ESP_LOG_ERROR);
-  esp_log_level_set("heater.cpp", ESP_LOG_INFO);
-  // esp_log_level_set("lvgl_port.cpp", ESP_LOG_DEBUG);
-  // esp_log_level_set("screen_helpers.cpp", ESP_LOG_DEBUG);
-  // esp_log_level_set("user_interface.cpp", ESP_LOG_DEBUG);
 }
 
 using namespace toothless;
 
 extern "C" void app_main(void) {
+  FLOG_INFO("================= Starting Toothless =================");
   SetLogLevels();
-  // TODO: wait()
   usleep(1000 * 100);
-
-  FLOG_INFO("ESP-IDF version is: %s", esp_get_idf_version());
 
   FLOG_INFO("Initializing pubsub msg bus");
   ps_init();
+  usleep(1000 * 100);
 
-  ConfigManager config_manager;
-  config_manager.Start();
+  FLOG_INFO("Initializing configuration manager");
+  ConfigManager::Start();
 
 #if defined(CONFIG_IOM_I2C_SDA_PIN) && defined(CONFIG_IOM_I2C_SCL_PIN)
   FLOG_INFO("Initializing I2C");
@@ -81,12 +76,12 @@ extern "C" void app_main(void) {
   // main_dispatcher.callEvery(100, &UserInterface::Loop, &ui);
 
   FLOG_INFO("Initializing sensors");
-  Sensors sensors;
+  static Sensors sensors;
   sensors.Init();
   main_dispatcher.callEvery(250, &Sensors::Loop, &sensors);
 
   FLOG_INFO("Initializing heater");
-  Heater heater;
+  static Heater heater;
   heater.Init();
   prio_dispatcher.callEvery(200, &Heater::Loop,
                             &heater);  // TODO: Heater will be run on its own core, focusing on UI first

@@ -304,7 +304,12 @@ void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
 }
 
 void TurnOn() {
-  lv_async_call([](void*) { ShowBootScreen(); }, nullptr);
+  lv_async_call(
+      [](void*) {
+        ShowBootScreen();
+        Backlight();
+      },
+      nullptr);
 };
 
 void ShowBootScreen() {
@@ -331,11 +336,7 @@ void ShowBootScreen() {
   lv_label_set_text(sub_label, "Initializing...");
   lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_20, 0);
   lv_obj_align_to(sub_label, label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-
-  // lv_display_flush_ready(_display);  // trigger LVGL flush
-
   lv_screen_load(boot_scr);
-  // Backlight();
 }
 
 void Backlight() {

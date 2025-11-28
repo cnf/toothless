@@ -11,14 +11,14 @@
 #include <numeric>
 #include <tuple>  // for std::get
 
-#include "topics.hpp"
-
-#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "funlog.h"
+#include "topics.hpp"
 
 Preferences _prefs;
 
 static uint32_t rt_counter = 0;
+
+TaskHandle_t ConfigManager::_core_task_handle = NULL;
 
 ConfigManager::ConfigManager() { snprintf(_register_topic, 30, "%s%s%s", kTopicConfig, TOPIC_DOT, kTopicRegister); }
 
@@ -30,32 +30,51 @@ ConfigManager::ConfigManager() { snprintf(_register_topic, 30, "%s%s%s", kTopicC
 //   return task_;
 // }
 
-void CfgMngrShim(void* pvParameters) {
+// void CfgMngrShim(void* pvParameters) {
+void ConfigManager::StarterTask(void* /*pv*/) {
+  // ConfigManager* mgr = reinterpret_cast<ConfigManager*>(pvParameters);
+  auto inst = std::make_shared<ConfigManager>();  // ctor on task stack
+  _instance = inst;
+  // std::shared_ptr<ConfigManager> mgr = ConfigManager::GetInstance();
+  inst->Setup();
+
   esp_task_wdt_add(NULL);
   while (true) {
-    reinterpret_cast<ConfigManager*>(pvParameters)->Loop();
+    inst->Loop();
     esp_task_wdt_reset();
     vTaskDelay(pdMS_TO_TICKS(100));
   }
   FLOG_ERROR("Config Manager Loop exited, this should never happen!");
   PS_CALL_NIL(kTopicReset, 10000);  // reset the MCU if we crash/fail
+  vTaskDelete(NULL);
 }
 
 void ConfigManager::Start() {
   FLOG_INFO("Starting Config Manager");
-  this->Setup();
-  xTaskCreatePinnedToCore(CfgMngrShim,         // Task function
-                          "Config Manager",    // name of task
-                          4096,                // Stack size of task, in bytes
-                          this,                // parameter of the task
-                          7,                   // priority of the task
-                          &_core_task_handle,  // task handle
-                          0);                  // MAIN_CPU
+  xTaskCreatePinnedToCore(StarterTask,                        // Task function
+                          "Config Manager",                   // name of task
+                          8192,                               // Stack size of task, in bytes
+                          NULL,                               // parameter of the task
+                          7,                                  // priority of the task
+                          &ConfigManager::_core_task_handle,  // task handle
+                          0);                                 // MAIN_CPU
+
+  ps_msg_t* msg = PS_CALL_BOOL("task.cfg_mngr.ready", true, 10000);
+  if (msg != NULL && PS_IS_BOOL(msg) && msg->bool_val) {
+    FLOG_INFO("Config Manager is ready");
+    ps_unref_msg(msg);
+    return;
+  }
+  FLOG_ERROR("Config Manager failed to start!");
+  vTaskDelay(pdMS_TO_TICKS(5000));
+  esp_restart();
 };
 
 void ConfigManager::Setup() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   // ESP_ERROR_CHECK(nvs_flash_erase());
+  ps_subscriber_t* rsub = ps_new_subscriber(1, PS_STRLIST("task.cfg_mngr.ready"));  // rsub to signal readiness
+
   FLOG_DEBUG("Listening on %s", kTopicConfig);
   _subscriptions = ps_new_subscriber(10, PS_STRLIST(kTopicConfig));
   nvs_handle_t nvs_handle;
@@ -82,13 +101,13 @@ void ConfigManager::Setup() {
     _prefs.end();
     FLOG_ERROR("WTF??? NVS wasn't initialized, doing it again...");
     InitializeNVS();
-    return;
+    esp_restart();
   };
   if (!_prefs.isKey("nvsInit")) {
     _prefs.end();
     FLOG_ERROR("nvsInit was not set");
     InitializeNVS();
-    return;
+    esp_restart();
   }
   _prefs.end();
   ReadNamespaces();
@@ -101,6 +120,21 @@ void ConfigManager::Setup() {
     mod_list += i;
   }
   FLOG_INFO("Found modules %s", mod_list.c_str());
+  {
+    ps_msg_t* msg;
+    while (true) {
+      msg = ps_get(rsub, 0);
+      if (msg != NULL) {
+        if (msg->rtopic != NULL) {
+          PS_PUB_BOOL(msg->rtopic, true);
+          break;
+        }
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    ps_unref_msg(msg);
+    ps_free_subscriber(rsub);
+  }
 }
 
 void ConfigManager::Loop() {

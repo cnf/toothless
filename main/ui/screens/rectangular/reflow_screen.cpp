@@ -44,7 +44,7 @@ ReflowScreen::~ReflowScreen() {
 }
 
 lv_obj_t* ReflowScreen::Create() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
                                                    "heater.power", "heater.state", "heater"));
 
@@ -52,9 +52,9 @@ lv_obj_t* ReflowScreen::Create() {
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
 
-  Temperature();
+  Temperature(_screen);
   Chart();
-  MidSection();
+  MidSection(_screen);
   _labels->startstop_label = CreateBottomRow(_screen);
 
   _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
@@ -192,19 +192,20 @@ void ReflowScreen::UpdateChart() {
     // Update ALL series together to keep them synchronized
     for (auto& [topic, series_ptr] : _chart->series_map) {
       lv_coord_t latest = _chart->history->GetLatest(topic);
-      // if (latest != LV_CHART_POINT_NONE) {
-      lv_chart_set_next_value(_labels->chart, series_ptr, latest);
-      FLOG_DEBUG("Chart topic %s latest value: %d (at index %d)", topic.c_str(), latest, current_index);
-      // }
+      if (latest != LV_CHART_POINT_NONE) {
+        lv_chart_set_next_value(_labels->chart, series_ptr, latest);
+        FLOG_TRACE("Chart topic %s latest value: %d (at index %d)", topic.c_str(), latest, current_index);
+      }
     }
     last_update_index = current_index;
     if (now - last_scale_update > 1000) {
       int32_t max = _chart->history->GetScale();
-      if (max == last_max) {
-        FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
-        return;
-      }
-      last_max = max;
+      // if (max == last_max) {
+      //   FLOG_TRACE("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
+      //   FLOG_DEBUG("Chart scale unchanged at %d, skipping update", max);
+      //   return;
+      // }
+      // last_max = max;
       // _y_axis_labels = _chart_history->YAxisLabels(0, max);
       // for (size_t i = 0; i < kYLabelCount; i++) {
       //   label_pointers[i] = _y_axis_labels.labels[i].c_str();
@@ -218,19 +219,21 @@ void ReflowScreen::UpdateChart() {
       _chart->label_pointers[kYLabelCount] = nullptr;  // null terminator if LVGL expects it
       lv_scale_set_text_src(_labels->chart_scale_right, _chart->label_pointers.data());
       last_scale_update = now;
+      FLOG_DEBUG("Chart scale updated to max %d", max);
     }
   }
-  FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
+  FLOG_TRACE("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
-esp_err_t ReflowScreen::Temperature() {
+esp_err_t ReflowScreen::Temperature(lv_obj_t* parent) {
+  // FIXME: dont use hardcoded height
   static float mult = 0.2;
   if (!Display::IsTall()) {
     mult = 0.15;
   }
   static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
   height = std::max<size_t>(height, 60);
-  lv_obj_t* temp_container = ui::CreateRowContainer(_screen);
+  lv_obj_t* temp_container = ui::CreateRowContainer(parent);
   lv_obj_set_size(temp_container, lv_pct(100), height);
   lv_obj_set_style_pad_gap(temp_container, 10, 0);  // Gap between temp blocks
   lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -299,10 +302,10 @@ void ReflowScreen::TemperatureUpdateTarget(int32_t temp) {
   lv_label_set_text(_labels->temp_target, temp_str);
 }
 
-void ReflowScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temp_target, ".."); }
+void ReflowScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temp_target, "-100"); }
 
-esp_err_t ReflowScreen::MidSection() {
-  lv_obj_t* mid = ui::CreateRowContainer(_screen);
+esp_err_t ReflowScreen::MidSection(lv_obj_t* parent) {
+  lv_obj_t* mid = ui::CreateRowContainer(parent);
   lv_obj_set_height(mid, LV_SIZE_CONTENT);
   lv_obj_set_width(mid, lv_pct(100));
 
@@ -335,11 +338,7 @@ esp_err_t ReflowScreen::MidSection() {
 
   ui::CreateSmallText(_labels->stage, "Stage: ");
 
-  // lv_obj_t* stitle = lv_label_create(_labels->stage);
-  // lv_label_set_text(stitle, "Stage: ");
-  // lv_obj_set_style_text_font(stitle, &lv_font_montserrat_18, 0);
-
-  lv_obj_t* sval = ui::CreateSmallText(_labels->stage, "");
+  ui::CreateSmallText(_labels->stage, "");
   lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
 
   return ESP_OK;
@@ -362,134 +361,6 @@ esp_err_t ReflowScreen::BottomRow() {
   // SettingsButton(temp_container);
   return ESP_OK;
 }
-
-// esp_err_t ReflowScreen::StartStopButton(lv_obj_t* container) {
-//   lv_obj_t* button = lv_button_create(container);
-//   lv_obj_set_size(button, 0, lv_pct(100));
-//   lv_obj_set_flex_grow(button, 1);  // share space equally
-
-//   _labels->startstop_label = lv_label_create(button);
-//   lv_label_set_text(_labels->startstop_label, "Start");
-//   lv_obj_center(_labels->startstop_label);
-
-//   lv_obj_set_style_align(button, LV_ALIGN_BOTTOM_RIGHT, 0);  // or LV_ALIGN_RIGHT
-
-//   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, this);
-
-//   return ESP_OK;
-// }
-
-// esp_err_t ReflowScreen::StartButton(lv_obj_t* container) {
-//   lv_obj_t* start_btn = lv_button_create(container);
-//   lv_obj_set_size(start_btn, 0, lv_pct(100));
-//   lv_obj_set_flex_grow(start_btn, 1);  // share space equally
-
-//   lv_obj_t* start_label = lv_label_create(start_btn);
-//   lv_label_set_text(start_label, "Start");
-//   lv_obj_center(start_label);
-//   lv_obj_set_style_align(start_btn, LV_ALIGN_BOTTOM_RIGHT, 0);  // or LV_ALIGN_RIGHT
-
-//   lv_obj_add_event_cb(start_btn, ButtonEventHandler, LV_EVENT_CLICKED, this);
-
-//   return ESP_OK;
-// }
-
-// esp_err_t ReflowScreen::SettingsButton(lv_obj_t* container) {
-//   lv_obj_t* button = lv_button_create(container);
-//   lv_obj_set_size(button, 0, lv_pct(100));
-//   lv_obj_set_flex_grow(button, 1);  // share space equally
-
-//   lv_obj_t* label = lv_label_create(button);
-//   lv_label_set_text(label, LV_SYMBOL_SETTINGS);
-//   lv_obj_center(label);
-//   lv_obj_set_style_align(button, LV_ALIGN_BOTTOM_RIGHT, 0);  // or LV_ALIGN_RIGHT
-
-//   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, this);
-
-//   return ESP_OK;
-// }
-
-// void ReflowScreen::ButtonEventHandler(lv_event_t* e) {
-//   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
-
-//   lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
-//   const char* text = lv_label_get_text(label);
-
-//   if (lv_strcmp(text, "Start") == 0) {
-//     FLOG_DEBUG("Start Button clicked!");
-//     PS_PUB_INT("heater.state.set", heater::kStateOn);
-//     lv_label_set_text(label, "Stop");
-//     // PS_PUB_NIL("ui.action.start");
-//     return;
-//   } else if (lv_strcmp(text, "Stop") == 0) {
-//     // Get the screen object if you passed it as user_data
-//     ReflowScreen* screen = (ReflowScreen*)lv_event_get_user_data(e);
-//     if (screen) {
-//       screen->StopConfirmation();
-//     }
-//   } else if (lv_strcmp(text, LV_SYMBOL_SETTINGS) == 0) {
-//     PS_PUB_NIL("ui.action.settings");
-//   } else {
-//     FLOG_DEBUG("Option unknown: %s", text);
-//   }
-
-//   // lv_event_code_t code = lv_event_get_code(e);
-//   // if (code == LV_EVENT_CLICKED) {}
-// }
-
-// void ReflowScreen::StopButtonPress() {
-//   FLOG_DEBUG("Stop StopButton clicked!");
-//   StopConfirmation();
-// }
-
-// void ReflowScreen::StopConfirmation() {
-//   // Create a backdrop to block background interactions
-//   lv_obj_t* backdrop = lv_obj_create(_screen);
-//   // lv_display_get_screen_active();
-
-//   lv_obj_set_size(backdrop, lv_pct(100), lv_pct(100));
-//   lv_obj_set_pos(backdrop, 0, 0);
-//   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-//   lv_obj_add_flag(backdrop, LV_OBJ_FLAG_FLOATING);
-
-//   // Style the backdrop - semi-transparent dark overlay
-//   lv_obj_set_style_bg_color(backdrop, lv_color_black(), 0);
-//   lv_obj_set_style_bg_opa(backdrop, 128, 0);  // 50% opacity
-//   lv_obj_set_style_border_width(backdrop, 0, 0);
-//   lv_obj_remove_style(backdrop, NULL, LV_PART_SCROLLBAR);
-//   lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_SCROLLABLE);
-
-//   lv_obj_t* msgbox = lv_msgbox_create(backdrop);
-//   lv_obj_set_size(msgbox, lv_pct(100), lv_pct(60));
-
-//   // Remove from flex layout so it can be positioned freely
-//   lv_obj_remove_flag(msgbox, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-//   lv_obj_add_flag(msgbox, LV_OBJ_FLAG_FLOATING);
-
-//   lv_obj_center(msgbox);
-//   lv_obj_move_to_index(msgbox, -1);  // Move to top of children
-//   lv_obj_set_style_text_align(msgbox, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-//   const char* title = {"Stop"};
-//   const char* text = {"Are you sure you want to stop the heating process?"};
-//   lv_msgbox_add_text(msgbox, text);
-//   lv_msgbox_add_title(msgbox, title);
-
-//   lv_obj_t* cancel_button = lv_msgbox_add_footer_button(msgbox, "Cancel");
-//   lv_obj_set_width(cancel_button, lv_pct(45));
-//   lv_obj_set_height(cancel_button, 100);
-//   // lv_obj_set_flex_grow(cancel_button, 1); // Chart grows to fill remaining space
-//   lv_obj_add_event_cb(cancel_button, ButtonCB, LV_EVENT_CLICKED, backdrop);
-
-//   lv_obj_t* stop_button = lv_msgbox_add_footer_button(msgbox, "Stop!");
-//   lv_obj_set_width(stop_button, lv_pct(45));
-//   lv_obj_set_height(stop_button, 100);
-//   // lv_obj_set_flex_grow(stop_button, 1); // Chart grows to fill remaining space
-//   lv_obj_add_event_cb(stop_button, ButtonCB, LV_EVENT_CLICKED, backdrop);
-
-//   lv_obj_t* footer = lv_msgbox_get_footer(msgbox);
-//   lv_obj_set_height(footer, lv_pct(33));
-// }
 
 void ReflowScreen::ButtonCB(lv_event_t* e) {
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);

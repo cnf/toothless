@@ -11,28 +11,11 @@
 #include "heater/profiles/profile_manager.hpp"
 
 namespace toothless {
-// Profile::Stage lead_free_stages[] = {
-//     {25, 150, 90000, Profile::Shape::Smooth, "Preheat"},
-//     {150, 180, 90000, Profile::Shape::Linear, "Soak"},
-//     {180, 240, 30000, Profile::Shape::Smooth, "Ramp to Peak"},
-//     {240, 100, 120000, Profile::Shape::Smooth, "Cooldown"},
-// };
-
-// Profile lead_free(lead_free_stages, 4);
-
-// Profile::Stage leaded_stages[] = {
-//     {25, 90, 90000, Profile::Shape::Smooth, "Preheat"},     //
-//     {90, 130, 90000, Profile::Shape::Linear, "Soak"},       //
-//     {130, 138, 45000, Profile::Shape::Smooth, "Ramp Up"},   //
-//     {138, 165, 30000, Profile::Shape::Smooth, "Reflow"},    //
-//     {165, 100, 30000, Profile::Shape::Linear, "Cooldown"},  //
-// };
-// Profile leaded(leaded_stages, 5);
 
 using namespace heater;
 
 bool Heater::Init() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
 
   // Set up Config
   _config = std::make_shared<SettingsMap>();
@@ -459,8 +442,6 @@ esp_err_t Heater::StateToOn() {
 
   switch (_mode) {
     case heater::Mode::kModeDrying:
-      // _timer_ms = 20000;  // BUG: remove, only for testing
-      // SetTarget(3000);  // BUG: remove, only for testing
       if (_time_remaining_ms == 0 && _timer_ms != 0) {
         _time_remaining_ms = _timer_ms;
       }

@@ -24,6 +24,7 @@ namespace screens {
 extern lv_style_t background;               ///< Main screen background
 extern lv_style_t subscreen;                ///< Sub-screen (transparent overlay)
 extern lv_style_t card;                     ///< Card/panel surface
+extern lv_style_t container;                ///< Generic container
 extern lv_style_t rowcontainer;             ///< Row container
 extern lv_style_t columncontainer;          ///< Column container
 extern lv_style_t menu;                     ///< Menu style
@@ -61,6 +62,7 @@ extern lv_style_t line_temp;    ///< Temperature line color
 extern lv_style_t line_target;  ///< Target temperature line
 extern lv_style_t cursor;       ///< Chart cursor
 extern lv_style_t indicator;    ///< Chart indicator style
+extern lv_style_t scale;        ///< Chart scale style
 }  // namespace charts
 
 /// Control styles (sliders, switches, etc.)

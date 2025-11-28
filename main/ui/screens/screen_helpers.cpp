@@ -12,8 +12,6 @@
 
 namespace toothless {
 
-// BUG: I do not understand the atomic stuff...
-// static std::atomic_bool s_overlay_active{false};
 static bool _overlay_active = false;
 static lv_obj_t* _backdrop = nullptr;
 
@@ -53,6 +51,54 @@ void BackdropDeleteCb(lv_event_t* e) {
   FLOG_ERROR("Backdrop deleted");
   _overlay_active = false;
   _backdrop = nullptr;
+}
+
+lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
+  lv_obj_t* wrapper = ui::CreateRowContainer(parent);
+  lv_obj_set_size(wrapper, lv_pct(100), 0);
+  // lv_obj_set_style_min_height(wrapper, 120, 0);
+  lv_obj_set_flex_grow(wrapper, 1);
+
+  lv_obj_t* chart = ui::CreateChart(wrapper, max_points);
+  if (!chart) {
+    FLOG_ERROR("Failed to create chart");
+    return nullptr;
+  }
+  lv_obj_set_size(chart, 0, lv_pct(100));
+  lv_obj_set_flex_grow(chart, 1);
+
+  // lv_chart_set_update_mode(chart, LV_CHART_UPDATE_MODE_SHIFT);
+  // lv_chart_set_update_mode(chart, LV_CHART_UPDATE_MODE_CIRCULAR);
+  lv_chart_series_t* temp_series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+  lv_chart_series_t* target_series =
+      lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+
+  // lv_chart_set_div_line_count(chart, kYLabelCount, 5);
+
+  return chart;
+
+  {
+    // Scale
+    _labels->chart_scale_right = lv_scale_create(wrapper);
+    lv_scale_set_mode(_labels->chart_scale_right, LV_SCALE_MODE_VERTICAL_RIGHT);
+    lv_obj_set_size(_labels->chart_scale_right, 30, lv_pct(100));
+    lv_obj_set_flex_grow(_labels->chart_scale_right, 0);  // Don't grow
+    lv_scale_set_total_tick_count(_labels->chart_scale_right, kYLabelCount);
+    lv_scale_set_major_tick_every(_labels->chart_scale_right, 1);
+    // TODO: see of this needs dynamic calc for different screen
+    // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
+    lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
+    lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
+    // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
+
+    // ChartSetScale();
+    lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
+    _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+                          {std::string("heater.target.temperature"), target_series}};
+    _chart->history->Register(_labels->chart, _chart->series_map);
+
+    return ESP_OK;
+  }
 }
 
 void NumpadOpen(const NumpadContext& ctx) {
@@ -182,12 +228,12 @@ void NumPadCleanupHandler(lv_event_t* e) {
 }
 
 void TimeRollerOpen(const NumberRollerContext& ctx) {
-  static float mult = 0.2;
+  // static float mult = 0.2;
   // if (!Display::IsTall()) {
   //   mult = 0.15;
   // }
   // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
-  static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
+  // static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
 
   FLOG_INFO("Open Time Roller");
   if (_overlay_active) return;  // already active
@@ -239,9 +285,11 @@ void TimeRollerOpen(const NumberRollerContext& ctx) {
   lv_obj_add_event_cb(state->col_c, TimeRollerHandler, LV_EVENT_ALL, state);
 
   col = ui::CreateRowContainer(state->backdrop);
-  lv_obj_set_size(col, lv_pct(100), height);
+  lv_obj_set_width(col, lv_pct(100));
+  lv_obj_set_height(col, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(col, 0);
 
-  lv_obj_t* ok_btn = ui::CreatePrimaryButton(col, "Set Time", lv_pct(100), lv_pct(100), true);
+  lv_obj_t* ok_btn = ui::CreatePrimaryButton(col, "Set Time", lv_pct(100), NULL, true);
   lv_obj_add_event_cb(ok_btn, TimeRollerCleanupHandler, LV_EVENT_CLICKED, state);
 }
 
@@ -314,9 +362,6 @@ void ConfirmationPopup(const ConfirmationContext& ctx) {
   state->on_cancel = ctx.on_cancel;
   state->on_confirm = ctx.on_confirm;
 
-  // lv_obj_t* msgbox = ui::CreateMessageBox(state->backdrop, state->title, state->message, state->confirm_text,
-  // state->cancel_text, ConfirmationHandler, ConfirmationHandler, state);
-  // lv_obj_t* msgbox = lv_msgbox_create(state->backdrop);
   lv_obj_t* msgbox = ui::CreateMessageBox(state->backdrop, state->title, state->message, state->confirm_text,
                                           state->cancel_text, ConfirmationHandler, ConfirmationHandler, state);
 }
@@ -393,18 +438,10 @@ void ModeSwitcherHandler(lv_event_t* e) {
 }
 
 lv_obj_t* CreateBottomRow(lv_obj_t* container) {
-  static float mult = 0.2;
-  if (!Display::IsTall()) {
-    mult = 0.15;
-  }
-  static size_t height = lv_display_get_vertical_resolution(NULL) * mult;
-  // static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
   static lv_obj_t* start_stop;
   lv_obj_t* wrapper = ui::CreateRowContainer(container);
-  lv_obj_set_size(wrapper, lv_pct(100), height);
+  lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_style_pad_gap(wrapper, 10, 0);
-  // lv_obj_set_style_border_width(wrapper, 3, 0);
-  // lv_obj_set_style_border_color(wrapper, lv_color_hex(0x009900), 0);
 
   start_stop = CreateStartStopButton(wrapper);
   CreateModeButton(wrapper);
@@ -413,77 +450,77 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
 }
 
 lv_obj_t* CreateStartStopButton(lv_obj_t* container) {
-  lv_obj_t* button = ui::CreatePrimaryButton(container, "Start", LV_SIZE_CONTENT, lv_pct(100), true);
+  lv_obj_t* button = ui::CreatePrimaryButton(container, "Start", LV_SIZE_CONTENT, NULL, true);
   lv_obj_t* startstop_label = lv_obj_get_child_by_type(button, 0, &lv_label_class);
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, startstop_label);
   return startstop_label;
 }
 
 lv_obj_t* CreateModeButton(lv_obj_t* container) {
-  lv_obj_t* button = ui::CreatePrimaryButton(container, "Mode", LV_SIZE_CONTENT, lv_pct(100), true);
+  lv_obj_t* button = ui::CreatePrimaryButton(container, "Mode", LV_SIZE_CONTENT, NULL, true);
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, nullptr);
   return button;
 }
 
 lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
-  lv_obj_t* button = ui::CreateSettingsButton(container, LV_SIZE_CONTENT, lv_pct(100), false);
+  lv_obj_t* button = ui::CreateSettingsButton(container, LV_SIZE_CONTENT, NULL, false);
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, NULL);
   return button;
 }
 
-lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant) {
-  return CreateText(parent, icon, txt, NULL, builder_variant);
-}
+// lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant) {
+//   return CreateText(parent, icon, txt, NULL, builder_variant);
+// }
 
-lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant) {
-  lv_obj_t* obj = lv_menu_cont_create(parent);
+// lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant) {
+//   lv_obj_t* obj = lv_menu_cont_create(parent);
 
-  lv_obj_t* img = NULL;
-  lv_obj_t* label = NULL;
+//   lv_obj_t* img = NULL;
+//   lv_obj_t* label = NULL;
 
-  if (icon) {
-    img = lv_image_create(obj);
-    lv_image_set_src(img, icon);
-  }
+//   if (icon) {
+//     img = lv_image_create(obj);
+//     lv_image_set_src(img, icon);
+//   }
 
-  if (txt) {
-    label = lv_label_create(obj);
-    lv_label_set_text_fmt(label, txt, fmt);
-    lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_flex_grow(label, 1);
-  }
+//   if (txt) {
+//     label = lv_label_create(obj);
+//     lv_label_set_text_fmt(label, txt, fmt);
+//     lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
+//     lv_obj_set_flex_grow(label, 1);
+//   }
 
-  if (builder_variant && icon && txt) {
-    lv_obj_add_flag(img, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-    lv_obj_swap(img, label);
-  }
+//   if (builder_variant && icon && txt) {
+//     lv_obj_add_flag(img, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+//     lv_obj_swap(img, label);
+//   }
 
-  return obj;
-}
+//   return obj;
+// }
 
-lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk) {
-  lv_obj_t* obj = CreateText(parent, icon, txt, false);
+// lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk) {
+//   lv_obj_t* obj = CreateText(parent, icon, txt, false);
 
-  lv_obj_t* sw = lv_switch_create(obj);
-  lv_obj_add_state(sw, chk ? LV_STATE_CHECKED : LV_STATE_DEFAULT);
+//   lv_obj_t* sw = lv_switch_create(obj);
+//   lv_obj_add_state(sw, chk ? LV_STATE_CHECKED : LV_STATE_DEFAULT);
 
-  return sw;
-}
+//   return sw;
+// }
 
-lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val) {
-  lv_obj_t* obj = CreateText(parent, icon, txt, true);
+// lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val) {
+//   lv_obj_t* obj = CreateText(parent, icon, txt, true);
 
-  lv_obj_t* slider = lv_slider_create(obj);
-  lv_obj_set_flex_grow(slider, 1);
-  lv_slider_set_range(slider, min, max);
-  lv_slider_set_value(slider, val, LV_ANIM_OFF);
+//   lv_obj_t* slider = lv_slider_create(obj);
+//   lv_obj_set_flex_grow(slider, 1);
+//   lv_slider_set_range(slider, min, max);
+//   lv_slider_set_value(slider, val, LV_ANIM_OFF);
 
-  if (icon == NULL) {
-    lv_obj_add_flag(slider, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  }
+//   if (icon == NULL) {
+//     lv_obj_add_flag(slider, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+//   }
 
-  return obj;
-}
+//   return obj;
+// }
 
 // lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow) {
 //   static float mult = 0.2;

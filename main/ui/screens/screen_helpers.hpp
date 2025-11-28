@@ -86,6 +86,8 @@ lv_obj_t* CreateBackdrop(lv_obj_t* screen);
 
 static void BackdropDeleteCb(lv_event_t* e);
 
+lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points);
+
 void NumpadOpen(const NumpadContext& context);
 
 void NumpadKeyHandler(lv_event_t* e);

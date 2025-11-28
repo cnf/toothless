@@ -26,7 +26,6 @@ set(PRIVREQ
   spi_flash
   espcoredump
 
-  impl_waveshare_pi
   impl_lilygo_t_display_s3_long
   impl_cyb_4_3inch
   impl_lilygo_t_hmi
@@ -43,9 +42,7 @@ set(REQ
   # max6675
 )
 
-if(CONFIG_IMPL_COMP_WS_35_RPI_G)
-    set(SCREEN_DIR "480x320")
-elseif(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
+if(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
     set(SCREEN_DIR "180x640")
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
     # set(SCREEN_DIR "180x640") # TODO: just for developing until proper screen is available

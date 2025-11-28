@@ -362,6 +362,9 @@ inline ConfigEntries system_entries = {
 
 class ConfigManager {
  private:
+  static inline std::shared_ptr<ConfigManager> _instance = nullptr;
+  static TaskHandle_t _core_task_handle;
+  // static inline std::atomic_bool _ready{false};
   // std::map<char[15], std::vector<ConfigEntry>> _entries;
   ConfigMap _entries;
   std::vector<std::string> _nvs_namespaces;
@@ -370,7 +373,6 @@ class ConfigManager {
   std::map<std::string, Validator> _validators;  // key: "namespace.key"
   // std::string _register_topic;
   // const std::string GetNamespaceFromTopic(const char *topic);
-  TaskHandle_t _core_task_handle;
   uint32_t ParseTopic(const char* topic, TopicParts* parts);
   // TODO: MUTEX
   bool InitializeNVS();
@@ -386,8 +388,14 @@ class ConfigManager {
   ConfigManager();
   // ~ConfigManager();
   // std::shared_ptr<TaskContext> GetTask();
+  static std::shared_ptr<ConfigManager> GetInstance() {
+    // static std::shared_ptr<ConfigManager> instance(new ConfigManager());
+    return _instance;
+  }
+  static void Start();
+  static void StarterTask(void*);
+
   void Setup();
-  void Start();
   void Loop();
   size_t RegisterSettings(const char* name_space, ConfigEntries* config_entries);
   size_t ReadSettings(const char* name_space, std::shared_ptr<SettingsMap> settings);
@@ -412,7 +420,7 @@ class ConfigManager {
   void SystemDescription();
 };
 
-void CfgMngrShim(void* pvParameters);
+// void CfgMngrShim(void* pvParameters);
 
 void RegisterConfig(ConfigEntries* config_entries, const char* name);
 // const ConfigEntries* GetConfigEntries(const char* name_space);

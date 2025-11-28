@@ -63,7 +63,7 @@ esp_err_t UserInterface::Start() {
 }
 
 esp_err_t UserInterface::Init() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   _config_entries = new ConfigEntries;
   _config_entries->insert(std::end(*_config_entries), std::begin(ui_config_entries), std::end(ui_config_entries));
   RegisterConfig(_config_entries, topics::ui::name);
@@ -127,7 +127,7 @@ void UserInterface::Loop() {
 
 esp_err_t UserInterface::SwitchTo(ScreenList screen) {
   // return ESP_OK;
-  FLOG_INFO("Switching Screens: %d", screen);
+  FLOG_DEBUG("Switching Screens: %d", screen);
   // If we're already switching, ignore the request
   if (_switching_screen_state) {
     return ESP_OK;
@@ -232,19 +232,9 @@ esp_err_t UserInterface::HandleSubscriptions() {
     } else if (ps_has_topic(msg, "heater.mode.set")) {
     } else if (ps_has_topic(msg, "heater.mode") && PS_IS_INT(msg)) {
       heater::Mode new_mode = static_cast<heater::Mode>(msg->int_val);
-      // if (new_mode != _mode) {
       if (true) {
-        FLOG_INFO("Heater mode changed to %d", static_cast<int>(new_mode));
+        FLOG_DEBUG("Heater mode changed to %d", static_cast<int>(new_mode));
         _mode = new_mode;
-        // switch (_current_screen_state) {
-        //   // TODO: expand modes/states
-        //   case ScreenList::kErrorScreen:
-        //   case ScreenList::kSettingsScreen:
-        //     FLOG_DEBUG("Current ScreenState: ERROR or SETTINGS");
-        //     ps_unref_msg(msg);
-        //     continue;
-        //     break;
-        // }
         switch (_mode) {
           case heater::Mode::kModeReflow:
             FLOG_DEBUG("REFLOW mode");
@@ -263,30 +253,6 @@ esp_err_t UserInterface::HandleSubscriptions() {
             break;
         }
       }
-      // switch (_current_screen_state) {
-      //   // TODO: expand modes/states
-      //   case ScreenList::kErrorScreen:
-      //     FLOG_DEBUG("Current ScreenState: ERROR");
-      //     break;
-      //   case ScreenList::kSettingsScreen:
-      //     FLOG_DEBUG("Current ScreenState: SETTINGS");
-      //     break;
-      //   case ScreenList::kReflowScreen:
-      //     FLOG_DEBUG("Current ScreenState: REFLOW");
-      //     if (new_mode == heater::Mode::kModeDrying || new_mode == heater::Mode::kModeCooldown) {
-      //       SwitchTo(ScreenList::kDryerScreen);
-      //     }
-      //     break;
-      //   case ScreenList::kDryerScreen:
-      //     FLOG_DEBUG("Current ScreenState: DRYER");
-      //     if (new_mode == heater::Mode::kModeHeating || new_mode == heater::Mode::kModeReflow) {
-      //       SwitchTo(ScreenList::kReflowScreen);
-      //     }
-      //     break;
-      //   default:
-      //     FLOG_ERROR("Unhandled screen state: %d", static_cast<int>(_current_screen_state));
-      //     break;
-      // }
     } else if (ps_has_topic_suffix(msg, kTopicConfigGet) && PS_IS_NIL(msg)) {
       FLOG_DEBUG("Sending config map");
       GetSettings(_config, topics::ui::name);

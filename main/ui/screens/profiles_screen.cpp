@@ -89,8 +89,7 @@ esp_err_t ProfilesScreen::CreateMenu() {
   lv_obj_t* button_section = ui::CreateMenuRootSection(_labels->root_page);
   lv_obj_set_width(button_section, lv_pct(100));
   lv_obj_set_height(button_section, LV_SIZE_CONTENT);
-  lv_obj_t* add_btn =
-      ui::CreatePrimaryButton(button_section, LV_SYMBOL_PLUS " New Profile", lv_pct(100), LV_DPX(60), true);
+  lv_obj_t* add_btn = ui::CreatePrimaryButton(button_section, LV_SYMBOL_PLUS " New Profile", lv_pct(100), NULL, true);
   lv_obj_add_event_cb(add_btn, ProfileAddHandler, LV_EVENT_CLICKED, this);
   RefreshProfileList();
 
@@ -211,9 +210,14 @@ lv_obj_t* ProfilesScreen::CreateProfileEditPage() {
   lv_obj_t* name_card = ui::CreateCard(section);
   lv_obj_set_width(name_card, lv_pct(100));
   lv_obj_set_height(name_card, LV_SIZE_CONTENT);
+  // lv_obj_set_style_margin_all(name_card, 0, 0);
+  size_t pad = lv_obj_get_style_pad_top(name_card, LV_PART_MAIN);
+  lv_obj_set_style_pad_top(name_card, pad / 2, 0);
+  lv_obj_set_style_pad_bottom(name_card, pad / 2, 0);
 
-  ui::CreateBodyText(name_card, "Name:");
-  _edit_ctx->profile_name_ta = ui::CreateTextArea(name_card);  // lv_textarea_create(name_card);
+  lv_obj_t* obj = ui::CreateBodyText(name_card, "Name:");
+
+  _edit_ctx->profile_name_ta = ui::CreateTextArea(name_card);
   lv_obj_add_event_cb(_edit_ctx->profile_name_ta, ProfileSaveHandler, LV_EVENT_READY, this);
   // lv_obj_set_width(_edit_ctx->profile_name_ta, lv_pct(100));
   lv_obj_set_flex_grow(_edit_ctx->profile_name_ta, 1);
@@ -224,10 +228,6 @@ lv_obj_t* ProfilesScreen::CreateProfileEditPage() {
   lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_FOCUSED, this);
   lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_DEFOCUSED, this);
   lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_READY, this);
-
-  // Save button
-  // lv_obj_t* save_btn = ui::CreateSuccessButton(wrapper, LV_SYMBOL_SAVE " Save Profile", lv_pct(50), 60, true);
-  // lv_obj_add_event_cb(save_btn, ProfileSaveHandler, LV_EVENT_CLICKED, this);
 
   section = ui::CreateMenuSection(_edit_ctx->profile_page);
   lv_obj_set_flex_grow(section, 1);  // Fill remaining space
@@ -250,7 +250,7 @@ lv_obj_t* ProfilesScreen::CreateProfileEditPage() {
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
 
   // Add stage button
-  lv_obj_t* add_stage_btn = ui::CreatePrimaryButton(wrapper, LV_SYMBOL_PLUS " Add Stage", lv_pct(50), 60, true);
+  lv_obj_t* add_stage_btn = ui::CreatePrimaryButton(wrapper, LV_SYMBOL_PLUS " Add Stage", lv_pct(50), NULL, true);
   lv_obj_add_event_cb(add_stage_btn, StageAddHandler, LV_EVENT_CLICKED, this);
 
   lv_menu_set_page(_labels->menu, _edit_ctx->profile_page);
@@ -266,18 +266,6 @@ void ProfilesScreen::PopulateProfileEditPage() {
   lv_textarea_set_text(_edit_ctx->profile_name_ta, _edit_ctx->profile->Name().c_str());
 
   RefreshStageList();
-
-  // // Clear existing stage cards
-  // lv_obj_clean(_labels->stages_list_container);
-  // _edit_ctx->stage_cards.clear();
-
-  // // Create stage cards in the container
-  // for (size_t i = 0; i < _edit_ctx->profile->StageCount(); ++i) {
-  //   const Profile::Stage* stage = _edit_ctx->profile->GetStage(i);
-  //   if (stage) {
-  //     CreateStageCard(_labels->stages_list_container, *stage, i);
-  //   }
-  // }
 }
 
 lv_obj_t* ProfilesScreen::CreateStageCard(lv_obj_t* parent, const Profile::Stage& stage, size_t index) {
@@ -287,13 +275,6 @@ lv_obj_t* ProfilesScreen::CreateStageCard(lv_obj_t* parent, const Profile::Stage
   lv_obj_set_style_pad_all(card, 12, 0);
   // lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_flex_cross_place(card, LV_FLEX_ALIGN_CENTER, 0);
-
-  // // Stage header
-  // lv_obj_t* header_row = ui::CreateRowContainer(card);
-  // lv_obj_set_width(header_row, lv_pct(100));
-  // lv_obj_set_height(header_row, LV_SIZE_CONTENT);
-  // // lv_obj_set_style_border_width(header_row, 3, 0);
-  // // lv_obj_set_style_border_color(header_row, lv_color_hex(0x009900), 0);
 
   lv_obj_t* details = ui::CreateColumnContainer(card);
   // lv_obj_set_width(details, lv_pct(100));
@@ -329,19 +310,20 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
     _edit_ctx->stage_page = nullptr;
   }
   _edit_ctx->stage_page = ui::CreateMenuPage(_labels->menu, "Edit Stage");
-  // _labels->stage_edit_page = ui::CreateMenuPage(_labels->menu, "Edit Stage");
   lv_obj_t* section = ui::CreateMenuSection(_edit_ctx->stage_page);
 
   // Profile name input
   lv_obj_t* name_card = ui::CreateCard(section);
   lv_obj_set_width(name_card, lv_pct(100));
   lv_obj_set_height(name_card, LV_SIZE_CONTENT);
+  size_t pad = lv_obj_get_style_pad_top(name_card, LV_PART_MAIN);
+  lv_obj_set_style_pad_top(name_card, pad / 2, 0);
+  lv_obj_set_style_pad_bottom(name_card, pad / 2, 0);
 
   ui::CreateBodyText(name_card, "Name:");
-  _edit_ctx->stage_name_ta = ui::CreateTextArea(name_card);  // lv_textarea_create(name_card);
+  _edit_ctx->stage_name_ta = ui::CreateTextArea(name_card);
   lv_obj_add_event_cb(_edit_ctx->stage_name_ta, StageSaveHandler, LV_EVENT_READY, this);
 
-  // lv_obj_set_width(_edit_ctx->stage_name_ta, lv_pct(100));
   lv_obj_set_flex_grow(_edit_ctx->stage_name_ta, 1);
 
   lv_textarea_set_one_line(_edit_ctx->stage_name_ta, true);
@@ -364,15 +346,6 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
   lv_obj_t* card = ui::CreateCard(section);
   lv_obj_set_width(card, lv_pct(100));
   lv_obj_set_height(card, LV_SIZE_CONTENT);
-  // lv_obj_set_style_border_width(card, 3, 0);
-  // lv_obj_set_style_border_color(card, lv_color_hex(0x008800), 0);
-  // lv_obj_add_flag(card, LV_OBJ_FLAG_SCROLLABLE);
-
-  // lv_obj_t* col = ui::CreateColumnContainer(card);
-  // lv_obj_set_width(col, lv_pct(100));
-  // lv_obj_set_height(col, LV_SIZE_CONTENT);
-  // lv_obj_set_style_border_width(col, 3, 0);
-  // lv_obj_set_style_border_color(col, lv_color_hex(0x880088), 0);
 
   lv_obj_t* row = ui::CreateRowContainer(card);
   lv_obj_set_style_flex_main_place(row, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
@@ -386,7 +359,7 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
   // lv_obj_set_style_border_width(row, 3, 0);
   // lv_obj_set_style_border_color(row, lv_color_hex(0x880000), 0);
 
-  col = ui::CreateLabeledUnit(row, "From", 26.0f, "%.0f", "°C");
+  col = ui::CreateLabeledUnit(row, "From", 26.0f, "%.0f", "°C", true);
   lv_label_set_text(col, _edit_ctx->stage ? std::to_string((int)_edit_ctx->stage->start_temp).c_str() : "25");
   lv_obj_set_user_data(col, (void*)"from");
   lv_obj_add_flag(col, LV_OBJ_FLAG_CLICKABLE);
@@ -394,7 +367,7 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
 
   // ui::CreateBodyText(row, LV_SYMBOL_RIGHT);
 
-  col = ui::CreateLabeledUnit(row, "To", 180.0f, "%.0f", "°C");
+  col = ui::CreateLabeledUnit(row, "To", 180.0f, "%.0f", "°C", true);
   lv_label_set_text(col, _edit_ctx->stage ? std::to_string((int)_edit_ctx->stage->end_temp).c_str() : "180");
   lv_obj_set_user_data(col, (void*)"to");
   lv_obj_add_flag(col, LV_OBJ_FLAG_CLICKABLE);
@@ -402,7 +375,7 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
 
   // ui::CreateBodyText(row, "/");
 
-  col = ui::CreateLabeledUnit(row, "Over", 90.0f, "%.0f", "s");
+  col = ui::CreateLabeledUnit(row, "Over", 90.0f, "%.0f", "s", true);
   lv_label_set_text(col, _edit_ctx->stage ? std::to_string(_edit_ctx->stage->duration_ms / 1000).c_str() : "90");
   lv_obj_set_user_data(col, (void*)"duration");
   lv_obj_add_flag(col, LV_OBJ_FLAG_CLICKABLE);
@@ -599,7 +572,7 @@ void ProfilesScreen::StageAddHandler(lv_event_t* e) {
   // Add default stage
   Profile::Stage new_stage{25.0f, 100.0f, 60000, Profile::Shape::Linear, "New Stage"};
   screen->_edit_ctx->profile->AddStage(new_stage);
-  // screen->_edit_ctx->stage = new_stage;
+  screen->_profile_mgr->SaveProfile(screen->_edit_ctx->profile->Name(), screen->_edit_ctx->profile);
 
   screen->RefreshProfileList();
   screen->RefreshStageList();

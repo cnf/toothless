@@ -14,6 +14,7 @@ namespace impl {
 
 // static constexpr size_t kHRes = CONFIG_IMPL_LILYGO_T_HMI_HRES;  //<! horizontal resolution
 // static constexpr size_t kVRes = CONFIG_IMPL_LILYGO_T_HMI_VRES;  //<! vertical resolution
+static constexpr size_t kLcdDPI = 217;  //<! display dpi
 
 static constexpr unsigned int kPixelClockHz = 10 * 1000 * 1000;  //<! pixel clock frequency for lcd
 static constexpr gpio_num_t kTftBacklightPin = GPIO_NUM_38;      //<! lcd backlight pin

@@ -16,4 +16,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     esp-idf-full
   ];
+  shellHook = ''
+    unset SOURCE_DATE_EPOCH
+  '';
 }

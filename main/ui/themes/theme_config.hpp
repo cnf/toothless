@@ -29,7 +29,9 @@ struct ColorPalette {
 
 struct Settings {
   bool borders;
-  uint32_t screen_padding;  ///< Standard screen padding
+  uint32_t screen_padding;             ///< Standard screen padding
+  size_t element_padding = LV_DPX(8);  ///< Standard element padding
+  size_t button_height = 60;           ///< Standard button height
 };
 
 /// Available theme IDs

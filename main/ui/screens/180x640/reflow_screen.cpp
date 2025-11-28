@@ -17,7 +17,20 @@ extern "C" {
 
 namespace toothless {
 
-ReflowScreen::ReflowScreen() { _labels = std::make_unique<ReflowScreenLabels>(); }
+ReflowScreen::ReflowScreen() {
+  _labels = std::make_unique<ReflowScreenLabels>();
+  _subjects = std::make_unique<ReflowSubjects>();
+  lv_subject_init_int(&_subjects->probe, 123);
+  lv_subject_init_int(&_subjects->temperature, -10);
+  lv_subject_init_int(&_subjects->target, -100);
+  static char profile_buf[64];
+  static char stage_buf[64];
+  lv_subject_init_string(&_subjects->profile, profile_buf, NULL, 64, "No Profile Loaded");
+  lv_subject_init_int(&_subjects->show_profile, 0);
+  lv_subject_init_string(&_subjects->stage, stage_buf, NULL, 64, "No Stage Loaded");
+  lv_subject_init_int(&_subjects->show_stage, 0);
+  // lv_subject_init_int(&_subjects->target, -100);
+}
 
 ReflowScreen::ReflowScreen(ChartHistory* chart_hist) : ReflowScreen() {
   _chart = std::make_unique<ChartInfo>();
@@ -43,47 +56,27 @@ lv_obj_t* ReflowScreen::Create() {
 
   _screen = ui::CreateScreen();
 
-  lv_obj_set_style_pad_gap(_screen, 0, 0);  // 10px gap between items
-  lv_obj_set_style_pad_all(_screen, 0, 0);
-
   _labels->left = ui::CreateSubScreen(_screen);
-  lv_obj_set_size(_labels->left, 320, 180);
+  lv_obj_set_size(_labels->left, lv_pct(50), lv_pct(100));
 
   _labels->right = ui::CreateSubScreen(_screen);
-  lv_obj_set_size(_labels->right, 320, 180);
+  lv_obj_set_size(_labels->right, lv_pct(50), lv_pct(100));
+  lv_obj_set_style_pad_gap(_labels->right, 0, 0);
+
+  // lv_obj_set_style_border_width(_labels->right, 1, 0);
+  // lv_obj_set_style_border_color(_labels->right, lv_color_hex(0x999900), 0);
 
   lv_obj_set_layout(_labels->right, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(_labels->right, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  // lv_obj_set_style_pad_gap(_labels->right, 10, 0);            // 10px gap between items
+  lv_obj_set_flex_flow(_labels->right, LV_FLEX_FLOW_COLUMN);
 
-  lv_obj_set_x(_labels->right, 320);
-
-  // _labels->left = lv_obj_create(_screen);
-  // lv_obj_remove_style_all(_labels->left);
-  // lv_obj_set_size(_labels->left, 320, 180);
-  // lv_obj_set_style_bg_color(_labels->left, lv_color_black(), 0);
-  // // lv_obj_set_style_pad_all(_labels->left, 0, 0);
-  // lv_obj_set_style_bg_opa(_labels->left, LV_OPA_COVER, 0);
-
-  // _labels->right = lv_obj_create(_screen);
-  // lv_obj_remove_style_all(_labels->right);
-  // lv_obj_set_size(_labels->right, 320, 180);
-  // lv_obj_set_style_bg_color(_labels->right, lv_color_black(), 0);
-  // lv_obj_set_style_bg_opa(_labels->right, LV_OPA_COVER, 0);
-
-  // // Set screen to vertical flex layout
-  // lv_obj_set_layout(_labels->right, LV_LAYOUT_FLEX);
-  // lv_obj_set_flex_flow(_labels->right, LV_FLEX_FLOW_COLUMN);  // Vertical stacking
-  // // lv_obj_set_style_pad_gap(_labels->right, 10, 0);            // 10px gap between items
-
-  // lv_obj_set_x(_labels->right, 320);
+  lv_obj_set_x(_labels->right, lv_pct(50));
 
   Chart();
-  Temperature();
-  MidSection();
-  // BottomRow();
-  LocalCreateBottomRow(_labels->right);
+  Temperature(_labels->right);
+  MidSection(_labels->right);
+  _labels->startstop_label = CreateBottomRow(_labels->right);
   _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
+  PS_PUB_NIL("heater.profile.get");
   return _screen;
 }
 
@@ -102,29 +95,37 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
-      TemperatureUpdateCurrent((uint32_t)msg->int_val);
+      // TemperatureUpdateCurrent((uint32_t)msg->int_val);
+      lv_subject_set_int(&_subjects->temperature, (int32_t)msg->int_val / 100);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
       if (PS_IS_INT(msg)) {
-        TemperatureUpdateTarget(msg->int_val);
+        // TemperatureUpdateTarget(msg->int_val);
+        lv_subject_set_int(&_subjects->target, (int32_t)msg->int_val / 100);
       } else {
-        TemperatureClearTarget();
+        // TemperatureClearTarget();
+        lv_subject_set_int(&_subjects->target, -100);
       }
     } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
       // FLOG_INFO("Power: %d", msg->bool_val);
       switch (msg->bool_val) {
-        if (!_labels->heater_led) break;
+        break;
         case true:
-          lv_led_on(_labels->heater_led);
+          if (_labels->heater_led) lv_led_on(_labels->heater_led);
+          if (_labels->temp_current)
+            lv_obj_set_style_text_color(_labels->temp_current, lv_palette_main(LV_PALETTE_RED), 0);
           break;
         case false:
-          lv_led_off(_labels->heater_led);
+          if (_labels->heater_led) lv_led_off(_labels->heater_led);
+          if (_labels->temp_current) lv_obj_set_style_text_color(_labels->temp_current, lv_color_white(), 0);
           break;
       }
     } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
       if (msg->int_val == heater::kStateOff) {
+        FLOG_INFO("Heater is off");
         if (_labels->startstop_label) lv_label_set_text(_labels->startstop_label, "Start");
         // lv_led_off(_labels->heater_led);
       } else {
+        FLOG_INFO("Heater is on");
         if (_labels->startstop_label) lv_label_set_text(_labels->startstop_label, "Stop");
       }
     } else if (ps_has_topic(msg, "heater.profile.stage")) {
@@ -132,19 +133,25 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
         if (lv_obj_has_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN)) {
           PS_PUB_NIL("heater.profile.get");
         }
-        lv_obj_remove_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_t* slabel = lv_obj_get_child(_labels->stage, 0);
-        lv_label_set_text(slabel, msg->str_val);
+        // lv_obj_remove_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_t* slabel = lv_obj_get_child(_labels->stage, 1);
+        // lv_label_set_text(slabel, ui::SnakeToTitle(msg->str_val).c_str());
+        lv_subject_copy_string(&_subjects->stage, ui::SnakeToTitle(msg->str_val).c_str());
+        lv_subject_set_int(&_subjects->show_stage, 1);
       } else if (PS_IS_NIL(msg)) {
-        lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
+        lv_subject_set_int(&_subjects->show_stage, 0);
       }
     } else if (ps_has_topic(msg, "heater.profile")) {
       if (PS_IS_STR(msg)) {
-        lv_obj_remove_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_t* plabel = lv_obj_get_child(_labels->profile, 1);
-        lv_label_set_text(plabel, msg->str_val);
+        // lv_obj_remove_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_t* plabel = lv_obj_get_child(_labels->profile, 0);
+        // lv_label_set_text(plabel, ui::SnakeToTitle(msg->str_val).c_str());
+        lv_subject_copy_string(&_subjects->profile, ui::SnakeToTitle(msg->str_val).c_str());
+        lv_subject_set_int(&_subjects->show_profile, 1);
       } else if (PS_IS_NIL(msg)) {
-        lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
+        lv_subject_set_int(&_subjects->show_profile, 0);
       }
     }
     ps_unref_msg(msg);
@@ -154,29 +161,18 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
 
 esp_err_t ReflowScreen::Chart() {
   lv_obj_t* wrapper = ui::CreateRowContainer(_labels->left);
-  // lv_obj_t* wrapper = lv_obj_create(_labels->left);
-  // lv_obj_remove_style_all(wrapper);
-  lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
+
+  lv_obj_set_size(wrapper, lv_pct(100), 0);
   // lv_obj_set_style_min_height(wrapper, 120, 0);
-  // lv_obj_set_style_pad_all(wrapper, 0, 0);
-  // lv_obj_set_layout(wrapper, LV_LAYOUT_FLEX);
-  // lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_ROW);
-  // lv_obj_set_flex_grow(wrapper, 1);
-  // lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
-  // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_grow(wrapper, 1);
 
   _labels->chart = ui::CreateChart(wrapper, kMaxPoints);
-
-  // Chart
-  // _labels->chart = lv_chart_create(wrapper);
   if (!_labels->chart) {
     FLOG_ERROR("Failed to create chart");
     return ESP_ERR_NO_MEM;
   }
-  lv_obj_set_size(_labels->chart, 290, lv_pct(100));
-  // lv_obj_set_style_bg_color(_labels->chart, lv_color_black(), 0);
-
-  // lv_obj_set_flex_grow(_labels->chart, 1);  // Chart grows to fill remaining space
+  lv_obj_set_size(_labels->chart, 0, lv_pct(100));
+  lv_obj_set_flex_grow(_labels->chart, 1);
 
   // lv_chart_set_update_mode(_labels->chart, LV_CHART_UPDATE_MODE_SHIFT);
   // lv_chart_set_update_mode(_labels->chart, LV_CHART_UPDATE_MODE_CIRCULAR);
@@ -190,23 +186,7 @@ esp_err_t ReflowScreen::Chart() {
 
   lv_chart_set_div_line_count(_labels->chart, kYLabelCount, 5);
 
-  // // Add grid styling to chart
-  // lv_obj_set_style_bg_color(_labels->chart, lv_palette_darken(LV_PALETTE_GREY, 5), 0);
-  // lv_obj_set_style_border_width(_labels->chart, 1, 0);
-  // lv_obj_set_style_border_color(_labels->chart, lv_palette_main(LV_PALETTE_GREY), 0);
-
-  // Scale
-  _labels->chart_scale_right = lv_scale_create(wrapper);
-  lv_scale_set_mode(_labels->chart_scale_right, LV_SCALE_MODE_VERTICAL_RIGHT);
-  lv_obj_set_size(_labels->chart_scale_right, 30, lv_pct(100));
-  lv_obj_set_flex_grow(_labels->chart_scale_right, 0);  // Don't grow
-  lv_scale_set_total_tick_count(_labels->chart_scale_right, kYLabelCount);
-  lv_scale_set_major_tick_every(_labels->chart_scale_right, 1);
-  // TODO: see of this needs dynamic calc for different screen
-  // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
-  lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
-  lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
-  // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
+  _labels->chart_scale_right = ui::CreateChartScale(wrapper, kYLabelCount, false);
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
@@ -238,10 +218,10 @@ void ReflowScreen::UpdateChart() {
     last_update_index = current_index;
     if (now - last_scale_update > 1000) {
       int32_t max = _chart->history->GetScale();
-      if (max == last_max) {
-        FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
-        return;
-      }
+      // if (max == last_max) {
+      //   FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
+      //   return;
+      // }
       last_max = max;
       // _y_axis_labels = _chart_history->YAxisLabels(0, max);
       // for (size_t i = 0; i < kYLabelCount; i++) {
@@ -261,26 +241,33 @@ void ReflowScreen::UpdateChart() {
   FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
-esp_err_t ReflowScreen::Temperature() {
-  lv_obj_t* temp_container = lv_obj_create(_labels->right);
-  lv_obj_set_style_bg_color(temp_container, lv_color_black(), 0);
-  lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(temp_container, 0, 0);
+esp_err_t ReflowScreen::Temperature(lv_obj_t* parent) {
+  // lv_obj_t* temp_container = lv_obj_create(_labels->right);
+  // lv_obj_set_style_bg_color(temp_container, lv_color_black(), 0);
+  // lv_obj_set_style_bg_opa(temp_container, LV_OPA_TRANSP, 0);
+  // lv_obj_set_style_border_width(temp_container, 0, 0);
 
-  lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
-  lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_clear_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(temp_container, lv_pct(100), 60);
-  lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);  // Side by side
-  lv_obj_set_style_pad_gap(temp_container, 10, 0);         // Gap between temp blocks
-  // lv_obj_add_event_cb(temp_container, TemperatureSetTargetHandler, LV_EVENT_CLICKED, this);
-  // lv_obj_set_flex_align(temp_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  // lv_obj_add_flag(temp_container, LV_OBJ_FLAG_HIDDEN);
+  // lv_obj_set_style_pad_all(temp_container, 0, 0);  // Remove all padding
+  // lv_obj_set_scrollbar_mode(temp_container, LV_SCROLLBAR_MODE_OFF);
+  // lv_obj_clear_flag(temp_container, LV_OBJ_FLAG_SCROLLABLE);
+  // lv_obj_set_size(temp_container, lv_pct(100), LV_SIZE_CONTENT);  // 60);
+  // lv_obj_set_layout(temp_container, LV_LAYOUT_FLEX);
+  // lv_obj_set_flex_flow(temp_container, LV_FLEX_FLOW_ROW);
+  // // lv_obj_set_style_pad_gap(temp_container, 10, 0);
 
-  _labels->temp_current = TemperatureBlock(temp_container, "Current", "--°C");
-  HeaterLED(temp_container);
-  _labels->temp_target = TemperatureBlock(temp_container, "Target", "--°C");
+  lv_obj_t* temp_container = ui::CreateRowContainer(_labels->right);
+  lv_obj_set_size(temp_container, lv_pct(100), LV_SIZE_CONTENT);  // 60);
+
+  // lv_obj_set_style_border_width(temp_container, 1, 0);
+  // lv_obj_set_style_border_color(temp_container, lv_color_hex(0x999900), 0);
+
+  // _labels->temp_current = TemperatureBlock(temp_container, "Current", "--°C");
+  _labels->temp_current = ui::CreateLabeledIntUnit(temp_container, "Current", "°C", &_subjects->temperature, "%d",
+                                                   true);  // LV_SIZE_CONTENT);  // Auto height
+  // HeaterLED(temp_container);
+  // _labels->temp_target = TemperatureBlock(temp_container, "Target", "--°C");
+  _labels->temp_target = ui::CreateLabeledIntUnit(temp_container, "Target", "°C", &_subjects->target, "%d",
+                                                  true);  // LV_SIZE_CONTENT);  // Auto height
 
   return ESP_OK;
 }
@@ -303,14 +290,14 @@ lv_obj_t* ReflowScreen::TemperatureBlock(lv_obj_t* parent, const char* title, co
   // Title
   lv_obj_t* cur_title_label = lv_label_create(temperature_obj);
   lv_label_set_text(cur_title_label, title);
-  lv_obj_set_style_text_font(cur_title_label, &lv_font_montserrat_12, 0);
+  // lv_obj_set_style_text_font(cur_title_label, &lv_font_montserrat_12, 0);
   // lv_obj_set_size(cur_title_label, lv_pct(10), LV_SIZE_CONTENT); // Auto height
   lv_obj_remove_flag(cur_title_label, LV_OBJ_FLAG_CLICKABLE);
 
   // Temperature
   obj = lv_label_create(temperature_obj);
   lv_label_set_text(obj, temp);
-  lv_obj_set_style_text_font(obj, &lv_font_montserrat_22, 0);
+  // lv_obj_set_style_text_font(obj, &lv_font_montserrat_22, 0);
   // lv_obj_set_size(_labels->temp_current, lv_pct(90), LV_SIZE_CONTENT); // Auto height
   lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE);
 
@@ -342,7 +329,7 @@ void ReflowScreen::TemperatureUpdateCurrent(int32_t temp) {
   char temp_str[16];
 
   float clamped_temp = std::clamp(temperature, -999.99f, 9999.99f);
-  snprintf(temp_str, sizeof(temp_str), "%.1f°C", clamped_temp);
+  snprintf(temp_str, sizeof(temp_str), "%.0f°C", clamped_temp);
   lv_label_set_text(_labels->temp_current, temp_str);
 }
 
@@ -364,66 +351,45 @@ void ReflowScreen::TemperatureClearTarget() {
 //   PS_PUB_NIL("ui.action.settings");
 // }
 
-esp_err_t ReflowScreen::MidSection() {
-  lv_obj_t* mid = lv_obj_create(_labels->right);
-  lv_obj_remove_style_all(mid);
-  lv_obj_set_style_bg_opa(mid, LV_OPA_TRANSP, 0);
-  lv_obj_set_layout(mid, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(mid, LV_FLEX_FLOW_ROW);
-  lv_obj_set_height(mid, 60);
+esp_err_t ReflowScreen::MidSection(lv_obj_t* parent) {
+  lv_obj_t* mid = ui::CreateRowContainer(_labels->right);
+  lv_obj_set_height(mid, LV_SIZE_CONTENT);
   lv_obj_set_width(mid, lv_pct(100));
-  lv_obj_set_scrollbar_mode(mid, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_remove_flag(mid, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_grow(mid, 1);
+  lv_obj_set_flex_flow(mid, LV_FLEX_FLOW_ROW_WRAP);
+  lv_obj_set_flex_align(mid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  // lv_obj_set_style_pad_gap(mid, 5, 0);  // Gap between blocks
 
-  // lv_obj_set_style_min_height(mid, 0, 0);  // important: min-height 0
-  // lv_obj_set_style_pad_all(mid, 0, 0);     // no padding
-  // lv_obj_set_style_pad_row(mid, 0, 0);
-  lv_obj_set_style_pad_gap(mid, 10, 0);  // Gap between blocks
+  // lv_obj_set_style_flex_cross_place(mid, LV_FLEX_ALIGN_CENTER, 0);
+  // lv_obj_set_style_flex_main_place(mid, LV_FLEX_ALIGN_CENTER, 0);
 
-  // lv_obj_set_style_pad_col(mid, 0, 0);
+  // lv_obj_set_style_border_width(mid, 1, 0);
+  // lv_obj_set_style_border_color(mid, lv_color_hex(0x990099), 0);
 
-  // If you want a single profile row, add it as a child with a concrete height.
-  // If you later remove this child, mid will collapse to 0 height automatically.
-  _labels->profile = lv_obj_create(mid);
-  // lv_obj_remove_style_all(profile);
-  // lv_obj_set_size(profile, LV_SIZE_CONTENT, 50);  // 50 px high row
-  lv_obj_set_height(_labels->profile, 50);
-  lv_obj_set_flex_grow(_labels->profile, 1);
-  lv_obj_set_layout(_labels->profile, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(_labels->profile, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(_labels->profile, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_scrollbar_mode(_labels->profile, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_remove_flag(_labels->profile, LV_OBJ_FLAG_SCROLLABLE);
+  {
+    _labels->profile = ui::CreateContainer(mid);
+    // lv_obj_set_style_border_width(_labels->profile, 1, 0);
+    // lv_obj_set_style_border_color(_labels->profile, lv_color_hex(0x990000), 0);
 
-  lv_obj_t* title = lv_label_create(_labels->profile);
-  lv_label_set_text(title, "Profile: ");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
+    lv_obj_set_size(_labels->profile, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
-  lv_obj_t* val = lv_label_create(_labels->profile);
-  lv_label_set_text(val, "");
-  lv_obj_set_style_text_font(val, &lv_font_montserrat_18, 0);
-  lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t* profile_label = ui::CreateBodyText(_labels->profile, "No Profile Loaded");
+    lv_obj_set_size(profile_label, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_label_bind_text(profile_label, &_subjects->profile, "%s");
+    lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_bind_flag_if_eq(_labels->profile, &_subjects->show_profile, LV_OBJ_FLAG_HIDDEN, 0);
 
-  _labels->stage = lv_obj_create(mid);
-  // lv_obj_remove_style_all(stage);
-  // lv_obj_set_size(stage, lv_pct(100), 25);  // 50 px high row
-  lv_obj_set_height(_labels->stage, 50);
-  lv_obj_set_flex_grow(_labels->stage, 1);
-
-  lv_obj_set_layout(_labels->stage, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(_labels->stage, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(_labels->stage, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_scrollbar_mode(_labels->stage, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_remove_flag(_labels->stage, LV_OBJ_FLAG_SCROLLABLE);
-
-  // lv_obj_t* stitle = lv_label_create(_labels->stage);
-  // lv_label_set_text(stitle, "Stage: ");
-  // lv_obj_set_style_text_font(stitle, &lv_font_montserrat_18, 0);
-
-  lv_obj_t* sval = lv_label_create(_labels->stage);
-  lv_label_set_text(sval, "");
-  lv_obj_set_style_text_font(sval, &lv_font_montserrat_18, 0);
-  lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
+    // lv_obj_set_style_border_width(profile_label, 1, 0);
+    // lv_obj_set_style_border_color(profile_label, lv_color_hex(0x009999), 0);
+  }
+  {
+    _labels->stage = ui::CreateContainer(mid);
+    ui::CreateSmallText(_labels->stage, LV_SYMBOL_RIGHT);
+    lv_obj_t* stage_label = ui::CreateBodyText(_labels->stage, "-");
+    lv_label_bind_text(stage_label, &_subjects->stage, "%s");
+    lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_bind_flag_if_eq(_labels->stage, &_subjects->show_stage, LV_OBJ_FLAG_HIDDEN, 0);
+  }
 
   return ESP_OK;
 }

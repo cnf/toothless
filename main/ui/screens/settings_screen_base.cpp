@@ -233,8 +233,7 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* root
   ui::CreateIconItem(wrapper, std::format("Version: {}", desc->version).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("ESP-IDF: {}", desc->idf_ver).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("LVGL: {}", lvgl_version).c_str(), LV_SYMBOL_BULLET);
-  ui::CreateIconItem(wrapper, std::format("Build Date: {}", desc->date).c_str(),
-                     LV_SYMBOL_BULLET);  // BUG: this always shows jan 1 1980
+  ui::CreateIconItem(wrapper, std::format("Build Date: {}", desc->date).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, "https://github.com/cnf/Toothless", LV_SYMBOL_HOME);
 
   // lv_obj_t* cont = CreateText(section, NULL, "About", LV_MENU_ITEM_BUILDER_VARIANT_1);
@@ -326,7 +325,7 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
 #endif
 
   // CreateCBButton(wrapper, "Reboot", false, ResetHandler, nullptr);
-  lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, "Reboot", lv_pct(100), 60, false);
+  lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, "Reboot", lv_pct(100), NULL, false);
   lv_obj_add_event_cb(btn, ResetHandler, LV_EVENT_CLICKED, nullptr);
 
   lv_obj_t* cont = ui::CreateMenuRootEntry(root, "System", NULL);
@@ -344,13 +343,16 @@ lv_obj_t* SettingsScreen::BuildBoolSetting(lv_obj_t* parent, const ConfigEntry& 
 
 lv_obj_t* SettingsScreen::BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry, int current_value) {
   auto validator = ParseValidatorFromFormat(entry.format);
+  FLOG_ERROR("Int setting: min=%f, max=%f, has_min=%s, has_max=%s, value=%li", validator.min_val, validator.max_val,
+             validator.has_min ? "true" : "false", validator.has_max ? "true" : "false", current_value);
 
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
   lv_obj_set_width(wrapper, LV_SIZE_CONTENT);
   lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-  lv_obj_t* val_label = ui::CreateValueSmall(wrapper, current_value);
+  lv_obj_t* val_label = ui::CreateValueSmall(wrapper, current_value, "%li");
+  lv_label_set_text(val_label, std::to_string(current_value).c_str());
   if (!entry.unit.empty()) {
     ui::CreateBodyText(wrapper, entry.unit.c_str());
   }
@@ -649,9 +651,7 @@ void SettingsScreen::BackButtonHandler(lv_event_t* e) {
   // ConfirmationPopup(ctx);
 }
 
-void SettingsScreen::ResetHandler(lv_event_t* e) {
-  esp_restart();  // BUG: no idea why this doesn't work
-};
+void SettingsScreen::ResetHandler(lv_event_t* e) { esp_restart(); };
 
 // esp_err_t SettingsScreen::GenerateFromConfig() {  // In your settings screen init:
 //   ConfigEntries ui_entries = GetEntries("ui");

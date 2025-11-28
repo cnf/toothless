@@ -47,7 +47,6 @@ esp_err_t I2cManager::Init() {
   }
 
   _initialized = true;
-  Scan();
   return ESP_OK;
 }
 

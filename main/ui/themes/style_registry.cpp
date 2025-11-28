@@ -10,6 +10,7 @@ LV_FONT_DECLARE(AdwaitaMonoB_64);
 LV_FONT_DECLARE(AdwaitaMonoB_48);
 LV_FONT_DECLARE(AdwaitaMonoB_32);
 LV_FONT_DECLARE(AdwaitaMonoB_28);
+LV_FONT_DECLARE(AdwaitaMonoB_21);
 
 namespace toothless::themes {
 
@@ -29,6 +30,7 @@ namespace screens {
 lv_style_t background;
 lv_style_t subscreen;
 lv_style_t card;
+lv_style_t container;
 lv_style_t rowcontainer;
 lv_style_t columncontainer;
 lv_style_t menu;
@@ -66,6 +68,7 @@ lv_style_t line_temp;
 lv_style_t line_target;
 lv_style_t cursor;
 lv_style_t indicator;
+lv_style_t scale;
 }  // namespace charts
 
 // Control styles
@@ -127,6 +130,7 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::primary, current_palette.primary);
   lv_style_set_text_color(&buttons::primary, current_palette.on_primary);
   lv_style_set_radius(&buttons::primary, 8);
+  lv_style_set_height(&buttons::primary, current_settings.button_height);
   // lv_style_set_pad_all(&buttons::primary, 12);
   lv_style_set_text_font(&buttons::primary, &fonts::medium);
   // if (current) lv_style_set_border_width(&buttons::primary, 0);
@@ -139,6 +143,8 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::secondary, current_palette.secondary);
   lv_style_set_text_color(&buttons::secondary, current_palette.on_secondary);
   lv_style_set_radius(&buttons::secondary, 8);
+  lv_style_set_height(&buttons::secondary, current_settings.button_height);
+
   // lv_style_set_pad_all(&buttons::secondary, 12);
   lv_style_set_border_width(&buttons::secondary, 0);
   lv_style_set_text_font(&buttons::secondary, &fonts::medium);
@@ -149,6 +155,8 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::danger, current_palette.danger);
   lv_style_set_text_color(&buttons::danger, lv_color_white());
   lv_style_set_radius(&buttons::danger, 8);
+  lv_style_set_height(&buttons::danger, current_settings.button_height);
+
   // lv_style_set_pad_all(&buttons::danger, 12);
   lv_style_set_border_width(&buttons::danger, 2);
   lv_style_set_border_color(&buttons::danger, lv_palette_darken(LV_PALETTE_RED, 3));
@@ -160,6 +168,7 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::success, current_palette.success);
   lv_style_set_text_color(&buttons::success, lv_color_white());
   lv_style_set_radius(&buttons::success, 8);
+  lv_style_set_height(&buttons::success, current_settings.button_height);
   // lv_style_set_pad_all(&buttons::success, 12);
   lv_style_set_text_font(&buttons::success, &fonts::medium);
 
@@ -168,6 +177,8 @@ static void init_button_styles() {
   lv_style_set_bg_color(&buttons::settings, current_palette.primary);
   lv_style_set_text_color(&buttons::settings, current_palette.on_primary);
   lv_style_set_radius(&buttons::settings, 8);
+  lv_style_set_height(&buttons::settings, current_settings.button_height);
+
   // lv_style_set_pad_all(&buttons::settings, 12);
   // lv_style_set_border_width(&buttons::settings, 10);
   // lv_style_set_border_color(&buttons::settings, current_palette.border);
@@ -194,7 +205,7 @@ static void init_screen_styles() {
   lv_style_set_bg_color(&screens::background, current_palette.background);
   lv_style_set_bg_opa(&screens::background, LV_OPA_COVER);
   lv_style_set_text_color(&screens::background, current_palette.on_background);
-  // lv_style_set_pad_all(&screens::background, current_settings.screen_padding);
+  lv_style_set_pad_all(&screens::background, current_settings.screen_padding);
   lv_style_set_layout(&screens::background, LV_LAYOUT_FLEX);
   lv_style_set_text_font(&screens::background, &fonts::medium);
 
@@ -204,6 +215,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::subscreen, LV_OPA_COVER);
   lv_style_set_text_color(&screens::subscreen, current_palette.on_background);
   lv_style_set_border_width(&screens::subscreen, 0);
+  lv_style_set_radius(&screens::card, 0);
   lv_style_set_pad_all(&screens::subscreen, 0);
   lv_style_set_layout(&screens::subscreen, LV_LAYOUT_FLEX);
   lv_style_set_flex_flow(&screens::subscreen, LV_FLEX_FLOW_COLUMN);
@@ -218,6 +230,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::card, LV_OPA_COVER);
   lv_style_set_radius(&screens::card, 12);
   lv_style_set_border_color(&screens::card, current_palette.border);
+  lv_style_set_pad_all(&screens::card, current_settings.element_padding);
   if (current_settings.borders) {
     lv_style_set_border_width(&screens::card, 8);
   } else {
@@ -231,7 +244,15 @@ static void init_screen_styles() {
   lv_style_set_flex_cross_place(&screens::card, LV_FLEX_ALIGN_START);
   lv_style_set_flex_track_place(&screens::card, LV_FLEX_ALIGN_START);
   lv_style_set_text_font(&screens::card, &fonts::medium);
-  lv_style_set_pad_gap(&screens::card, LV_DPX(5));
+  // lv_style_set_pad_gap(&screens::card, LV_DPX(5));
+
+  // Container
+  lv_style_init(&screens::container);
+  lv_style_set_layout(&screens::container, LV_LAYOUT_FLEX);
+  lv_style_set_bg_opa(&screens::container, LV_OPA_TRANSP);
+  lv_style_set_size(&screens::container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_style_set_pad_all(&screens::container, current_settings.element_padding);
+  lv_style_set_border_width(&screens::container, 0);
 
   // Row container
   lv_style_init(&screens::rowcontainer);
@@ -273,8 +294,8 @@ static void init_screen_styles() {
   lv_style_init(&screens::menu_header);
   lv_style_set_bg_color(&screens::menu_header, current_palette.background);
   lv_style_set_bg_opa(&screens::menu_header, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::menu_header, 12);
-  lv_style_set_height(&screens::menu_header, lv_pct(13));
+  lv_style_set_pad_all(&screens::menu_header, 0);  // LV_DPX(12));
+  lv_style_set_height(&screens::menu_header, LV_SIZE_CONTENT);
   // lv_style_set_border_color(&screens::menu_header, current_palette.border);
   // if (current_settings.borders) {
   //   lv_style_set_border_width(&screens::menu_header, 4);
@@ -286,28 +307,28 @@ static void init_screen_styles() {
   lv_style_init(&screens::menu_page);
   lv_style_set_bg_color(&screens::menu_page, current_palette.background);
   lv_style_set_bg_opa(&screens::menu_page, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::menu_page, 10);
+  lv_style_set_pad_all(&screens::menu_page, current_settings.element_padding);
   lv_style_remove_prop(&screens::menu_page, LV_OBJ_FLAG_SCROLL_ELASTIC);
 
   // Menu container
   lv_style_init(&screens::menu_container);
   lv_style_set_bg_opa(&screens::menu_container, LV_OPA_TRANSP);
-  // lv_style_set_pad_all(&screens::menu_container, 8);
+  // lv_style_set_pad_all(&screens::menu_container, current_settings.element_padding);
   lv_style_set_radius(&screens::menu_container, 8);
 
   // Menu section
   lv_style_init(&screens::menu_section);
   lv_style_set_bg_color(&screens::menu_section, current_palette.surface);
   lv_style_set_bg_opa(&screens::menu_section, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::menu_section, 8);
-  lv_style_set_pad_row(&screens::menu_section, 4);
+  lv_style_set_pad_all(&screens::menu_section, current_settings.element_padding / 2);
+  lv_style_set_pad_row(&screens::menu_section, current_settings.element_padding / 2);
   lv_style_remove_prop(&screens::menu_section, LV_OBJ_FLAG_SCROLL_ELASTIC);
 
   // Menu background
   lv_style_init(&screens::menu_bg);
   lv_style_set_bg_color(&screens::menu_bg, current_palette.background);
   lv_style_set_bg_opa(&screens::menu_bg, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::menu_bg, 8);
+  // lv_style_set_pad_all(&screens::menu_bg, current_settings.element_padding);
   lv_style_set_pad_row(&screens::menu_bg, 4);
   lv_style_remove_prop(&screens::menu_bg, LV_OBJ_FLAG_SCROLL_ELASTIC);
 
@@ -317,7 +338,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::menu_selected, LV_OPA_COVER);
   lv_style_set_text_color(&screens::menu_selected, current_palette.on_primary);
   lv_style_set_radius(&screens::menu_selected, 8);
-  lv_style_set_pad_all(&screens::menu_selected, 12);
+  lv_style_set_pad_all(&screens::menu_selected, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&screens::menu_selected, &fonts::medium);
 
   // Menu unselected item
@@ -326,28 +347,28 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::menu_unselected, LV_OPA_TRANSP);
   lv_style_set_text_color(&screens::menu_unselected, current_palette.text);
   lv_style_set_radius(&screens::menu_unselected, 8);
-  lv_style_set_pad_all(&screens::menu_unselected, 12);
+  lv_style_set_pad_all(&screens::menu_unselected, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&screens::menu_unselected, &fonts::medium);
 
   // Sidebar
   lv_style_init(&screens::sidebar);
   lv_style_set_bg_color(&screens::sidebar, current_palette.surface);
   lv_style_set_bg_opa(&screens::sidebar, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::sidebar, 8);
+  lv_style_set_pad_all(&screens::sidebar, current_settings.element_padding);
   // lv_style_set_size(&screens::sidebar, lv_pct(20), lv_pct(100));
 
   // Sidebar background
   lv_style_init(&screens::sidebar_bg);
   lv_style_set_bg_color(&screens::sidebar_bg, current_palette.background);
   lv_style_set_bg_opa(&screens::sidebar_bg, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::sidebar_bg, 8);
+  lv_style_set_pad_all(&screens::sidebar_bg, current_settings.element_padding);
 
   // Sidebar button
   lv_style_init(&screens::sidebar_button);
   lv_style_set_bg_color(&screens::sidebar_button, current_palette.surface);
   lv_style_set_bg_opa(&screens::sidebar_button, LV_OPA_COVER);
   lv_style_set_radius(&screens::sidebar_button, 8);
-  lv_style_set_pad_all(&screens::sidebar_button, 12);
+  lv_style_set_pad_all(&screens::sidebar_button, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&screens::sidebar_button, &fonts::medium);
 
   // Sidebar button active
@@ -356,7 +377,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::sidebar_button_active, LV_OPA_COVER);
   lv_style_set_text_color(&screens::sidebar_button_active, current_palette.on_primary);
   lv_style_set_radius(&screens::sidebar_button_active, 8);
-  lv_style_set_pad_all(&screens::sidebar_button_active, 12);
+  lv_style_set_pad_all(&screens::sidebar_button_active, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&screens::sidebar_button_active, &fonts::medium);
 
   // Sidebar button inactive
@@ -365,7 +386,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::sidebar_button_inactive, LV_OPA_COVER);
   lv_style_set_text_color(&screens::sidebar_button_inactive, current_palette.text);
   lv_style_set_radius(&screens::sidebar_button_inactive, 8);
-  lv_style_set_pad_all(&screens::sidebar_button_inactive, 12);
+  lv_style_set_pad_all(&screens::sidebar_button_inactive, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&screens::sidebar_button_inactive, &fonts::medium);
 }
 
@@ -386,7 +407,7 @@ static void init_text_styles() {
   lv_style_init(&text::body);
   lv_style_set_text_font(&text::body, &fonts::medium);
   lv_style_set_text_color(&text::body, current_palette.text);
-  lv_style_set_pad_all(&text::body, 8);
+  lv_style_set_pad_all(&text::body, current_settings.element_padding / 2);
   lv_style_set_width(&text::body, LV_SIZE_CONTENT);
   // lv_style_set_size(&text::body, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   // lv_style_set_flex_grow(&text::body, 1);
@@ -396,7 +417,7 @@ static void init_text_styles() {
   lv_style_init(&text::small);
   lv_style_set_text_font(&text::small, &fonts::small);
   lv_style_set_text_color(&text::small, lv_palette_lighten(LV_PALETTE_GREY, 1));
-  lv_style_set_pad_all(&text::small, 4);
+  lv_style_set_pad_all(&text::small, current_settings.element_padding / 2);
 
   // Large numeric value (temperature display)
   lv_style_init(&text::value_large);
@@ -422,7 +443,7 @@ static void init_text_styles() {
   lv_style_set_border_color(&text::textentry, current_palette.border);
   lv_style_set_border_width(&text::textentry, 2);
   lv_style_set_radius(&text::textentry, 8);
-  lv_style_set_pad_all(&text::textentry, 8);
+  lv_style_set_pad_all(&text::textentry, current_settings.element_padding / 2);
 }
 
 static void init_chart_styles() {
@@ -432,7 +453,7 @@ static void init_chart_styles() {
   lv_style_set_bg_opa(&charts::background, LV_OPA_COVER);
   lv_style_set_border_width(&charts::background, 1);
   lv_style_set_border_color(&charts::background, current_palette.border);
-  lv_style_set_pad_all(&charts::background, 8);
+  lv_style_set_pad_all(&charts::background, current_settings.element_padding);
 
   // Grid lines
   lv_style_init(&charts::grid_lines);
@@ -462,6 +483,17 @@ static void init_chart_styles() {
 
   // Set chart indicator size to zero (no visible point markers)
   lv_style_set_size(&charts::indicator, 0, 0);
+
+  // Chart scale (axis labels)
+  lv_style_init(&charts::scale);
+  lv_style_set_text_color(&charts::scale, current_palette.text);
+  lv_style_set_text_font(&charts::scale, &fonts::small);
+  lv_style_set_pad_ver(&charts::scale, 10);  // Fixed 10px padding
+  lv_style_set_width(&charts::scale, lv_font_get_glyph_width(&fonts::small, '0', '\0') * 6);
+  // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
+  // lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
+  // lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
+  // lv_font_get_glyph_width(&fonts::small, '0', '\0');
 }
 
 static void init_control_styles() {
@@ -484,7 +516,7 @@ static void init_control_styles() {
   lv_style_set_bg_color(&controls::slider_knob, current_palette.primary);
   lv_style_set_bg_opa(&controls::slider_knob, LV_OPA_COVER);
   lv_style_set_radius(&controls::slider_knob, LV_RADIUS_CIRCLE);
-  lv_style_set_pad_all(&controls::slider_knob, 6);
+  lv_style_set_pad_all(&controls::slider_knob, current_settings.element_padding);
   lv_style_set_border_width(&controls::slider_knob, 2);
   lv_style_set_border_color(&controls::slider_knob, lv_color_white());
 
@@ -504,7 +536,7 @@ static void init_control_styles() {
   lv_style_set_bg_color(&controls::switch_knob, lv_color_white());
   lv_style_set_bg_opa(&controls::switch_knob, LV_OPA_COVER);
   lv_style_set_radius(&controls::switch_knob, LV_RADIUS_CIRCLE);
-  lv_style_set_pad_all(&controls::switch_knob, -4);
+  lv_style_set_pad_all(&controls::switch_knob, -4);  // TODO: Adjust based on switch size
 
   // Roller style
   lv_style_init(&controls::roller);
@@ -562,7 +594,7 @@ static void init_menu_styles() {
   lv_style_set_bg_color(&menus::messagebox, current_palette.surface);
   lv_style_set_bg_opa(&menus::messagebox, LV_OPA_COVER);
   lv_style_set_radius(&menus::messagebox, 12);
-  lv_style_set_pad_all(&menus::messagebox, 16);
+  lv_style_set_pad_all(&menus::messagebox, current_settings.element_padding * 2);
   lv_style_set_border_color(&menus::messagebox, current_palette.border);
   if (current_settings.borders) {
     lv_style_set_border_width(&menus::messagebox, 8);
@@ -584,7 +616,7 @@ static void init_menu_styles() {
   lv_style_set_bg_color(&menus::messagebox_button, current_palette.primary);
   lv_style_set_text_color(&menus::messagebox_button, current_palette.on_primary);
   lv_style_set_radius(&menus::messagebox_button, 8);
-  lv_style_set_pad_all(&menus::messagebox_button, 12);
+  lv_style_set_pad_all(&menus::messagebox_button, current_settings.element_padding * 1.5);
   lv_style_set_text_font(&menus::messagebox_button, &fonts::medium);
 
   // Message box backdrop
@@ -637,30 +669,36 @@ void Init(ThemeId theme) {
       break;
     default:
       current_palette = PALETTE_TOOTHLESS;
-      current_settings = SETTINGS_DEFAULT;
+      current_settings = SETTINGS_TOOTHLESS;
   }
 
   // Select fonts based on detected siz
   if (screen_width == 640 && screen_height == 180) {
     FLOG_INFO("LONG Screen detected (%ux%u)", screen_width, screen_height);
-    fonts::tiny = lv_font_montserrat_14;
-    fonts::small = lv_font_montserrat_20;
-    fonts::medium = lv_font_montserrat_26;
-    fonts::large = lv_font_montserrat_36;
-    fonts::xlarge = lv_font_montserrat_48;
-    fonts::numbers_small = AdwaitaMonoB_96;
-    fonts::numbers_medium = AdwaitaMonoB_128;
+    fonts::tiny = lv_font_montserrat_12;
+    fonts::small = lv_font_montserrat_14;
+    fonts::medium = lv_font_montserrat_16;
+    fonts::large = lv_font_montserrat_18;
+    fonts::xlarge = lv_font_montserrat_22;
+    fonts::numbers_small = AdwaitaMonoB_28;
+    fonts::numbers_medium = AdwaitaMonoB_48;
     fonts::numbers_large = AdwaitaMonoB_128;
+    current_settings.borders = false;
+    current_settings.screen_padding = 0;
+    current_settings.button_height = LV_DPX(20);
+    current_settings.element_padding = LV_DPX(4);
   } else if (screen_width <= 320) {
     FLOG_INFO("Small screen detected (%ux%u), using small fonts", screen_width, screen_height);
-    fonts::tiny = lv_font_montserrat_10;
-    fonts::small = lv_font_montserrat_16;
-    fonts::medium = lv_font_montserrat_20;
-    fonts::large = lv_font_montserrat_24;
-    fonts::xlarge = lv_font_montserrat_32;
+    fonts::tiny = lv_font_montserrat_8;
+    fonts::small = lv_font_montserrat_12;
+    fonts::medium = lv_font_montserrat_14;
+    fonts::large = lv_font_montserrat_16;
+    fonts::xlarge = lv_font_montserrat_18;
     fonts::numbers_small = AdwaitaMonoB_28;
     fonts::numbers_medium = AdwaitaMonoB_32;
-    fonts::numbers_large = AdwaitaMonoB_48;
+    fonts::numbers_large = AdwaitaMonoB_96;
+    current_settings.button_height = LV_DPX(30);
+    current_settings.element_padding = LV_DPX(4);
   } else if (screen_width <= 480) {
     FLOG_INFO("Medium screen detected (%ux%u), using medium fonts", screen_width, screen_height);
     fonts::tiny = lv_font_montserrat_10;
@@ -681,6 +719,8 @@ void Init(ThemeId theme) {
     fonts::numbers_small = AdwaitaMonoB_28;
     fonts::numbers_medium = AdwaitaMonoB_64;
     fonts::numbers_large = AdwaitaMonoB_128;
+    current_settings.button_height = LV_DPX(60);
+    current_settings.element_padding = LV_DPX(12);
     // if (current_settings.screen_padding > 0) {
     //   current_settings.screen_padding = LV_DPX(32);
     // }
@@ -723,6 +763,7 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&screens::background);
   lv_style_reset(&screens::card);
   lv_style_reset(&screens::subscreen);
+  lv_style_reset(&screens::container);
   lv_style_reset(&screens::rowcontainer);
   lv_style_reset(&screens::columncontainer);
   lv_style_reset(&screens::menu);
@@ -753,6 +794,7 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&charts::line_temp);
   lv_style_reset(&charts::line_target);
   lv_style_reset(&charts::cursor);
+  lv_style_reset(&charts::indicator);
 
   lv_style_reset(&controls::slider_main);
   lv_style_reset(&controls::slider_indicator);

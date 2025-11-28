@@ -20,6 +20,7 @@ namespace impl {
 
 static constexpr int32_t kHRes = 180;
 static constexpr int32_t kVRes = 640;
+static constexpr size_t kLcdDPI = 195;  //<! display dpi
 
 static constexpr gpio_num_t kLcdBacklightPin = GPIO_NUM_1;  //<! lcd backlight pin
 static constexpr gpio_num_t kLcdCsPin = GPIO_NUM_12;        //<! lcd chip select pin

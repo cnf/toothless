@@ -272,13 +272,13 @@ static void amoled_write_cmd(uint32_t cmd, const uint8_t* pdat, uint32_t length)
 //     } else {
 //       t.base.addr = 0x003C00;
 //     }
-//     FLOG_INFO("address: 0x%06X", t.base.addr);
+//     LV_LOG_INFO("address: 0x%06X", t.base.addr);
 
 //     size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
 //     t.base.tx_buffer = p;
 //     t.base.length = chunk_size * 16;
 
-//     FLOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num, chunk_size, chunk_size * 16,
+//     LV_LOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num, chunk_size, chunk_size * 16,
 //               first_send);
 //     chunk_num++;
 
@@ -363,7 +363,7 @@ static void amoled_write_cmd(uint32_t cmd, const uint8_t* pdat, uint32_t length)
 
 //     clrCS();
 
-//     FLOG_INFO("Chunk %d: %zu pixels sent", chunk_num++, chunk_size);
+//     LV_LOG_INFO("Chunk %d: %zu pixels sent", chunk_num++, chunk_size);
 
 //     len -= chunk_size;
 //     p += chunk_size;
@@ -393,7 +393,7 @@ static void amoled_push_buffer(uint16_t* data, uint32_t len) {
   uint32_t cache_line_size = cache_hal_get_cache_line_size(cache_level, cache_type);
   bool aligned_addr = (((uint32_t)addr % cache_line_size) == 0) && ((alignedLen % cache_line_size) == 0);
   if (!aligned_addr) {
-    FLOG_INFO("Doom");
+    LV_LOG_INFO("Doom");
   }
 
   // Flush CPU cache to ensure PSRAM has latest pixel data
@@ -417,14 +417,14 @@ static void amoled_push_buffer(uint16_t* data, uint32_t len) {
     } else {
       t.base.addr = 0x003C00;
     }
-    FLOG_INFO("address: 0x%06X", t.base.addr);
+    LV_LOG_INFO("address: 0x%06X", t.base.addr);
 
     size_t chunk_size = (len > kSendBufSize) ? kSendBufSize : len;
     t.base.tx_buffer = p;
     t.base.length = chunk_size * 16;
 
-    FLOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num, chunk_size, chunk_size * 16,
-              first_send);
+    LV_LOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num, chunk_size, chunk_size * 16,
+                first_send);
     chunk_num++;
 
     spi_device_polling_transmit(_spi, (spi_transaction_t*)&t);
@@ -475,7 +475,7 @@ static void amoled_push_buffer(uint16_t* data, uint32_t len) {
 //     spi_device_polling_transmit(_spi, (spi_transaction_t*)&t);
 //     len -= chunk_size;
 //     p += chunk_size;
-//     FLOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num++, chunk_size, chunk_size * 16,
+//     LV_LOG_INFO("Push chunk %d: %zu pixels (%zu bits), first_send=%d", chunk_num++, chunk_size, chunk_size * 16,
 //               first_send);
 //   } while (len > 0);
 //   clrCS();
@@ -517,9 +517,9 @@ void display_push_colors(uint16_t x, uint16_t y, uint16_t width, uint16_t height
 //////////////////////////////////////////////////////
 
 esp_err_t DisplayPanelSetup() {
-  FLOG_INFO("Setting up display panel");
-  ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
-  gpio_set_level(kLcdBacklightPin, 1);  // BUG: Remove here
+  LV_LOG_INFO("Setting up display panel");
+  // ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
+  // gpio_set_level(kLcdBacklightPin, 1);  // BUG: Remove here
 
   ESP_ERROR_CHECK(PanelInit());
   lv_init();
@@ -530,12 +530,13 @@ esp_err_t DisplayPanelSetup() {
     LV_LOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_INVALID_STATE;
   }
+  lv_display_set_dpi(_display, kLcdDPI);
   lv_display_set_rotation(_display, LV_DISPLAY_ROTATION_90);
 
   LV_LOG_USER("Display resolution: %lix%li", kHRes, kVRes);
 
-  LvgLBufferSetupPartial();
-  // LvgLBufferSetupFull();
+  // LvgLBufferSetupPartial();
+  LvgLBufferSetupFull();
 
   LV_LOG_USER("Assign Flush Callback");
 
@@ -650,6 +651,17 @@ esp_err_t LvgLBufferSetupFull() {
 #ifndef CONFIG_SPIRAM
 #assert(false);  // Must have PSRAM for LVGL buffers
 #endif
+
+  {
+    // Allocate persistent framebuffer in PSRAM for rotation
+    // _rotationbuffer = (uint8_t*)heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
+    _rotationbuffer = heap_caps_aligned_alloc(32, kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!_rotationbuffer) {
+      LV_LOG_ERROR("Failed to allocate framebuffer in PSRAM");
+      return ESP_ERR_NO_MEM;
+    }
+    LV_LOG_USER("Allocated framebuffer: %p (%zu bytes)", _rotationbuffer, kFramebufferSize);
+  }
   // {
   //   // Allocate persistent framebuffer in PSRAM for rotation
   //   _rotationbuffer = (uint8_t*)heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM);
@@ -757,7 +769,7 @@ esp_err_t SetupQSPI() {
 };
 
 // void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-//   FLOG_INFO("Flush......");
+//   LV_LOG_INFO("Flush......");
 //   lv_display_rotation_t rotation = lv_display_get_rotation(disp);
 //   lv_area_t rotated_area;
 
@@ -794,7 +806,7 @@ esp_err_t SetupQSPI() {
 // }
 
 // void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-//   FLOG_INFO("Flush......");
+//   LV_LOG_INFO("Flush......");
 //   lv_color_format_t cf = lv_display_get_color_format(disp);
 //   lv_display_rotation_t rotation = lv_display_get_rotation(disp);
 
@@ -832,14 +844,14 @@ esp_err_t SetupQSPI() {
 //   display_push_colors(area->x1, area->y1, lv_area_get_width(area), lv_area_get_height(area), (uint16_t*)px_map);
 
 //   if (lv_display_flush_is_last(_display)) {
-//     FLOG_INFO("LVGL frame rendered");
+//     LV_LOG_INFO("LVGL frame rendered");
 //   }
 
 //   lv_display_flush_ready(disp);
 // }
 
 // void LvglFlushCallbackFullFrameTry(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-//   FLOG_INFO("Flush x1=%li y1=%li x2=%li y2=%li w=%d h=%d", area->x1, area->y1, area->x2, area->y2,
+//   LV_LOG_INFO("Flush x1=%li y1=%li x2=%li y2=%li w=%d h=%d", area->x1, area->y1, area->x2, area->y2,
 //             (int)lv_area_get_width(area), (int)lv_area_get_height(area));
 //   lv_color_format_t cf = lv_display_get_color_format(disp);
 //   lv_display_rotation_t rotation = lv_display_get_rotation(disp);
@@ -873,7 +885,7 @@ esp_err_t SetupQSPI() {
 //   }
 
 //   if (lv_display_flush_is_last(_display)) {
-//     FLOG_INFO("LVGL frame rendered");
+//     LV_LOG_INFO("LVGL frame rendered");
 //   }
 
 //   lv_display_flush_ready(disp);
@@ -1036,7 +1048,7 @@ esp_err_t SetupQSPI() {
 //     size_t bytes_per_pixel = 2;                      // RGB565 = 2 bytes per pixel
 //     size_t row_bytes = rotated_w * bytes_per_pixel;  // Actual data per row
 
-//     FLOG_INFO("De-striding: w=%ld h=%ld row_bytes=%zu dest_stride=%lu", rotated_w, rotated_h, row_bytes,
+//     LV_LOG_INFO("De-striding: w=%ld h=%ld row_bytes=%zu dest_stride=%lu", rotated_w, rotated_h, row_bytes,
 //     dest_stride);
 
 //     // Copy each row from strided buffer to contiguous buffer
@@ -1052,10 +1064,11 @@ esp_err_t SetupQSPI() {
 //     area = &rotated_area;
 //     px_map = contiguous_buf;  // Use de-strided data
 
-//     FLOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride, dest_stride);
+//     LV_LOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride,
+//     dest_stride);
 //   }
 
-//   FLOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
+//   LV_LOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
 //             area->y2, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
 
 //   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
@@ -1085,7 +1098,7 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
     area = &rotated_area;
     px_map = reinterpret_cast<uint8_t*>(_rotationbuffer);
   }
-  FLOG_INFO("widht=%ld, height=%ld, ", (area->x2 + 1 - area->x1), (area->y2 + 1 - area->y1));
+  LV_LOG_INFO("widht=%ld, height=%ld, ", (area->x2 + 1 - area->x1), (area->y2 + 1 - area->y1));
   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
   amoled_push_buffer((uint16_t*)px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
   lv_display_flush_ready(disp);
@@ -1114,16 +1127,17 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 //     area = &rotated_area;
 //     px_map = rotated_buf;
 
-//     // FLOG_INFO("src_stride=%lu, dest_stride=%lu, rotated_h=%ld, total_needed=%ld, buffer_size=%zu", src_stride,
+//     // LV_LOG_INFO("src_stride=%lu, dest_stride=%lu, rotated_h=%ld, total_needed=%ld, buffer_size=%zu", src_stride,
 //     //           dest_stride, lv_area_get_height(&rotated_area), lv_area_get_height(&rotated_area) * dest_stride,
 //     //           kDrawBufferSize);
 
-//     FLOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride, dest_stride);
-//     // FLOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2, area->y2);
-//     // FLOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li", rotated_area.x1, rotated_area.y1,
+//     LV_LOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride,
+//     dest_stride);
+//     // LV_LOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2, area->y2);
+//     // LV_LOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li", rotated_area.x1, rotated_area.y1,
 //     // rotated_area.x2, rotated_area.y2);
 //   }
-//   FLOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
+//   LV_LOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
 //             area->y2, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
 
 //   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
@@ -1164,7 +1178,7 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 
 //     size_t row_bytes = rotated_w * pixel_size;
 
-//     // FLOG_INFO("De-stride: rotated_w=%ld rotated_h=%ld row_bytes=%zu dest_stride=%lu", rotated_w, rotated_h,
+//     // LV_LOG_INFO("De-stride: rotated_w=%ld rotated_h=%ld row_bytes=%zu dest_stride=%lu", rotated_w, rotated_h,
 //     // row_bytes,dest_stride);
 
 //     // for (int32_t y = 0; y < rotated_h; y++) {
@@ -1177,12 +1191,12 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 //     area = &rotated_area;
 //     // px_map = contiguous_buf;  // Use de-strided data instead of rotated_buf
 //     px_map = rotated_buf;  // Use rotated_buf directly (with stride)
-//     // FLOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride,
-//     // dest_stride); FLOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1,
-//     // area->x2, area->y2); FLOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li",
+//     // LV_LOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride,
+//     // dest_stride); LV_LOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1,
+//     // area->x2, area->y2); LV_LOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li",
 //     // rotated_area.x1, rotated_area.y1,rotated_area.x2, rotated_area.y2);
 //   }
-//   FLOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
+//   LV_LOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
 //             area->y2, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
 
 //   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
@@ -1214,12 +1228,13 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 //     /*Use the rotated area and rotated buffer from now on*/
 //     area = &rotated_area;
 //     px_map = rotated_buf;
-//     FLOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride, dest_stride);
-//     FLOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2, area->y2);
-//     FLOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li", rotated_area.x1, rotated_area.y1,
+//     LV_LOG_INFO("Rotating: src_w=%ld src_h=%ld src_stride=%lu dest_stride=%lu", src_w, src_h, src_stride,
+//     dest_stride); LV_LOG_INFO("Before rotation - area: x1=%li y1=%li x2=%li y2=%li", area->x1, area->y1, area->x2,
+//     area->y2); LV_LOG_INFO("After rotation - rotated_area: x1=%li y1=%li x2=%li y2=%li", rotated_area.x1,
+//     rotated_area.y1,
 //               rotated_area.x2, rotated_area.y2);
 //   }
-//   FLOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
+//   LV_LOG_INFO("Sending to display - window: x1=%li y1=%li x2=%li y2=%li, pixels=%ld", area->x1, area->y1, area->x2,
 //             area->y2, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
 
 //   // display_push_colors(area->x1, area->y1, area->x2, area->y2, (uint16_t*)px_map);
@@ -1353,8 +1368,9 @@ void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
 void TurnOn() {
   lv_async_call(
       [](void*) {
-        TestPanelGeometry();
-        // ShowBootScreen();
+        // TestPanelGeometry();
+        ShowBootScreen();
+        Backlight();
       },
       nullptr);
 };
@@ -1364,26 +1380,22 @@ void ShowBootScreen() {
   // return;
 
   lv_obj_t* boot_scr = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(boot_scr, lv_color_hex(0xFF0000), 0);
+  lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
 
-  // static lv_point_precise_t line_points[] = {{5, 5}, {70, 70}, {120, 10}, {180, 60}, {240, 10}};
-  static lv_point_precise_t line_points[] = {{0, 0}, {180, 640}};
+  // lv_obj_t* obj = lv_obj_create(boot_scr);
+  // lv_obj_center(obj);
 
-  lv_obj_t* line = lv_line_create(boot_scr);  // to init line module
-  lv_line_set_points(line, line_points, 5);
+  lv_obj_t* label = lv_label_create(boot_scr);
+  lv_label_set_text(label, "Toothless");
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
+  lv_obj_center(label);
 
-  // line = lv_line_create(boot_scr);  // to init line module
-  // lv_line_set_points(line, {{640, 0}, {640, 180}}, 5);
-
-  // Simple test: create a red rectangle
-  lv_obj_t* test_rect = lv_obj_create(boot_scr);
-  lv_obj_set_size(test_rect, 100, 100);
-  lv_obj_set_style_bg_color(test_rect, lv_color_hex(0x00FF00), 0);
-  lv_obj_center(test_rect);
-
+  lv_obj_t* sub_label = lv_label_create(boot_scr);
+  lv_label_set_text(sub_label, "Initializing...");
+  lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_20, 0);
+  lv_obj_align_to(sub_label, label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
   lv_screen_load(boot_scr);
-  return;
 
   // lv_obj_t* boot_scr = lv_obj_create(NULL);
   // lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
@@ -1457,9 +1469,9 @@ void clearScreen(uint16_t* buf) {
 
 // Add this test function to display_impl.cpp
 void TestPanelGeometry() {
-  FLOG_INFO("Testing panel geometry with color blocks.");
-  FLOG_INFO("Screen dimensions (%lu, %lu) - Padded to (%lu, %lu)", kScreenWidth, kScreenHeight, kPaddedScreenWidth,
-            kPaddedScreenHeight);
+  LV_LOG_INFO("Testing panel geometry with color blocks.");
+  LV_LOG_INFO("Screen dimensions (%lu, %lu) - Padded to (%lu, %lu)", kScreenWidth, kScreenHeight, kPaddedScreenWidth,
+              kPaddedScreenHeight);
 
   // Allocate test buffer (full frame)
   uint16_t* test_buf = (uint16_t*)heap_caps_malloc(kFramebufferSizeBytes, MALLOC_CAP_SPIRAM);
@@ -1491,7 +1503,7 @@ void TestPanelGeometry() {
     }
   }
 
-  FLOG_INFO("Sending test pattern: Red 0-535, Blue 536-639");
+  LV_LOG_INFO("Sending test pattern: Red 0-535, Blue 536-639");
   amoled_set_window(0, 0, kPaddedScreenWidth - 1, kPaddedScreenHeight - 1);
   amoled_push_buffer(test_buf, kFramebufferSizePixels);
 
@@ -1529,7 +1541,7 @@ void TestPanelGeometry() {
     }
   }
 
-  FLOG_INFO("Sending horizontal stripes pattern");
+  LV_LOG_INFO("Sending horizontal stripes pattern");
   amoled_set_window(0, 0, kPaddedScreenWidth - 1, kPaddedScreenHeight - 1);
   amoled_push_buffer(test_buf, kFramebufferSizePixels);
 
@@ -1564,7 +1576,7 @@ void TestPanelGeometry() {
   //   }
   // }
 
-  // FLOG_INFO("Sending corner squares pattern");
+  // LV_LOG_INFO("Sending corner squares pattern");
   // amoled_set_window(0, 0, 179, 639);
   // amoled_push_buffer(test_buf, 180 * 640);
 
@@ -1583,7 +1595,7 @@ void TestPanelGeometry() {
     }
   }
 
-  FLOG_INFO("Sending corner squares pattern");
+  LV_LOG_INFO("Sending corner squares pattern");
   amoled_set_window(0, 0, kPaddedScreenWidth - 1, kPaddedScreenHeight - 1);
   amoled_push_buffer(test_buf, kFramebufferSizePixels);
   // for (size_t y = 0; y < kPaddedScreenHeight; y += kLvglDrawBufferLines) {
@@ -1613,7 +1625,7 @@ void TestPanelGeometry() {
   // amoled_push_buffer(test_buf, 180 * 640);
 
   // heap_caps_free(test_buf);
-  // FLOG_INFO("Test patterns complete");
+  // LV_LOG_INFO("Test patterns complete");
 }
 
 void Backlight() {

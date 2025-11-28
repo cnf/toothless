@@ -16,7 +16,10 @@ lv_obj_t* CreatePrimaryButton(lv_obj_t* parent, const char* text, int32_t width,
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
   lv_obj_add_style(btn, &themes::buttons::disabled, LV_STATE_DISABLED);
 
-  lv_obj_set_size(btn, width, height);
+  if (height != NULL) {
+    lv_obj_set_height(btn, height);
+  }
+  lv_obj_set_width(btn, width);
   lv_obj_set_flex_grow(btn, grow);
 
   lv_obj_t* label = lv_label_create(btn);
@@ -36,14 +39,10 @@ lv_obj_t* CreateSecondaryButton(lv_obj_t* parent, const char* text, int32_t widt
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
   lv_obj_add_style(btn, &themes::buttons::disabled, LV_STATE_DISABLED);
 
-  // if (grow) {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, lv_pct(100));
-  //   lv_obj_set_flex_grow(btn, 1);
-  // } else {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  // }
-
-  lv_obj_set_size(btn, width, height);
+  if (height != NULL) {
+    lv_obj_set_height(btn, height);
+  }
+  lv_obj_set_width(btn, width);
   lv_obj_set_flex_grow(btn, grow);
 
   lv_obj_t* label = lv_label_create(btn);
@@ -62,13 +61,10 @@ lv_obj_t* CreateDangerButton(lv_obj_t* parent, const char* text, int32_t width, 
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
   lv_obj_add_style(btn, &themes::buttons::disabled, LV_STATE_DISABLED);
 
-  // if (grow) {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, lv_pct(100));
-  //   lv_obj_set_flex_grow(btn, 1);
-  // } else {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  // }
-  lv_obj_set_size(btn, width, height);
+  if (height != NULL) {
+    lv_obj_set_height(btn, height);
+  }
+  lv_obj_set_width(btn, width);
   lv_obj_set_flex_grow(btn, grow);
 
   lv_obj_t* label = lv_label_create(btn);
@@ -88,14 +84,10 @@ lv_obj_t* CreateSuccessButton(lv_obj_t* parent, const char* text, int32_t width,
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
   lv_obj_add_style(btn, &themes::buttons::disabled, LV_STATE_DISABLED);
 
-  // if (grow) {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, lv_pct(100));
-  //   lv_obj_set_flex_grow(btn, 1);
-  // } else {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  // }
-
-  lv_obj_set_size(btn, width, height);
+  if (height != NULL) {
+    lv_obj_set_height(btn, height);
+  }
+  lv_obj_set_width(btn, width);
   lv_obj_set_flex_grow(btn, grow);
 
   lv_obj_t* label = lv_label_create(btn);
@@ -114,14 +106,10 @@ lv_obj_t* CreateSettingsButton(lv_obj_t* parent, int32_t width, int32_t height, 
   lv_obj_add_style(btn, &themes::buttons::settings, 0);
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
 
-  // if (grow) {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, lv_pct(100));
-  //   // lv_obj_set_flex_grow(btn, 1);
-  // } else {
-  //   lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  // }
-
-  lv_obj_set_size(btn, width, height);
+  if (height != NULL) {
+    lv_obj_set_height(btn, height);
+  }
+  lv_obj_set_width(btn, width);
   lv_obj_set_flex_grow(btn, grow);
 
   lv_obj_t* label = lv_label_create(btn);
@@ -136,12 +124,8 @@ lv_obj_t* CreateSettingsButton(lv_obj_t* parent, bool grow) {
   lv_obj_add_style(btn, &themes::buttons::settings, 0);
   lv_obj_add_style(btn, &themes::buttons::pressed, LV_STATE_PRESSED);
 
-  if (grow) {
-    lv_obj_set_size(btn, LV_SIZE_CONTENT, lv_pct(100));
-    // lv_obj_set_flex_grow(btn, 1);
-  } else {
-    lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  }
+  // FIXME: make it grow on flag
+  lv_obj_set_width(btn, lv_obj_get_height(btn));
 
   lv_obj_t* label = lv_label_create(btn);
   lv_label_set_text(label, LV_SYMBOL_SETTINGS);
@@ -181,6 +165,15 @@ lv_obj_t* CreateCard(lv_obj_t* parent) {
   return card;
 }
 
+lv_obj_t* CreateContainer(lv_obj_t* parent) {
+  lv_obj_t* container = lv_obj_create(parent);
+  lv_obj_add_style(container, &themes::screens::container, 0);
+  lv_obj_remove_flag(container, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_size(container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  // lv_obj_set_style_pad_all(container, 0, 0);
+  return container;
+}
+
 lv_obj_t* CreateRowContainer(lv_obj_t* parent) {
   lv_obj_t* container = lv_obj_create(parent);
   lv_obj_add_style(container, &themes::screens::rowcontainer, 0);
@@ -197,14 +190,11 @@ lv_obj_t* CreateColumnContainer(lv_obj_t* parent) {
 }
 
 lv_obj_t* CreateMenuContainer(lv_obj_t* parent) {
-  // lv_obj_t* menu = lv_obj_create(parent);
-  // lv_obj_add_style(menu, &themes::screens::menu_bg, 0);
-  // lv_obj_set_flex_flow(menu, LV_FLEX_FLOW_COLUMN);
   lv_obj_t* container = lv_menu_cont_create(parent);
   lv_obj_add_style(container, &themes::screens::menu_container, 0);
   lv_obj_add_style(container, &themes::screens::menu_selected, LV_PART_MAIN | LV_STATE_CHECKED);
   lv_obj_add_style(container, &themes::screens::menu_selected, LV_PART_MAIN | LV_STATE_FOCUSED);
-  lv_obj_add_style(container, &themes::screens::menu_unselected, LV_PART_ITEMS | LV_STATE_DEFAULT);
+  lv_obj_add_style(container, &themes::screens::menu_unselected, LV_PART_MAIN | LV_STATE_DEFAULT);
   return container;
 }
 
@@ -275,7 +265,7 @@ lv_obj_t* CreateMenuRootEntry(lv_obj_t* parent, lv_obj_t* obj, const char* icon)
   lv_obj_add_style(entry, &themes::screens::menu_container, 0);
   lv_obj_add_style(entry, &themes::screens::menu_selected, LV_PART_MAIN | LV_STATE_CHECKED);
   lv_obj_add_style(entry, &themes::screens::menu_selected, LV_PART_MAIN | LV_STATE_FOCUSED);
-  lv_obj_add_style(entry, &themes::screens::menu_unselected, LV_PART_ITEMS | LV_STATE_DEFAULT);
+  lv_obj_add_style(entry, &themes::screens::menu_unselected, LV_PART_MAIN | LV_STATE_DEFAULT);
 
   if (icon) {
     // CreateImage(entry, icon);
@@ -432,13 +422,13 @@ lv_obj_t* CreateRoller(lv_obj_t* parent, const char* options, int32_t selected) 
   lv_obj_add_style(roller, &themes::controls::roller_selected, LV_PART_SELECTED);
   lv_roller_set_visible_row_count(roller, 4);
   lv_obj_set_style_min_height(roller, LV_DPX(80), 0);
-  lv_obj_set_style_min_width(roller, LV_DPX(80), 0);
+  lv_obj_set_style_min_width(roller, LV_DPX(40), 0);
   // lv_obj_set_width(roller, LV_SIZE_FLEX);
   lv_obj_set_width(roller, LV_SIZE_CONTENT);
 
   lv_roller_set_options(roller, options, LV_ROLLER_MODE_NORMAL);
   lv_roller_set_selected(roller, selected, LV_ANIM_OFF);
-  // lv_obj_center(roller);// BUG: is this needed?
+  // lv_obj_center(roller);// TODO: is this needed?
 
   return roller;
 }
@@ -491,6 +481,22 @@ lv_obj_t* CreateChart(lv_obj_t* parent, uint16_t points_capacity) {
   return chart;
 }
 
+lv_obj_t* CreateChartScale(lv_obj_t* parent, size_t tick_count, bool left) {
+  lv_obj_t* scale = lv_scale_create(parent);
+  if (left) {
+    lv_scale_set_mode(scale, LV_SCALE_MODE_VERTICAL_LEFT);
+  } else {
+    lv_scale_set_mode(scale, LV_SCALE_MODE_VERTICAL_RIGHT);
+  }
+  lv_obj_add_style(scale, &themes::charts::scale, 0);
+  lv_scale_set_total_tick_count(scale, tick_count);
+  lv_scale_set_major_tick_every(scale, 1);
+  lv_obj_set_size(scale, 40, lv_pct(100));  // FIXME: scale needs dynamic width based on font size
+  lv_obj_set_flex_grow(scale, 0);           // Don't grow
+
+  return scale;
+}
+
 // ============================================================================
 // INDICATOR FACTORIES
 // ============================================================================
@@ -536,22 +542,23 @@ lv_obj_t* CreateMessageBox(lv_obj_t* parent, std::string title, std::string mess
     lv_obj_t* cancel_button = lv_msgbox_add_footer_button(msgbox, cancel_text.c_str());
     lv_obj_add_style(cancel_button, &themes::buttons::primary, 0);
     lv_obj_set_width(cancel_button, lv_pct(45));
-    lv_obj_set_height(cancel_button, 100);
-    // lv_obj_set_flex_grow(cancel_button, 1); // Chart grows to fill remaining space
+    // lv_obj_set_height(cancel_button, 100);
+    // lv_obj_set_flex_grow(cancel_button, 1);
     if (on_cancel) lv_obj_add_event_cb(cancel_button, on_cancel, LV_EVENT_CLICKED, user_data);
   }
 
   if (confirm_text != "") {
     lv_obj_t* confirm_button = lv_msgbox_add_footer_button(msgbox, confirm_text.c_str());
     lv_obj_add_style(confirm_button, &themes::buttons::primary, 0);
-
-    lv_obj_set_width(confirm_button, lv_pct(40));
-    lv_obj_set_height(confirm_button, 100);
-    // lv_obj_set_flex_grow(confirm_button, 1); // Chart grows to fill remaining space
+    lv_obj_set_width(confirm_button, lv_pct(45));
+    // lv_obj_set_height(confirm_button, 100);
+    // lv_obj_set_flex_grow(confirm_button, 1);
     if (on_confirm) lv_obj_add_event_cb(confirm_button, on_confirm, LV_EVENT_CLICKED, user_data);
   }
   lv_obj_t* footer = lv_msgbox_get_footer(msgbox);
-  lv_obj_set_height(footer, lv_pct(33));
+  lv_obj_set_height(footer, LV_SIZE_CONTENT);
+  lv_obj_t* header = lv_msgbox_get_header(msgbox);
+  lv_obj_set_height(header, LV_SIZE_CONTENT);
   return msgbox;
 }
 
@@ -572,15 +579,19 @@ lv_obj_t* CreateLabeledUnit(lv_obj_t* parent, const char* label_text, float valu
   lv_obj_t* label = CreateSmallText(container, label_text);
   lv_obj_set_height(label, LV_SIZE_CONTENT);
   lv_obj_t* obj = CreateRowContainer(container);
+  lv_obj_set_style_pad_gap(obj, 0, 0);
+
   lv_obj_set_height(obj, LV_SIZE_CONTENT);
   lv_obj_set_width(obj, LV_SIZE_CONTENT);
   lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
   lv_obj_t* value_label;
   if (!small) value_label = CreateValueLarge(obj, value, value_format);
   if (small) value_label = CreateValueSmall(obj, value, value_format);
+  lv_obj_set_style_pad_right(value_label, 0, 0);
   lv_obj_set_user_data(value_label, container);
   lv_obj_set_width(value_label, LV_SIZE_CONTENT);
   lv_obj_t* unit_label = CreateUnitLabel(obj, unit_text);
+  lv_obj_set_style_pad_left(unit_label, 0, 0);
   lv_obj_set_width(unit_label, LV_SIZE_CONTENT);
 
   return value_label;

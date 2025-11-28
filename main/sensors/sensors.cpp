@@ -9,6 +9,18 @@ extern "C" {
 
 namespace toothless {
 esp_err_t Sensors::Init() {
+  _i2c_manager = I2cManager::GetInstance();
+  std::vector<uint8_t> devices;
+  esp_err_t err = _i2c_manager->GetScannedAddresses(devices);
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to get scanned I2C addresses: %s", esp_err_to_name(err));
+    return err;
+  }
+  FLOG_INFO("I2C devices found at addresses:");
+  for (auto addr : devices) {
+    FLOG_INFO(" - 0x%02X", addr);
+  }
+  // _i2c_manager->
   // _sensor_list.push_back(std::make_shared<Temperature>());
   for (auto& sensor : _sensor_list) {
     esp_err_t err = sensor->Init();
