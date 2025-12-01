@@ -17,6 +17,8 @@ extern "C" {
 
 namespace toothless {
 
+// lv_group_t* group = lv_group_create();
+
 ReflowScreen::ReflowScreen() {
   _labels = std::make_unique<ReflowScreenLabels>();
   _subjects = std::make_unique<ReflowSubjects>();
@@ -44,7 +46,8 @@ ReflowScreen::~ReflowScreen() {
 }
 
 lv_obj_t* ReflowScreen::Create() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+
   _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
                                                    "heater.power", "heater.state", "heater"));
 
@@ -340,8 +343,7 @@ esp_err_t ReflowScreen::MidSection(lv_obj_t* parent) {
 }
 
 esp_err_t ReflowScreen::BottomRow() {
-  static size_t height = lv_display_get_vertical_resolution(NULL) * 0;
-  2;
+  static size_t height = lv_display_get_vertical_resolution(NULL) * 0.2;
   lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
 
   // StartStopButton(temp_container);

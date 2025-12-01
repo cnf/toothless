@@ -1,13 +1,25 @@
 menu "Display Impl: LilyGo T-Display S3 Long"
-    config IMPL_M5STACK_DIAL_HRES
+    config IMPL_M5DIAL_HRES
         int "Display Horizontal Resolution"
         default 240
         help
-            Horizontal resolution of the Waveshare 3.5inch RPi display.
+            Horizontal resolution of the M5Stack Dial display.
 
-    config IMPL_LILYGO_TDISPLAY_S3_LONG_VRES
+    config IMPL_M5DIAL_VRES
         int "Display Vertical Resolution"
         default 240
         help
-            Vertical resolution of the Waveshare 3.5inch RPi display.
+            Vertical resolution of the M5Stack Dial display.
 endmenu
+
+
+
+config IOM_I2C_SDA_PIN
+    int
+    default 11
+    depends on IMPL_M5DIAL
+
+config IOM_I2C_SCL_PIN
+    int
+    default 12
+    depends on IMPL_M5DIAL

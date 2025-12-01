@@ -3,6 +3,7 @@ file(GLOB_RECURSE SRC
   "heater/*.cpp"
   "sensors/*.cpp"
   "ui/user_interface.cpp"
+  "ui/subjects.cpp"
   "ui/chart_history.cpp"
   "ui/display/*.cpp"
   "ui/fonts/*.c"
@@ -29,6 +30,7 @@ set(PRIVREQ
   impl_lilygo_t_display_s3_long
   impl_cyb_4_3inch
   impl_lilygo_t_hmi
+  impl_m5dial
   
   io_manager
   configuration_manager
@@ -48,7 +50,9 @@ elseif(CONFIG_IMPL_CYB_4_3_INCH)
     # set(SCREEN_DIR "180x640") # TODO: just for developing until proper screen is available
     set(SCREEN_DIR "rectangular") 
 elseif(CONFIG_IMPL_LILYGO_T_HMI)
-    set(SCREEN_DIR "rectangular") 
+    set(SCREEN_DIR "rectangular")
+elseif(CONFIG_IMPL_M5DIAL)
+    set(SCREEN_DIR "round") 
 endif()
 
 message(STATUS "Using screen directory: ${SCREEN_DIR}")

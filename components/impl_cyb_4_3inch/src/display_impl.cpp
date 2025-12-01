@@ -219,20 +219,7 @@ void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
 
 lv_display_t* GetDisplayObjPtr() { return _display; }
 
-esp_err_t SetupQSPI() {
-  // LV_LOG_USER("Initialize QSPI bus");
-  // const spi_bus_config_t buscfg = {
-  //     .data0_io_num = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_QSPI_D0_PIN,
-  //     .data1_io_num = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_QSPI_D1_PIN,
-  //     .sclk_io_num = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_QSPI_SCK_PIN,
-  //     .data2_io_num = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_QSPI_D2_PIN,
-  //     .data3_io_num = CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG_QSPI_D3_PIN,
-  //     .max_transfer_sz = kDrawBufferSize,
-  // };
-  // ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
-
-  return ESP_OK;
-}
+esp_err_t SetupQSPI() { return ESP_OK; }
 
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
   [[maybe_unused]] uint32_t starter = esp_timer_get_time();

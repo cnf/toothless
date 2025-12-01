@@ -304,6 +304,8 @@ lv_obj_t* CreateTitle(lv_obj_t* parent, const char* text) {
   lv_obj_t* label = lv_label_create(parent);
   lv_label_set_text(label, text);
   lv_obj_add_style(label, &themes::text::title, 0);
+  lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
+  lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
   return label;
 }
 
@@ -311,6 +313,8 @@ lv_obj_t* CreateHeading(lv_obj_t* parent, const char* text) {
   lv_obj_t* label = lv_label_create(parent);
   lv_label_set_text(label, text);
   lv_obj_add_style(label, &themes::text::heading, 0);
+  lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
+  lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
   return label;
 }
 
@@ -327,12 +331,17 @@ lv_obj_t* CreateSmallText(lv_obj_t* parent, const char* text) {
   lv_obj_t* label = lv_label_create(parent);
   lv_label_set_text(label, text);
   lv_obj_add_style(label, &themes::text::small, 0);
+  lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
+  lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
   return label;
 }
 
 lv_obj_t* CreateValueLarge(lv_obj_t* parent, float value, const char* format) {
   lv_obj_t* label = lv_label_create(parent);
   lv_obj_add_style(label, &themes::text::value_large, 0);
+  lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
+  lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
+
   UpdateValueLabel(label, value, format);
   lv_obj_set_width(label, LV_SIZE_CONTENT);
   lv_obj_set_height(label, LV_SIZE_CONTENT);
@@ -342,6 +351,9 @@ lv_obj_t* CreateValueLarge(lv_obj_t* parent, float value, const char* format) {
 lv_obj_t* CreateValueSmall(lv_obj_t* parent, float value, const char* format) {
   lv_obj_t* label = lv_label_create(parent);
   lv_obj_add_style(label, &themes::text::value_small, 0);
+  lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
+  lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
+
   lv_label_set_text_fmt(label, format, value);
   lv_obj_set_width(label, LV_SIZE_CONTENT);
   lv_obj_set_height(label, LV_SIZE_CONTENT);

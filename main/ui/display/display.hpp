@@ -39,33 +39,33 @@ class Display {
   /// @brief Setup the touchscreen panel (if enabled)
   static esp_err_t SetupTouchPanel();
 
-  /// @brief Get the mutex for LVGL thread safety
-  static std::mutex& GetLvglMutex();
+  // /// @brief Get the mutex for LVGL thread safety
+  // static std::mutex& GetLvglMutex();
 
   /// @brief Get the LVGL display pointer
   static lv_display_t* GetDisplayPtr();
 
-  /// @brief Get resolution info for current display
-  static DisplayResolution GetResolution();
+  // /// @brief Get resolution info for current display
+  // static DisplayResolution GetResolution();
 
-  /// @brief Get horizontal resolution
-  static uint16_t GetWidth();
+  // /// @brief Get horizontal resolution
+  // static uint16_t GetWidth();
 
-  /// @brief Get vertical resolution
-  static uint16_t GetHeight();
+  // /// @brief Get vertical resolution
+  // static uint16_t GetHeight();
 
-  /// @brief Check if display is in portrait orientation
-  static bool IsPortrait();
+  // /// @brief Check if display is in portrait orientation
+  // static bool IsPortrait();
 
-  static bool IsTall();
+  // static bool IsTall();
 
-  static bool IsWide();
+  // static bool IsWide();
 
  private:
   // static lv_display_t* _display;  // no shared_ptr, this is an lvgl managed object
 
   // Resolution info set during Init()
-  static DisplayResolution _resolution;
+  // static std::unique_ptr<DisplayResolution> _resolution;
 
   static void LvglTickCallback(void* arg);
   static void LvglPortTask(void* arg);

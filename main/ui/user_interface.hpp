@@ -11,6 +11,7 @@
 #include "heater/heater.hpp"
 #include "ui/chart_history.hpp"
 #include "ui/screens/screen.hpp"
+#include "ui/subjects.hpp"
 #include "ui/themes/theme_config.hpp"
 
 extern "C" {

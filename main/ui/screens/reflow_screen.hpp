@@ -6,6 +6,7 @@
 
 #include "ui/chart_history.hpp"
 #include "ui/screens/screen.hpp"
+
 namespace toothless {
 
 struct ReflowScreenLabels : public ScreenLabels {
@@ -23,13 +24,13 @@ struct ReflowScreenLabels : public ScreenLabels {
   lv_obj_t* right;  // TODO: make conditional
 };
 
-struct ReflowSubjects : public Subjects {
-  lv_subject_t probe_value;
-  lv_subject_t profile;
-  lv_subject_t show_profile;
-  lv_subject_t stage;
-  lv_subject_t show_stage;
-};
+// struct ReflowSubjects : public Subjects {
+//   lv_subject_t probe_value;
+//   lv_subject_t profile;
+//   lv_subject_t show_profile;
+//   lv_subject_t stage;
+//   lv_subject_t show_stage;
+// };
 
 struct ChartInfo {
   lv_obj_t* chart;
@@ -51,7 +52,6 @@ class ReflowScreen : public Screen {
 
  private:
   std::unique_ptr<ReflowScreenLabels> _labels;
-  std::unique_ptr<ReflowSubjects> _subjects;
   int32_t _target_temp;
   std::unique_ptr<ChartInfo> _chart;
 

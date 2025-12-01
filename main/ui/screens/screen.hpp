@@ -6,6 +6,7 @@
 
 #include "funlog.h"
 #include "ui/screens/screen_helpers.hpp"
+#include "ui/subjects.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -27,13 +28,6 @@ struct ScreenLabels {
   int32_t pending_value = 0;
 };
 
-struct Subjects {
-  lv_subject_t temperature;
-  lv_subject_t target;
-  lv_subject_t probe;
-  lv_subject_t heater_state;
-};
-
 class Screen {  // Abstract interface
  public:
   Screen() {};
@@ -48,6 +42,7 @@ class Screen {  // Abstract interface
   ps_subscriber_t* _subscription;
   lv_obj_t* _screen = nullptr;
   std::unique_ptr<ScreenLabels> _labels;
+  std::shared_ptr<Subjects> _subjects;
 
   bool _has_pending = false;
   int32_t _pending_value = 0;

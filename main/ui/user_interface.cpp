@@ -70,6 +70,8 @@ esp_err_t UserInterface::Init() {
   FLOG_DEBUG("Waiting for settings...");
   GetSettings(_config, topics::ui::name);
 
+  SubjectManager::Instance().Init();
+
   _subscription = ps_new_subscriber(10, PS_STRLIST(topics::ui::name, topics::heater::mode));
 
   // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
@@ -118,6 +120,7 @@ esp_err_t UserInterface::Init() {
 void UserInterface::Loop() {
   // value member — safe
   _chart_history.Loop();
+  SubjectManager::Instance().Loop();
   ESP_ERROR_CHECK(HandleSubscriptions());
   if (_current_screen) {
     _current_screen->Loop();

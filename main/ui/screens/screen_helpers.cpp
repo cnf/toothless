@@ -77,28 +77,28 @@ lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
 
   return chart;
 
-  {
-    // Scale
-    _labels->chart_scale_right = lv_scale_create(wrapper);
-    lv_scale_set_mode(_labels->chart_scale_right, LV_SCALE_MODE_VERTICAL_RIGHT);
-    lv_obj_set_size(_labels->chart_scale_right, 30, lv_pct(100));
-    lv_obj_set_flex_grow(_labels->chart_scale_right, 0);  // Don't grow
-    lv_scale_set_total_tick_count(_labels->chart_scale_right, kYLabelCount);
-    lv_scale_set_major_tick_every(_labels->chart_scale_right, 1);
-    // TODO: see of this needs dynamic calc for different screen
-    // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart), 0);
-    lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
-    lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
-    // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
+  // {
+  //   // Scale
+  //   _labels->chart_scale_right = lv_scale_create(wrapper);
+  //   lv_scale_set_mode(_labels->chart_scale_right, LV_SCALE_MODE_VERTICAL_RIGHT);
+  //   lv_obj_set_size(_labels->chart_scale_right, 30, lv_pct(100));
+  //   lv_obj_set_flex_grow(_labels->chart_scale_right, 0);  // Don't grow
+  //   lv_scale_set_total_tick_count(_labels->chart_scale_right, kYLabelCount);
+  //   lv_scale_set_major_tick_every(_labels->chart_scale_right, 1);
+  //   // TODO: see of this needs dynamic calc for different screen
+  //   // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart),
+  //   0); lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
+  //   lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
+  //   // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
 
-    // ChartSetScale();
-    lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-    _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
-                          {std::string("heater.target.temperature"), target_series}};
-    _chart->history->Register(_labels->chart, _chart->series_map);
+  //   // ChartSetScale();
+  //   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
+  //   _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+  //                         {std::string("heater.target.temperature"), target_series}};
+  //   _chart->history->Register(_labels->chart, _chart->series_map);
 
-    return ESP_OK;
-  }
+  //   return ESP_OK;
+  // }
 }
 
 void NumpadOpen(const NumpadContext& ctx) {

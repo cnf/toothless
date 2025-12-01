@@ -233,10 +233,11 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* root
   ui::CreateIconItem(wrapper, std::format("Version: {}", desc->version).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("ESP-IDF: {}", desc->idf_ver).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("LVGL: {}", lvgl_version).c_str(), LV_SYMBOL_BULLET);
-  ui::CreateIconItem(wrapper, std::format("Build Date: {}", desc->date).c_str(), LV_SYMBOL_BULLET);
+  // ui::CreateIconItem(wrapper, std::format("Build Date: {}", __DATE__).c_str(),
+  //  LV_SYMBOL_BULLET);  // BUG: for some reason, i can not get an actual date here... once compiled it
+  // is always "Jan  1 1980"
   ui::CreateIconItem(wrapper, "https://github.com/cnf/Toothless", LV_SYMBOL_HOME);
 
-  // lv_obj_t* cont = CreateText(section, NULL, "About", LV_MENU_ITEM_BUILDER_VARIANT_1);
   lv_obj_t* cont = ui::CreateMenuRootEntry(root, "About", NULL);
 
   lv_menu_set_load_page_event(parent, cont, page);
@@ -271,11 +272,13 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
                      LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("Flash Size: {} MB", std::to_string(flash_size / (1024 * 1024))).c_str(),
                      LV_SYMBOL_BULLET);
+#if defined(CONFIG_SPIRAM)
   if (esp_psram_is_initialized()) {
     size_t psram_size = esp_psram_get_size();
     ui::CreateIconItem(wrapper, std::format("PSRAM Size: {} MB", std::to_string(psram_size / (1024 * 1024))).c_str(),
                        LV_SYMBOL_BULLET);
   }
+#endif
 
   ui::CreateHeading(wrapper, "Memory Info");
   ui::CreateTitle(wrapper, "Internal");
@@ -291,6 +294,7 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
                      std::format("Largest Free Block: {} Kbytes", largest_contig_internal_block / 1024).c_str(),
                      LV_SYMBOL_BULLET);
 
+#if defined(CONFIG_SPIRAM)
   if (esp_psram_is_initialized()) {
     ui::CreateTitle(wrapper, "PSRAM");
     total_internal_memory = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
@@ -304,7 +308,7 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
         wrapper, std::format("Largest Contiguous  Block: {} Kbytes", largest_contig_internal_block / 1024).c_str(),
         LV_SYMBOL_BULLET);
   }
-
+#endif
   ui::CreateTitle(wrapper, "Totals");
   size_t free_heap = esp_get_free_heap_size();
   size_t largest_free_block = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);

@@ -35,12 +35,14 @@ void SetLogLevels() {
 #endif
   FLOG_INFO("current esp log level is %i", (int)esp_log_level_get(NULL));
   FLOG_INFO("max log level is %i", CONFIG_LOG_MAXIMUM_LEVEL);
-  // funlog_set_net_fun_log(&NetFunLog); // Set the custom log function for pubsub messages
   // esp_log_set_vprintf(_ps_vprintf);
   // Set the log levels for various components
 
   esp_log_level_set("wifi", ESP_LOG_ERROR);
   esp_log_level_set("wifi_init", ESP_LOG_WARN);
+  esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_DEBUG);
+  esp_log_level_set("FT5x06", ESP_LOG_DEBUG);
+  esp_log_level_set("i2c", ESP_LOG_DEBUG);
 
   // esp_log_level_set("nvs", ESP_LOG_NONE);
   // esp_log_level_set("tmc2208", ESP_LOG_ERROR);

@@ -141,7 +141,7 @@ esp_err_t I2cManager::GetScannedAddresses(std::vector<uint8_t>& addresses) const
 }
 
 esp_err_t I2cManager::Probe(const uint16_t address) {
-  esp_err_t ret = i2c_master_probe(_bus_handle, address, -1);
+  esp_err_t ret = i2c_master_probe(_bus_handle, address, kTimeoutMs);
   if (ret != ESP_OK) {
     FLOG_DEBUG("No device found at address 0x%X: %s", address, esp_err_to_name(ret));
   }

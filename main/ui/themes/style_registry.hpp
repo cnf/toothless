@@ -52,6 +52,10 @@ extern lv_style_t value_large;  ///< Large numeric value display (48pt)
 extern lv_style_t value_small;  ///< Small numeric value (24pt)
 extern lv_style_t unit;         ///< Unit label (°C, sec, etc.)
 extern lv_style_t textentry;    ///< Text entry field style
+extern lv_style_t danger;       ///< Danger/warning text style
+extern lv_style_t warning;      ///< Warning text style
+extern lv_style_t success;      ///< Success/confirmation text style
+
 }  // namespace text
 
 /// Chart styles

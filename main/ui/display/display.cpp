@@ -16,12 +16,22 @@
 namespace toothless {
 
 // Static member initialization
-DisplayResolution Display::_resolution = {0, 0, false};
+// DisplayResolution Display::_resolution = {0, 0, false};
+// static std::unique_ptr<DisplayResolution> _resolution = nullptr;
 static lv_display_t* _display_ptr = nullptr;
-static std::mutex _lvgl_mutex;
+// static std::mutex _lvgl_mutex;
 
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
+
+  // Initialize _resolution dynamically
+  // if (!_resolution) {
+  //   _resolution = std::make_unique<DisplayResolution>();
+  //   _resolution->width = 0;
+  //   _resolution->height = 0;
+  //   _resolution->is_portrait = false;
+  // }
+
   ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
   ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
@@ -30,10 +40,10 @@ esp_err_t Display::Init() {
   themes::Init(themes::ThemeId::TOOTHLESS);
   // themes::Init(themes::ThemeId::JADE);
 
-  display::impl::GetDisplayDimensions(_resolution.width, _resolution.height);
+  // display::impl::GetDisplayDimensions(_resolution->width, _resolution->height);
 
-  FLOG_INFO("Display initialized: %ux%u (%s)", _resolution.width, _resolution.height,
-            _resolution.is_portrait ? "portrait" : "landscape");
+  // FLOG_INFO("Display initialized: %ux%u (%s)", _resolution->width, _resolution->height,
+  //           _resolution->is_portrait ? "portrait" : "landscape");
 
   // TODO: SetTheme();
 
@@ -88,27 +98,59 @@ esp_err_t Display::SetupTouchPanel() {
   return ESP_OK;
 }
 
-std::mutex& Display::GetLvglMutex() { return _lvgl_mutex; }
+// std::mutex& Display::GetLvglMutex() { return _lvgl_mutex; }
 
 lv_display_t* Display::GetDisplayPtr() { return _display_ptr; }
 
-DisplayResolution Display::GetResolution() { return _resolution; }
+// DisplayResolution Display::GetResolution() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   return *_resolution;
+// }
 
-uint16_t Display::GetWidth() { return _resolution.width; }
+// uint16_t Display::GetWidth() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   return _resolution->width;
+// }
 
-uint16_t Display::GetHeight() { return _resolution.height; }
+// uint16_t Display::GetHeight() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   return _resolution->height;
+// }
 
-bool Display::IsPortrait() { return _resolution.is_portrait; }
+// bool Display::IsPortrait() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   return _resolution->is_portrait;
+// }
 
-bool Display::IsTall() {
-  if (_resolution.height >= 300) return true;
-  return false;
-}
+// bool Display::IsTall() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   if (_resolution->height >= 300) return true;
+//   return false;
+// }
 
-bool Display::IsWide() {
-  if (_resolution.width >= 400) return true;
-  return false;
-}
+// bool Display::IsWide() {
+//   if (!_resolution) {
+//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
+//     throw std::runtime_error("Resolution not initialized");
+//   }
+//   if (_resolution->width >= 400) return true;
+//   return false;
+// }
 
 void Display::LvglTickCallback(void* arg) { lv_tick_inc(kLvglTickPeriodMs); }
 
@@ -131,9 +173,8 @@ void Display::LvglPortTask(void* arg) {
     start = esp_timer_get_time();
     // Feed watchdog BEFORE potentially long LVGL operations
     esp_task_wdt_reset();
-
     {
-      std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
+      // std::lock_guard<std::mutex> lock(Display::GetLvglMutex());
       lv_obj_t* active_screen = lv_display_get_screen_active(Display::GetDisplayPtr());
       if (active_screen) {
         time_till_next_ms = lv_timer_handler();

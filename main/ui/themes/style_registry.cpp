@@ -58,6 +58,9 @@ lv_style_t value_large;
 lv_style_t value_small;
 lv_style_t unit;
 lv_style_t textentry;
+lv_style_t danger;
+lv_style_t warning;
+lv_style_t success;
 }  // namespace text
 
 // Chart styles
@@ -444,6 +447,18 @@ static void init_text_styles() {
   lv_style_set_border_width(&text::textentry, 2);
   lv_style_set_radius(&text::textentry, 8);
   lv_style_set_pad_all(&text::textentry, current_settings.element_padding / 2);
+
+  // Danger/warning text
+  lv_style_init(&text::danger);
+  lv_style_set_text_color(&text::danger, current_palette.danger);
+
+  // Warning text
+  lv_style_init(&text::warning);
+  lv_style_set_text_color(&text::warning, current_palette.warning);
+
+  // Success/confirmation text
+  lv_style_init(&text::success);
+  lv_style_set_text_color(&text::success, current_palette.success);
 }
 
 static void init_chart_styles() {
@@ -795,6 +810,7 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&charts::line_target);
   lv_style_reset(&charts::cursor);
   lv_style_reset(&charts::indicator);
+  lv_style_reset(&charts::scale);
 
   lv_style_reset(&controls::slider_main);
   lv_style_reset(&controls::slider_indicator);
@@ -803,6 +819,9 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&controls::switch_indicator);
   lv_style_reset(&controls::switch_knob);
   lv_style_reset(&controls::roller);
+  lv_style_reset(&controls::dropdown);
+  lv_style_reset(&controls::dropdown_selected);
+  lv_style_reset(&controls::dropdown_button);
 
   lv_style_reset(&indicators::led_on);
   lv_style_reset(&indicators::led_off);

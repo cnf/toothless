@@ -9,6 +9,7 @@
 #include "local_helpers.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/screen_helpers.hpp"
+#include "ui/subjects.hpp"
 #include "ui/themes/widget_factories.hpp"
 
 extern "C" {
@@ -19,17 +20,17 @@ namespace toothless {
 
 ReflowScreen::ReflowScreen() {
   _labels = std::make_unique<ReflowScreenLabels>();
-  _subjects = std::make_unique<ReflowSubjects>();
-  lv_subject_init_int(&_subjects->probe, 123);
-  lv_subject_init_int(&_subjects->temperature, -10);
-  lv_subject_init_int(&_subjects->target, -100);
-  static char profile_buf[64];
-  static char stage_buf[64];
-  lv_subject_init_string(&_subjects->profile, profile_buf, NULL, 64, "No Profile Loaded");
-  lv_subject_init_int(&_subjects->show_profile, 0);
-  lv_subject_init_string(&_subjects->stage, stage_buf, NULL, 64, "No Stage Loaded");
-  lv_subject_init_int(&_subjects->show_stage, 0);
+  // _subjects = std::make_unique<ReflowSubjects>();
+  // lv_subject_init_int(&_subjects->probe, 123);
+  // lv_subject_init_int(&_subjects->temperature, -10);
   // lv_subject_init_int(&_subjects->target, -100);
+  // static char profile_buf[64];
+  // static char stage_buf[64];
+  // lv_subject_init_string(&_subjects->profile, profile_buf, NULL, 64, "No Profile Loaded");
+  // lv_subject_init_int(&_subjects->show_profile, 0);
+  // lv_subject_init_string(&_subjects->stage, stage_buf, NULL, 64, "No Stage Loaded");
+  // lv_subject_init_int(&_subjects->show_stage, 0);
+  // // lv_subject_init_int(&_subjects->target, -100);
 }
 
 ReflowScreen::ReflowScreen(ChartHistory* chart_hist) : ReflowScreen() {
@@ -55,6 +56,8 @@ lv_obj_t* ReflowScreen::Create() {
                                                    "heater.power", "heater.state", "heater"));
 
   _screen = ui::CreateScreen();
+
+  _subjects = SubjectManager::Instance().subjects;
 
   _labels->left = ui::CreateSubScreen(_screen);
   lv_obj_set_size(_labels->left, lv_pct(50), lv_pct(100));
@@ -91,19 +94,21 @@ void ReflowScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 }
 
 esp_err_t ReflowScreen::UpdateAllDisplays() {
+  return ESP_OK;
+  FLOG_ERROR("ReflowScreen::UpdateAllDisplays is deprecated, use Subjects instead");
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
       // TemperatureUpdateCurrent((uint32_t)msg->int_val);
-      lv_subject_set_int(&_subjects->temperature, (int32_t)msg->int_val / 100);
+      // lv_subject_set_int(&_subjects->temperature, (int32_t)msg->int_val / 100);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
       if (PS_IS_INT(msg)) {
         // TemperatureUpdateTarget(msg->int_val);
-        lv_subject_set_int(&_subjects->target, (int32_t)msg->int_val / 100);
+        // lv_subject_set_int(&_subjects->target, (int32_t)msg->int_val / 100);
       } else {
         // TemperatureClearTarget();
-        lv_subject_set_int(&_subjects->target, -100);
+        // lv_subject_set_int(&_subjects->target, -100);
       }
     } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
       // FLOG_INFO("Power: %d", msg->bool_val);
@@ -136,22 +141,22 @@ esp_err_t ReflowScreen::UpdateAllDisplays() {
         // lv_obj_remove_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_t* slabel = lv_obj_get_child(_labels->stage, 1);
         // lv_label_set_text(slabel, ui::SnakeToTitle(msg->str_val).c_str());
-        lv_subject_copy_string(&_subjects->stage, ui::SnakeToTitle(msg->str_val).c_str());
-        lv_subject_set_int(&_subjects->show_stage, 1);
+        // lv_subject_copy_string(&_subjects->stage, ui::SnakeToTitle(msg->str_val).c_str());
+        // lv_subject_set_int(&_subjects->show_stage, 1);
       } else if (PS_IS_NIL(msg)) {
         // lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
-        lv_subject_set_int(&_subjects->show_stage, 0);
+        // lv_subject_set_int(&_subjects->show_stage, 0);
       }
     } else if (ps_has_topic(msg, "heater.profile")) {
       if (PS_IS_STR(msg)) {
         // lv_obj_remove_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_t* plabel = lv_obj_get_child(_labels->profile, 0);
         // lv_label_set_text(plabel, ui::SnakeToTitle(msg->str_val).c_str());
-        lv_subject_copy_string(&_subjects->profile, ui::SnakeToTitle(msg->str_val).c_str());
-        lv_subject_set_int(&_subjects->show_profile, 1);
+        // lv_subject_copy_string(&_subjects->profile, ui::SnakeToTitle(msg->str_val).c_str());
+        // lv_subject_set_int(&_subjects->show_profile, 1);
       } else if (PS_IS_NIL(msg)) {
         // lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
-        lv_subject_set_int(&_subjects->show_profile, 0);
+        // lv_subject_set_int(&_subjects->show_profile, 0);
       }
     }
     ps_unref_msg(msg);

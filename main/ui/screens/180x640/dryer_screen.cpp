@@ -39,6 +39,8 @@ lv_obj_t* DryerScreen::Create() {
 
   _screen = ui::CreateScreen();
 
+  _subjects = SubjectManager::Instance().subjects;
+
   _labels->left = ui::CreateSubScreen(_screen);
   lv_obj_set_size(_labels->left, lv_pct(50), lv_pct(100));
 
@@ -56,11 +58,31 @@ lv_obj_t* DryerScreen::Create() {
 
   CreateTemperature(_labels->left);
 
-  // MainSection();
   CreateTimer(_labels->right);
   _labels->start_stop_button = CreateBottomRow(_labels->right);
+  lv_label_bind_text(_labels->start_stop_button, &_subjects->start_stop, "%s");
 
   _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
+
+  // lv_subject_add_observer(
+  //     &_subjects->heater_state,
+  //     [](lv_observer_t* observer, lv_subject_t* subject) {
+  //       DryerScreen* screen = (DryerScreen*)lv_observer_get_user_data(observer);
+  //       if (screen) {
+  //         int32_t state = lv_subject_get_int(subject);
+  //         switch (state) {
+  //           case heater::kStateOn:
+  //             lv_label_set_text(screen->_labels->start_stop_button, "Stop");
+  //             break;
+  //           default:
+  //             lv_label_set_text(screen->_labels->start_stop_button, "Start");
+  //             break;
+  //         }
+  //       }
+  //     },
+  //     nullptr);
+  // lv_label_set_text(_labels->start_stop_button, "Stop");
+  // lv_label_set_text(_labels->start_stop_button, "Start");
   return _screen;
 }
 void DryerScreen::Loop() {}
@@ -73,11 +95,13 @@ void DryerScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 }
 
 esp_err_t DryerScreen::UpdateAllDisplays() {
+  return ESP_OK;
+  FLOG_ERROR("Use subjects instead");
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
-      TemperatureUpdateCurrent((uint32_t)msg->int_val);
+      // TemperatureUpdateCurrent((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
       switch (msg->int_val) {
         case heater::kStateOn:
@@ -91,14 +115,14 @@ esp_err_t DryerScreen::UpdateAllDisplays() {
       // FLOG_INFO("Power: %d", msg->bool_val);
       switch (msg->bool_val) {
         case true:
-          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
-          if (_labels->temperature_current)
-            lv_obj_set_style_text_color(_labels->temperature_current, lv_palette_main(LV_PALETTE_RED), 0);
+          // if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
+          // if (_labels->temperature_current)
+          // lv_obj_set_style_text_color(_labels->temperature_current, lv_palette_main(LV_PALETTE_RED), 0);
           break;
         case false:
-          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
-          if (_labels->temperature_current)
-            lv_obj_set_style_text_color(_labels->temperature_current, lv_color_white(), 0);
+          // if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
+          // if (_labels->temperature_current)
+          // lv_obj_set_style_text_color(_labels->temperature_current, lv_color_white(), 0);
           break;
       }
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
@@ -134,14 +158,24 @@ void DryerScreen::TemperatureUpdateTarget(int32_t temp) {
 void DryerScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temperature_target, "--"); }
 
 void DryerScreen::TemperatureUpdateCurrent(int32_t temp) {
-  if (!_labels->temperature_current) return;
-  FLOG_VERBOSE("Received temperature: %d", temp);
-  float ctemp = temp / 100.0f;
-  char temp_str[16];
-  float clamped_temp = std::clamp(ctemp, -999.99f, 9999.99f);
-  snprintf(temp_str, sizeof(temp_str), "%.f", clamped_temp);
-  lv_label_set_text(_labels->temperature_current, temp_str);
+  return;
+  // if (!_labels->temperature_current) return;
+  // FLOG_VERBOSE("Received temperature: %d", temp);
+  // float ctemp = temp / 100.0f;
+  // char temp_str[16];
+  // float clamped_temp = std::clamp(ctemp, -999.99f, 9999.99f);
+  // snprintf(temp_str, sizeof(temp_str), "%.f", clamped_temp);
+  // lv_label_set_text(_labels->temperature_current, temp_str);
 }
+
+// static void TimerUpdateCB(lv_observer_t* observer, lv_subject_t* subject) {
+//   int32_t v = lv_subject_get_int(subject);
+//   DryerScreen* screen = (DryerScreen*)lv_observer_get_user_data(observer);
+//   if (screen) {
+//     int32_t seconds = lv_subject_get_int(subject);
+//     screen->TimerUpdate((uint32_t)seconds);
+//   }
+// }
 void DryerScreen::TimerUpdate(uint32_t seconds) {
   if (!_labels->timer) return;
   char hours[2] = {'\0'};
@@ -159,28 +193,28 @@ void DryerScreen::TimerUpdate(uint32_t seconds) {
 void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "00:00"); };
 
 void DryerScreen::MainSection() {
-  lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
-  lv_obj_set_style_flex_main_place(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
+  // lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
+  // lv_obj_set_style_flex_main_place(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
 
-  CreateTemperature(wrapper);
-  CreateTimer(wrapper);
+  // CreateTemperature(wrapper);
+  // CreateTimer(wrapper);
 };
 
 void DryerScreen::CreateTemperature(lv_obj_t* parent) {
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
   lv_obj_set_size(wrapper, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_style_flex_track_place(wrapper, LV_FLEX_ALIGN_CENTER, 0);
-
   lv_obj_set_style_pad_gap(wrapper, 1, 0);
 
-  {
-    lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  // lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
 
-    _labels->temperature_current = ui::CreateValueLarge(wrapper, 00.0f, "%.f");
+  _labels->temperature_current = ui::CreateValueLarge(wrapper, 00.0f, "%.f");
+  lv_label_bind_text(_labels->temperature_current, &_subjects->temperature, "%li");
+  lv_obj_bind_state_if_not_eq(_labels->temperature_current, &_subjects->heater_power, LV_STATE_USER_1, 0);
 
-    lv_obj_t* unit = ui::CreateUnitLabel(wrapper, "°C");
-    lv_obj_set_align(unit, LV_ALIGN_TOP_LEFT);
-  }
+  lv_obj_t* unit = ui::CreateUnitLabel(wrapper, "°C");
+  lv_obj_set_align(unit, LV_ALIGN_TOP_LEFT);
 }
 
 void DryerScreen::CreateTimer(lv_obj_t* parent) {
@@ -199,7 +233,8 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
     lv_obj_set_flex_align(taco, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     _labels->temperature_target = ui::CreateValueSmall(taco, 00.0f, "%.0f");
-    lv_label_set_text(_labels->temperature_target, "--");
+    // lv_label_set_text(_labels->temperature_target, "--");
+    lv_label_bind_text(_labels->temperature_target, &_subjects->target, "%li");
 
     lv_obj_t* target_unit = ui::CreateUnitLabel(taco, "°C");
     lv_obj_set_align(target_unit, LV_ALIGN_TOP_LEFT);
@@ -214,6 +249,7 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
   // lv_label_set_text(_labels->timer, "00:00");
   lv_obj_align(_labels->timer, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_add_flag(_labels->timer, LV_OBJ_FLAG_CLICKABLE);
+  lv_label_bind_text(_labels->timer, &_subjects->timer_string, "%s");
   lv_obj_add_event_cb(_labels->timer, TimerHandler, LV_EVENT_CLICKED, this);
 }
 

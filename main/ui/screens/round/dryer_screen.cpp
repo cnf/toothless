@@ -48,15 +48,13 @@ lv_obj_t* DryerScreen::Create() {
 void DryerScreen::Loop() {}
 
 void DryerScreen::UIUpdateTimerCB(lv_timer_t* timer) {
-  // DryerScreen* screen = (DryerScreen*)lv_timer_get_user_data(timer);
-  // if (screen) {
-  //   screen->UpdateAllDisplays();
-  // }
+  DryerScreen* screen = (DryerScreen*)lv_timer_get_user_data(timer);
+  if (screen) {
+    screen->UpdateAllDisplays();
+  }
 }
 
 esp_err_t DryerScreen::UpdateAllDisplays() {
-  return ESP_OK;
-  FLOG_ERROR("Use subjects instead");
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
@@ -76,11 +74,14 @@ esp_err_t DryerScreen::UpdateAllDisplays() {
       switch (msg->bool_val) {
         case true:
           if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
-          if (_labels->temperature_current) lv_obj_set_state(_labels->temperature_current, LV_STATE_USER_1);
+          if (_labels->temperature_current)
+            lv_obj_set_style_text_color(_labels->temperature_current, lv_palette_main(LV_PALETTE_RED), 0);
           break;
         case false:
           if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
-          if (_labels->temperature_current) lv_obj_remove_state(_labels->temperature_current, LV_STATE_USER_1);
+          if (_labels->temperature_current)
+            lv_obj_set_style_text_color(_labels->temperature_current, lv_color_white(), 0);
+
           break;
       }
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
