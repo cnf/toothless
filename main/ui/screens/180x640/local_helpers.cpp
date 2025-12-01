@@ -5,19 +5,6 @@
 
 namespace toothless {
 
-lv_obj_t* LocalCreateBottomRow(lv_obj_t* container) {
-  static size_t height = 60;  //<! 1/30 of 180px
-  static lv_obj_t* start_stop;
-  lv_obj_t* wrapper = ui::CreateRowContainer(container);
-  lv_obj_set_size(wrapper, lv_pct(100), height);
-  // lv_obj_set_style_pad_gap(wrapper, 10, 0);  // Gap between temp blocks
-
-  start_stop = CreateStartStopButton(wrapper);
-  CreateModeButton(wrapper);
-  CreateSettingsButton(wrapper);
-  return start_stop;
-}
-
 void LocalTempRollerOpen(const NumberRollerContext& ctx) {
   // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
   // static size_t height = 60;

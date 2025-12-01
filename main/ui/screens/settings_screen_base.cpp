@@ -9,7 +9,7 @@
 #include <format>
 #include <variant>
 
-#include "helpers.hpp"
+#include "helpers/chip_info.hpp"
 #include "settings_screen.hpp"
 #include "ui/themes/widget_factories.hpp"
 #include "ui/user_interface.hpp"

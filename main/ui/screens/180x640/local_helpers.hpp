@@ -12,9 +12,9 @@
 
 namespace toothless {
 
-lv_obj_t* LocalCreateBottomRow(lv_obj_t* container);
+// lv_obj_t* LocalCreateBottomRow(lv_obj_t* container);
 
-lv_obj_t* LocalCreateModeButton(lv_obj_t* container);
+// lv_obj_t* LocalCreateModeButton(lv_obj_t* container);
 
 void LocalTempRollerOpen(const NumberRollerContext& ctx);
 

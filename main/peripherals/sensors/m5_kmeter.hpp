@@ -5,8 +5,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "helpers/rolling_average.hpp"
 #include "i2c_manager.hpp"
-#include "sensors/sensor.hpp"
+#include "peripherals/peripheral.hpp"
 
 namespace toothless {
 // #define KMETER_DEFAULT_ADDR 0x66
@@ -31,12 +32,20 @@ static constexpr uint8_t kMeterRegInternalTemperatureFahrenheitString = 0x60;
 static constexpr uint8_t kMeterRegFirmwareVersion = 0xFE;
 static constexpr uint8_t kMeterRegI2CAddress = 0xFF;
 
-class M5KMeter {
+static constexpr BusType kM5KMeterBusType = BusType::kI2C;
+static constexpr char kM5KMeterName[] = "M5 K-Meter";
+
+namespace topics::sensors::m5_kmeter {}
+
+class M5KMeter : public Peripheral {
  public:
   M5KMeter();
   ~M5KMeter();
   static bool Detect();
-  esp_err_t Init();
+  esp_err_t Init() override;
+  esp_err_t Loop() override;
+  const PeripheralInfo& Info() const override { return _info; }
+  static const PeripheralInfo& GetInfo() { return _info; }
   esp_err_t ReadCelsius(uint32_t& celsius);
   // esp_err_t ReadFahrenheit(float& fahrenheit);
   static std::shared_ptr<M5KMeter> GetInstance() {
@@ -45,7 +54,10 @@ class M5KMeter {
   }
 
  private:
+  std::string _topic;
   i2c_master_dev_handle_t _dev_handle;
   std::shared_ptr<I2cManager> _i2c_mgr;
+  static const PeripheralInfo _info;
+  RollingAverage<uint32_t, kTemperatureAverageSamples> _avg;
 };
 }  // namespace toothless

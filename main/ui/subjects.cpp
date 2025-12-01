@@ -31,15 +31,16 @@ SubjectManager::SubjectManager() {
   lv_subject_init_int(&subjects->timer_remaining, -1);
 }
 
-void SubjectManager::Init() {
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
-}
+void SubjectManager::Init() { _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater")); }
 
 void SubjectManager::Loop() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
       lv_subject_set_int(&subjects->temperature, (int32_t)msg->int_val / 100);
+    } else if (ps_has_topic(msg, "sensor.temperature.probe") && PS_IS_INT(msg)) {
+      // FLOG_INFO("Probe Temperature: %d", (int)msg->int_val);
+      lv_subject_set_int(&subjects->probe, (int32_t)msg->int_val / 100);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
       if (PS_IS_INT(msg)) {
         lv_subject_set_int(&subjects->target, (int32_t)msg->int_val / 100);

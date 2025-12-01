@@ -1,4 +1,4 @@
-#include "sensors/temperature/max6675.hpp"
+#include "max6675.hpp"
 
 #include <driver/gpio.h>
 #include <unistd.h>

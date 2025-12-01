@@ -6,13 +6,11 @@
 #include <lvgl.h>
 
 #include "funlog.h"
-#include "helpers.hpp"
 #include "ui/chart_history.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/dryer_screen.hpp"
 #include "ui/screens/profiles_screen.hpp"
 #include "ui/screens/reflow_screen.hpp"
-#include "ui/screens/screen_sizes.hpp"
 #include "ui/screens/settings_screen.hpp"
 #include "ui/themes/style_registry.hpp"
 
@@ -30,7 +28,6 @@ UserInterface::UserInterface() {
   // _chart_history = ChartHistory();
   _chart_history.New("sensor.temperature.chamber");
   _chart_history.New("heater.target.temperature", true);
-  sizes::CreateSizes();
 }
 
 UserInterface::~UserInterface() {

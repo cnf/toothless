@@ -11,7 +11,6 @@
 #include "heater/elements/element.hpp"
 #include "heater/profiles/profile.hpp"
 #include "heater/profiles/profile_manager.hpp"
-#include "topics/topics.hpp"
 
 extern "C" {
 #include <pubsub.h>

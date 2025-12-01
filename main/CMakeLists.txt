@@ -2,6 +2,7 @@ file(GLOB_RECURSE SRC
   "main.cpp"
   "heater/*.cpp"
   "sensors/*.cpp"
+  "peripherals/*.cpp"
   "ui/user_interface.cpp"
   "ui/subjects.cpp"
   "ui/chart_history.cpp"
@@ -11,7 +12,11 @@ file(GLOB_RECURSE SRC
   "ui/screens/screen_helpers.cpp"
   "ui/screens/settings_screen_base.cpp"
   "ui/screens/profiles_screen.cpp"
+  "peripherals/sensors/m5_kmeter.cpp"
   )
+
+list(APPEND SRC "peripherals/sensors/demo_temperature.cpp"
+                )
 
 set(INCL "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/main" "${INCLUDE_DIRECTORIES}")
 set(PRIVREQ  
@@ -62,7 +67,12 @@ list(APPEND INCL "${CMAKE_SOURCE_DIR}/main/ui/screens/${SCREEN_DIR}")
 file(GLOB_RECURSE SCREENS "ui/screens/${SCREEN_DIR}/*.cpp")
 list(APPEND SRC ${SCREENS})
 
-idf_component_register(SRCS ${SRC} ${UI} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PRIV_REQUIRES ${PRIVREQ})
+idf_component_register(SRCS ${SRC} ${UI} 
+                      INCLUDE_DIRS ${INCL}
+                      REQUIRES ${REQ} 
+                      PRIV_REQUIRES ${PRIVREQ} 
+                      WHOLE_ARCHIVE # Forces all symbols to link
+) 
 
 ## Use std23
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_23)

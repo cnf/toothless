@@ -24,18 +24,17 @@ namespace toothless {
 DryerScreen::DryerScreen() { _labels = std::make_unique<DryerScreenLabels>(); }
 
 DryerScreen::~DryerScreen() {
-  if (_update_timer) {
-    lv_timer_delete(_update_timer);
-  }
-  if (_subscription) {
-    ps_free_subscriber(_subscription);
-  }
+  // if (_update_timer) {
+  //   lv_timer_delete(_update_timer);
+  // }
+  // if (_subscription) {
+  //   ps_free_subscriber(_subscription);
+  // }
 }
 
 lv_obj_t* DryerScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
-  // FIXME: should probably make queue size configurable
+  // _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
 
   _screen = ui::CreateScreen();
 
@@ -62,7 +61,7 @@ lv_obj_t* DryerScreen::Create() {
   _labels->start_stop_button = CreateBottomRow(_labels->right);
   lv_label_bind_text(_labels->start_stop_button, &_subjects->start_stop, "%s");
 
-  _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
+  // _update_timer = lv_timer_create(UIUpdateTimerCB, kUIUpdateIntervalMs, this);
 
   // lv_subject_add_observer(
   //     &_subjects->heater_state,
@@ -97,76 +96,31 @@ void DryerScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 esp_err_t DryerScreen::UpdateAllDisplays() {
   return ESP_OK;
   FLOG_ERROR("Use subjects instead");
-  ps_msg_t* msg = nullptr;
-  for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
-      // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
-      // TemperatureUpdateCurrent((uint32_t)msg->int_val);
-    } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
-      switch (msg->int_val) {
-        case heater::kStateOn:
-          lv_label_set_text(_labels->start_stop_button, "Stop");
-          break;
-        default:
-          lv_label_set_text(_labels->start_stop_button, "Start");
-          break;
-      }
-    } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
-      // FLOG_INFO("Power: %d", msg->bool_val);
-      switch (msg->bool_val) {
-        case true:
-          // if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
-          // if (_labels->temperature_current)
-          // lv_obj_set_style_text_color(_labels->temperature_current, lv_palette_main(LV_PALETTE_RED), 0);
-          break;
-        case false:
-          // if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
-          // if (_labels->temperature_current)
-          // lv_obj_set_style_text_color(_labels->temperature_current, lv_color_white(), 0);
-          break;
-      }
-    } else if (ps_has_topic(msg, "heater.target.temperature")) {
-      if (PS_IS_INT(msg)) {
-        TemperatureUpdateTarget((uint32_t)msg->int_val);
-      } else {
-        TemperatureClearTarget();
-      }
-    } else if (ps_has_topic(msg, "heater.timer.remaining")) {
-      if (PS_IS_INT(msg)) {
-        TimerUpdate((uint32_t)msg->int_val);
-      } else {
-        TimerClear();
-      }
-    } else if (ps_has_topic(msg, "sensor.somethingelse") && PS_IS_INT(msg)) {
-      FLOG_ERROR("TODO");
-    }
-    ps_unref_msg(msg);
-  }
   return ESP_OK;
 }
 
-void DryerScreen::TemperatureUpdateTarget(int32_t temp) {
-  if (!_labels->temperature_target) return;
-  FLOG_VERBOSE("Received target: %d", temp);
-  // char temp_str[16];
-  int32_t clamped_temp = std::clamp<int32_t>(temp / 100, int32_t(-99), int32_t(999));
-  lv_label_set_text_fmt(_labels->temperature_target, "%li", clamped_temp);
-  // snprintf(temp_str, sizeof(temp_str), "%li°C", clamped_temp);
-  // lv_label_set_text(_labels->temp_target, temp_str);
-}
+// void DryerScreen::TemperatureUpdateTarget(int32_t temp) {
+//   if (!_labels->temperature_target) return;
+//   FLOG_VERBOSE("Received target: %d", temp);
+//   // char temp_str[16];
+//   int32_t clamped_temp = std::clamp<int32_t>(temp / 100, int32_t(-99), int32_t(999));
+//   lv_label_set_text_fmt(_labels->temperature_target, "%li", clamped_temp);
+//   // snprintf(temp_str, sizeof(temp_str), "%li°C", clamped_temp);
+//   // lv_label_set_text(_labels->temp_target, temp_str);
+// }
 
-void DryerScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temperature_target, "--"); }
+// void DryerScreen::TemperatureClearTarget() { lv_label_set_text(_labels->temperature_target, "--"); }
 
-void DryerScreen::TemperatureUpdateCurrent(int32_t temp) {
-  return;
-  // if (!_labels->temperature_current) return;
-  // FLOG_VERBOSE("Received temperature: %d", temp);
-  // float ctemp = temp / 100.0f;
-  // char temp_str[16];
-  // float clamped_temp = std::clamp(ctemp, -999.99f, 9999.99f);
-  // snprintf(temp_str, sizeof(temp_str), "%.f", clamped_temp);
-  // lv_label_set_text(_labels->temperature_current, temp_str);
-}
+// void DryerScreen::TemperatureUpdateCurrent(int32_t temp) {
+//   return;
+//   // if (!_labels->temperature_current) return;
+//   // FLOG_VERBOSE("Received temperature: %d", temp);
+//   // float ctemp = temp / 100.0f;
+//   // char temp_str[16];
+//   // float clamped_temp = std::clamp(ctemp, -999.99f, 9999.99f);
+//   // snprintf(temp_str, sizeof(temp_str), "%.f", clamped_temp);
+//   // lv_label_set_text(_labels->temperature_current, temp_str);
+// }
 
 // static void TimerUpdateCB(lv_observer_t* observer, lv_subject_t* subject) {
 //   int32_t v = lv_subject_get_int(subject);
@@ -176,29 +130,29 @@ void DryerScreen::TemperatureUpdateCurrent(int32_t temp) {
 //     screen->TimerUpdate((uint32_t)seconds);
 //   }
 // }
-void DryerScreen::TimerUpdate(uint32_t seconds) {
-  if (!_labels->timer) return;
-  char hours[2] = {'\0'};
-  // FLOG_INFO("Received timer: %d seconds", seconds);
-  if (seconds > 3599) {
-    seconds /= 60;  // show HH:MM when over an hour
-    hours[0] = 'h';
-    hours[1] = '\0';
-  }
-  uint16_t aa = seconds / 60;
-  uint16_t bb = seconds % 60;
-  lv_label_set_text_fmt(_labels->timer, "%s%02d:%02d", hours, aa, bb);
-}
+// void DryerScreen::TimerUpdate(uint32_t seconds) {
+//   if (!_labels->timer) return;
+//   char hours[2] = {'\0'};
+//   // FLOG_INFO("Received timer: %d seconds", seconds);
+//   if (seconds > 3599) {
+//     seconds /= 60;  // show HH:MM when over an hour
+//     hours[0] = 'h';
+//     hours[1] = '\0';
+//   }
+//   uint16_t aa = seconds / 60;
+//   uint16_t bb = seconds % 60;
+//   lv_label_set_text_fmt(_labels->timer, "%s%02d:%02d", hours, aa, bb);
+// }
 
-void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "00:00"); };
+// void DryerScreen::TimerClear() { lv_label_set_text(_labels->timer, "00:00"); };
 
-void DryerScreen::MainSection() {
-  // lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
-  // lv_obj_set_style_flex_main_place(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
+// void DryerScreen::MainSection() {
+//   // lv_obj_t* wrapper = ui::CreateRowContainer(_screen);
+//   // lv_obj_set_style_flex_main_place(wrapper, LV_FLEX_ALIGN_SPACE_BETWEEN, 0);
 
-  // CreateTemperature(wrapper);
-  // CreateTimer(wrapper);
-};
+//   // CreateTemperature(wrapper);
+//   // CreateTimer(wrapper);
+// };
 
 void DryerScreen::CreateTemperature(lv_obj_t* parent) {
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
@@ -273,6 +227,7 @@ void DryerScreen::TimerHandler(lv_event_t* e) {
 }
 
 void DryerScreen::TargetHandler(lv_event_t* e) {
+  // TODO: take out and make a common function
   DryerScreen* obj = (DryerScreen*)lv_event_get_user_data(e);
   NumberRollerContext ctx{.parent_screen = obj->_labels->right,
                           .backdrop = obj->_labels->backdrop,          // backdrop
@@ -284,7 +239,6 @@ void DryerScreen::TargetHandler(lv_event_t* e) {
                             } else {
                               PS_PUB_NIL("heater.target.temperature.set");
                             }
-                            // lv_label_set_text(obj->_labels->set_target, )
                           }};
 
   LocalTempRollerOpen(ctx);

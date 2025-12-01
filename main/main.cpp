@@ -15,7 +15,7 @@ extern "C" {
 #include "funlog.h"
 #include "heater/heater.hpp"
 #include "i2c_manager.hpp"
-#include "sensors/sensors.hpp"
+#include "peripherals/peripheral_registry.hpp"
 #include "ui/user_interface.hpp"
 
 DynamicContextPool context_pool;
@@ -73,20 +73,15 @@ extern "C" void app_main(void) {
 
   FLOG_INFO("Initializing User Interface");
   UserInterface::Start();
-  // UserInterface ui;
-  // ui.Init();
-  // main_dispatcher.callEvery(100, &UserInterface::Loop, &ui);
 
-  FLOG_INFO("Initializing sensors");
-  static Sensors sensors;
-  sensors.Init();
-  main_dispatcher.callEvery(250, &Sensors::Loop, &sensors);
+  FLOG_INFO("Initializing peripherals");
+  PeripheralRegistry::Init();
+  main_dispatcher.callEvery(50, PeripheralRegistry::Loop, NULL);
 
   FLOG_INFO("Initializing heater");
   static Heater heater;
   heater.Init();
-  prio_dispatcher.callEvery(200, &Heater::Loop,
-                            &heater);  // TODO: Heater will be run on its own core, focusing on UI first
+  prio_dispatcher.callEvery(200, &Heater::Loop, &heater);
 
   xTaskCreatePinnedToCore(
       [](void* arg) {
@@ -99,12 +94,6 @@ extern "C" void app_main(void) {
       },
       "HighPrioDispatcher", 4096, NULL, 20, NULL, 1);
   FLOG_INFO("Init done");
-
-  // uint64_t timer = esp_timer_get_time();
-
-  // gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
-  // gpio_set_level(GPIO_NUM_13, 1);
-  // bool lvl = 1;
 
   FLOG_INFO("Starting main thread");
   while (true) {
