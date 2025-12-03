@@ -34,15 +34,16 @@ class DryerScreen : public Screen {
   static void UIUpdateTimerCB(lv_timer_t* timer);
   esp_err_t UpdateAllDisplays();
 
-  esp_err_t Temperature();
+  esp_err_t Temperature(lv_obj_t* parent);
   void TemperatureUpdateTarget(int32_t temp);
   void TemperatureClearTarget();
   void TemperatureUpdateCurrent(int32_t temp);
+
   void TimerUpdate(uint32_t seconds);
   void TimerClear();
   void UpdateTemperatureDisplay(uint32_t temp);
 
-  void MainSection();
+  void MainSection(lv_obj_t* parent);
 
   void CreateTemperature(lv_obj_t* parent);
 

@@ -1,6 +1,7 @@
 #include "m5_kmeter.hpp"
 
 #include <esp_check.h>
+#include <esp_timer.h>
 
 #include "funlog.h"
 #include "helpers/rolling_average.hpp"
@@ -22,7 +23,7 @@ static bool s_registered = []() {
 }();
 
 M5KMeter::M5KMeter() {
-  _i2c_mgr = I2cManager::GetInstance();
+  _i2c_mgr = I2cManager::GetExternalInstance();
   i2c_device_config_t device_config = {
       .dev_addr_length = I2C_ADDR_BIT_LEN_7,
       .device_address = kMeterDefaultAddr,
@@ -40,7 +41,7 @@ M5KMeter::~M5KMeter() {
 }
 
 bool M5KMeter::Detect() {
-  if (I2cManager::GetInstance()->Probe(kMeterDefaultAddr) == ESP_OK) {
+  if (I2cManager::GetExternalInstance()->Probe(kMeterDefaultAddr) == ESP_OK) {
     FLOG_INFO("M5 KMeter detected at address 0x%02X", kMeterDefaultAddr);
     return true;
   }
@@ -58,10 +59,14 @@ esp_err_t M5KMeter::Init() {
 }
 
 esp_err_t M5KMeter::Loop() {
+  static uint32_t last = 0;
   if (!_initialized) {
     FLOG_ERROR("M5 KMeter not initialized");
     return ESP_ERR_INVALID_STATE;
   };
+  if (esp_timer_get_time() / 1000 - last < kTemperatureReadIntervalMs) {
+    return ESP_OK;
+  }
 
   uint32_t temp;
   esp_err_t err = ReadCelsius(temp);
@@ -71,7 +76,8 @@ esp_err_t M5KMeter::Loop() {
   };
   _avg.Add(temp);
   PS_PUB_INT(_topic.c_str(), _avg.Get());
-  PS_PUB_INT("sensor.temperature.probe", _avg.Get());
+  PS_PUB_INT("sensor.temperature.zone", _avg.Get());
+  last = esp_timer_get_time() / 1000;
   return ESP_OK;
 }
 

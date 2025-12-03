@@ -11,21 +11,20 @@
 #include "iom_config.h"
 
 esp_err_t I2cManager::Init() {
-  FLOG_INFO("Initializing I2C");
   std::lock_guard<std::mutex> lock(_mutex);
   if (_initialized) {
     return ESP_OK;
   }
   gpio_num_t pin_scl, pin_sda;
-#if defined(CONFIG_IOM_INTERNAL_ENABLE)
-  if (_internal) {
-    pin_scl = (gpio_num_t)CONFIG_IOM_INTERNAL_I2C_SCL_PIN;
-    pin_sda = (gpio_num_t)CONFIG_IOM_INTERNAL_I2C_SDA_PIN;
+#if defined(CONFIG_IOM_EXTERNAL_ENABLE)
+  if (_external) {
+    pin_scl = (gpio_num_t)CONFIG_IOM_EXTERNAL_I2C_SCL_PIN;
+    pin_sda = (gpio_num_t)CONFIG_IOM_EXTERNAL_I2C_SDA_PIN;
   } else {
 #endif
     pin_scl = (gpio_num_t)CONFIG_IOM_I2C_SCL_PIN;
     pin_sda = (gpio_num_t)CONFIG_IOM_I2C_SDA_PIN;
-#if defined(CONFIG_IOM_INTERNAL_ENABLE)
+#if defined(CONFIG_IOM_EXTERNAL_ENABLE)
   }
 #endif
   i2c_master_bus_config_t bus_config = {
@@ -38,6 +37,8 @@ esp_err_t I2cManager::Init() {
               .enable_internal_pullup = true,
           },
   };
+
+  FLOG_INFO("Initializing I2C on SCL pin %d, SDA pin %d", pin_scl, pin_sda);
 
   esp_err_t err = i2c_new_master_bus(&bus_config, &_bus_handle);
 

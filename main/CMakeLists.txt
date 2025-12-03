@@ -39,6 +39,7 @@ set(PRIVREQ
   
   io_manager
   configuration_manager
+  networking
   # lvgl
 )
 

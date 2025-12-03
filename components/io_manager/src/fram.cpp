@@ -1,19 +1,21 @@
 // cSpell: words fram
 #include "fram.hpp"
 
-#include "funlog.h"
-#include "i2c_manager.hpp"
-#include <cstring>
 #include <driver/i2c_master.h>
+
+#include <cstring>
 #include <vector>
 
-FRAM::FRAM() : _i2c_mgr(I2cManager::GetInternalInstance()) {}
+#include "funlog.h"
+#include "i2c_manager.hpp"
+
+FRAM::FRAM() : _i2c_mgr(I2cManager::GetInstance()) {}
 FRAM::~FRAM() = default;
 
 esp_err_t FRAM::Init() {
   FLOG_INFO("Setting up F-RAM");
   _i2c_addr = kCY15B064JDefaultAddr;
-  _addr_wordlen = 2; // CY15B064J has 2-byte memory addresses
+  _addr_wordlen = 2;  // CY15B064J has 2-byte memory addresses
 
   i2c_device_config_t dev_cfg = {
       .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -28,7 +30,7 @@ esp_err_t FRAM::Init() {
   }
 
   const char test[] = "Hello FRAM";
-  err = Write(0x0000, (const uint8_t *)test, sizeof(test) - 1);
+  err = Write(0x0000, (const uint8_t*)test, sizeof(test) - 1);
   if (err != ESP_OK) {
     FLOG_ERROR("FRAM write fail %s", esp_err_to_name(err));
     return err;
@@ -44,7 +46,7 @@ esp_err_t FRAM::Init() {
   return ESP_OK;
 }
 
-esp_err_t FRAM::Read(uint16_t memory_address, uint8_t *data, uint16_t size) {
+esp_err_t FRAM::Read(uint16_t memory_address, uint8_t* data, uint16_t size) {
   if (data == nullptr) {
     return ESP_ERR_INVALID_ARG;
   }
@@ -55,7 +57,7 @@ esp_err_t FRAM::Read(uint16_t memory_address, uint8_t *data, uint16_t size) {
   return i2c_master_transmit_receive(_dev_handle, addr_buf.data(), _addr_wordlen, data, size, 3);
 }
 
-esp_err_t FRAM::Write(uint16_t memory_address, const uint8_t *data, uint16_t size) {
+esp_err_t FRAM::Write(uint16_t memory_address, const uint8_t* data, uint16_t size) {
   if (data == nullptr) {
     return ESP_ERR_INVALID_ARG;
   }

@@ -104,11 +104,12 @@ void Heater::Loop() {
 }
 
 esp_err_t Heater::HandleSubscriptions() {
+  bool new_settings = false;
   // uint32_t tdelta = esp_timer_get_time() - _last_run;
   ps_msg_t* msg = NULL;
   // uint32_t temperature;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, "sensor.temperature.zone") && PS_IS_INT(msg)) {
       _temperature = msg->int_val;
       if (_previous_temperature == std::numeric_limits<int32_t>::max()) {
         _previous_temperature = _temperature;
@@ -169,10 +170,17 @@ esp_err_t Heater::HandleSubscriptions() {
     } else if (ps_has_topic(msg, "profiles.changed")) {
       FLOG_INFO("Profile list changed, refreshing config");
       RefreshProfileConfig();
+    } else if (ps_has_topic_suffix(msg, kTopicConfigGet) && PS_IS_NIL(msg)) {
+      FLOG_DEBUG("Sending heater config map");
+      GetSettings(_config, topics::heater::name);
+      new_settings = true;
     } else {
       FLOG_VERBOSE("unknown message : %s", msg->topic);
     }
     ps_unref_msg(msg);
+  }
+  if (new_settings) {
+    // ApplySettings();
   }
   return ESP_OK;
 }
@@ -200,7 +208,7 @@ esp_err_t Heater::RefreshProfileConfig() {
   UpdateProfileConfigEntry();
 
   // Notify config system that options have changed
-  PS_PUB_NIL("config.refresh.heater");
+  PS_PUB_NIL("config.refresh.heater");  // FIXME: what is this?
 
   return ESP_OK;
 }

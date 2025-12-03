@@ -36,7 +36,7 @@ void SubjectManager::Init() { _subscription = ps_new_subscriber(10, PS_STRLIST("
 void SubjectManager::Loop() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, "sensor.temperature.zone") && PS_IS_INT(msg)) {
       lv_subject_set_int(&subjects->temperature, (int32_t)msg->int_val / 100);
     } else if (ps_has_topic(msg, "sensor.temperature.probe") && PS_IS_INT(msg)) {
       // FLOG_INFO("Probe Temperature: %d", (int)msg->int_val);

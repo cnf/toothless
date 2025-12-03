@@ -34,15 +34,15 @@ ReflowScreen::~ReflowScreen() {
     lv_timer_delete(_update_timer);
     _update_timer = nullptr;
   }
-  if (_subscription) {
-    ps_free_subscriber(_subscription);
-  }
+  // if (_subscription) {
+  //   ps_free_subscriber(_subscription);
+  // }
   _chart->history->UnRegister();
 }
 
 lv_obj_t* ReflowScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  // _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
+  // _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.zone", "heater.target.temperature",
   //  "heater.power", "heater.state", "heater"));
 
   _screen = ui::CreateScreen();
@@ -122,7 +122,7 @@ esp_err_t ReflowScreen::Chart() {
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+  _chart->series_map = {{std::string("sensor.temperature.zone"), temp_series},
                         {std::string("heater.target.temperature"), target_series}};
   _chart->history->Register(_labels->chart, _chart->series_map);
 

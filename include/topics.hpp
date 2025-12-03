@@ -5,6 +5,7 @@
 #include <string_view>
 
 static constexpr const int kMaxTopicLength = 64;
+static constexpr const size_t kMaxPartLength = 15;
 
 // Message Bus Topics
 #define TOPIC_INC_PREFIX "inc"

@@ -95,6 +95,12 @@ esp_err_t ProfilesScreen::CreateMenu() {
 
   lv_menu_set_page(_labels->menu, _labels->root_page);
 
+  // FIXME: header adjustment for small screens
+  // if (lv_display_get_vertical_resolution(lv_disp_get_default()) <= 240) {
+  //   lv_menu_set_mode_header(_labels->menu, LV_MENU_HEADER_TOP_UNFIXED);
+  //   // lv_obj_set_style_pad_top(_labels->menu, 20, 0);
+  // }
+
   return ESP_OK;
 }
 
@@ -178,15 +184,15 @@ lv_obj_t* ProfilesScreen::CreateProfileCard(lv_obj_t* parent, const std::string&
   lv_obj_set_style_pad_gap(btn_row, 8, 0);
   lv_obj_set_style_flex_main_place(btn_row, LV_FLEX_ALIGN_START, 0);
 
+  // Load button
+  lv_obj_t* load_btn = ui::CreateSecondaryButton(btn_row, LV_SYMBOL_DOWNLOAD, LV_SIZE_CONTENT, LV_SIZE_CONTENT, false);
+  lv_obj_set_user_data(load_btn, (void*)name.c_str());
+  lv_obj_add_event_cb(load_btn, ProfileLoadHandler, LV_EVENT_CLICKED, this);
+
   // Edit button
   lv_obj_t* edit_btn = ui::CreateSecondaryButton(btn_row, LV_SYMBOL_EDIT, LV_SIZE_CONTENT, LV_SIZE_CONTENT, false);
   lv_obj_set_user_data(edit_btn, (void*)name.c_str());
   lv_obj_add_event_cb(edit_btn, ProfileEditHandler, LV_EVENT_CLICKED, this);
-
-  // Duplicate button
-  lv_obj_t* dup_btn = ui::CreateSecondaryButton(btn_row, LV_SYMBOL_DOWNLOAD, LV_SIZE_CONTENT, LV_SIZE_CONTENT, false);
-  lv_obj_set_user_data(dup_btn, (void*)name.c_str());
-  lv_obj_add_event_cb(dup_btn, ProfileLoadHandler, LV_EVENT_CLICKED, this);
 
   // Delete button
   lv_obj_t* del_btn = ui::CreateDangerButton(btn_row, LV_SYMBOL_TRASH, LV_SIZE_CONTENT, LV_SIZE_CONTENT, false);
@@ -210,6 +216,8 @@ lv_obj_t* ProfilesScreen::CreateProfileEditPage() {
   lv_obj_t* name_card = ui::CreateCard(section);
   lv_obj_set_width(name_card, lv_pct(100));
   lv_obj_set_height(name_card, LV_SIZE_CONTENT);
+  lv_obj_set_style_flex_cross_place(name_card, LV_FLEX_ALIGN_CENTER, 0);
+
   // lv_obj_set_style_margin_all(name_card, 0, 0);
   size_t pad = lv_obj_get_style_pad_top(name_card, LV_PART_MAIN);
   lv_obj_set_style_pad_top(name_card, pad / 2, 0);

@@ -82,7 +82,7 @@ esp_err_t DemoTemperature::Loop() {
 
   _avg.Add(_current_temp);
   PS_PUB_INT(_topic.c_str(), _avg.Get());
-  PS_PUB_INT("sensor.temperature.chamber", _avg.Get());
+  // PS_PUB_INT("sensor.temperature.", _avg.Get());
   return ESP_OK;
 }
 

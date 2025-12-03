@@ -15,6 +15,7 @@ extern "C" {
 #include "funlog.h"
 #include "heater/heater.hpp"
 #include "i2c_manager.hpp"
+#include "networking.hpp"
 #include "peripherals/peripheral_registry.hpp"
 #include "ui/user_interface.hpp"
 
@@ -67,9 +68,18 @@ extern "C" void app_main(void) {
 #if defined(CONFIG_IOM_I2C_SDA_PIN) && defined(CONFIG_IOM_I2C_SCL_PIN)
   FLOG_INFO("Initializing I2C");
   I2cManager::GetInstance()->Init();
+#if defined(CONFIG_IOM_EXTERNAL_ENABLE)
+  I2cManager::GetExternalInstance()->Init();
+#endif
 #endif
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
+
+  // Networking
+  FLOG_INFO("Initializing networking");
+  static networking::NetworkManager network_mgr;
+  network_mgr.Init();
+  main_dispatcher.callEvery(500, &networking::NetworkManager::Loop, &network_mgr);
 
   FLOG_INFO("Initializing User Interface");
   UserInterface::Start();

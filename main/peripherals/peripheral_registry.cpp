@@ -1,11 +1,14 @@
 #include "peripheral_registry.hpp"
 
 #include <esp_err.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <algorithm>
 #include <cstring>
 
 #include "funlog.h"
+// #include <
 
 extern "C" {
 #include <pubsub.h>
@@ -37,6 +40,7 @@ void PeripheralRegistry::Disable(const char* name) {
 void PeripheralRegistry::Loop() {
   for (auto& peripheral : GetEnabled()) {
     peripheral->Loop();
+    vTaskDelay(5 / portTICK_PERIOD_MS);
   }
 }
 void PeripheralRegistry::Register(Registration reg) { GetRegistry().push_back(reg); }
@@ -59,6 +63,14 @@ std::shared_ptr<Peripheral> PeripheralRegistry::Create(const char* name) {
     }
   }
   return nullptr;
+}
+
+const std::vector<PeripheralInfo> PeripheralRegistry::GetEnabledInfo() {
+  std::vector<PeripheralInfo> infos;
+  for (const auto& p : GetEnabled()) {
+    infos.push_back(p->Info());
+  }
+  return infos;
 }
 
 std::vector<PeripheralRegistry::Registration>& PeripheralRegistry::GetRegistry() {

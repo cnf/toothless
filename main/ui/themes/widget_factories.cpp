@@ -480,6 +480,7 @@ lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options
 lv_obj_t* CreateChart(lv_obj_t* parent, uint16_t points_capacity) {
   lv_obj_t* chart = lv_chart_create(parent);
   lv_obj_add_style(chart, &themes::charts::background, 0);
+  lv_obj_add_style(chart, &themes::charts::grid, LV_PART_MAIN);
 
   lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
   lv_chart_set_point_count(chart, points_capacity);

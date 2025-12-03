@@ -225,6 +225,12 @@ struct ConfigEntry {
   ConfigValue default_value; /*!< */
   std::string unit = "";     /*!< unit of the value, e.g. "RPM", "m/s", "A" */
 
+  /// @brief Constructor for ConfigEntry with int default value.
+  /// @param nkey
+  /// @param descr
+  /// @param fmt
+  /// @param default_val
+  /// @param iunit
   ConfigEntry(const char nkey[kMaxNvsNameLength], std::string descr, std::string fmt, int default_val,
               std::string iunit) {
     strncpy(key, nkey, kMaxNvsNameLength);
@@ -292,6 +298,7 @@ struct Validator {
   double min_val = 0.0, max_val = 0.0;
   size_t min_len = 0, max_len = 0;
   std::vector<std::string> enum_vals;
+  bool password = false;  // for string password field
 
   bool validate_int(int value) const {
     if (has_min && value < min_val) return false;
@@ -379,7 +386,6 @@ class ConfigManager {
   bool AddNamespace(std::string name_space);
   bool ReadNamespaces();
   bool WriteNamespaces();
-  Validator ParseValidator(const std::string& format);
   std::string MakeValidatorKey(const char* ns, const char* key);
 
   static constexpr const char kFormatTopic[] = "config.format";  // FIXME: make config options
@@ -416,8 +422,9 @@ class ConfigManager {
   void SendPref(std::string module_name, std::string key);
   void SendPrefs(std::string module_name);
   void SendPrefs();
-
   void SystemDescription();
+
+  static Validator ParseValidator(const std::string& format);
 };
 
 // void CfgMngrShim(void* pvParameters);

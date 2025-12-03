@@ -35,6 +35,7 @@ class PeripheralRegistry {
   static void Register(Registration reg);
   static std::vector<PeripheralInfo> ProbeAll();
   static std::shared_ptr<Peripheral> Create(const char* name);
+  static const std::vector<PeripheralInfo> GetEnabledInfo();
 
  private:
   static std::vector<Registration>& GetRegistry();

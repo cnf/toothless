@@ -13,11 +13,11 @@ extern "C" {
 #include <pubsub.h>
 }
 
-LV_FONT_DECLARE(AdwaitaMonoB_128);
-LV_FONT_DECLARE(AdwaitaMonoB_96);
-LV_FONT_DECLARE(AdwaitaMonoB_48);
-LV_FONT_DECLARE(AdwaitaMonoB_32);
-LV_FONT_DECLARE(AdwaitaMonoB_28);
+// LV_FONT_DECLARE(AdwaitaMonoB_128);
+// LV_FONT_DECLARE(AdwaitaMonoB_96);
+// LV_FONT_DECLARE(AdwaitaMonoB_48);
+// LV_FONT_DECLARE(AdwaitaMonoB_32);
+// LV_FONT_DECLARE(AdwaitaMonoB_28);
 
 namespace toothless {
 
@@ -34,7 +34,7 @@ DryerScreen::~DryerScreen() {
 
 lv_obj_t* DryerScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  // _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
+  // _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.zone", "heater"));
 
   _screen = ui::CreateScreen();
 
@@ -188,7 +188,23 @@ void DryerScreen::CreateTimer(lv_obj_t* parent) {
 
     _labels->temperature_target = ui::CreateValueSmall(taco, 00.0f, "%.0f");
     // lv_label_set_text(_labels->temperature_target, "--");
-    lv_label_bind_text(_labels->temperature_target, &_subjects->target, "%li");
+    lv_subject_add_observer_obj(
+        &_subjects->target,
+        [](lv_observer_t* observer, lv_subject_t* subject) {
+          DryerScreen* screen = (DryerScreen*)lv_observer_get_user_data(observer);
+          lv_obj_t* label = static_cast<lv_obj_t*>(lv_observer_get_target(observer));
+          if (screen) {
+            int32_t temp = lv_subject_get_int(subject);
+            if (temp <= -99 || temp >= 999) {
+              lv_label_set_text(label, "--");
+            } else {
+              int32_t clamped_temp = std::clamp<int32_t>(temp, int32_t(-99), int32_t(999));
+              lv_label_set_text_fmt(label, "%li", clamped_temp);
+            }
+          }
+        },
+        _labels->temperature_target, this);
+    // lv_label_bind_text(_labels->temperature_target, &_subjects->target, "%li");
 
     lv_obj_t* target_unit = ui::CreateUnitLabel(taco, "°C");
     lv_obj_set_align(target_unit, LV_ALIGN_TOP_LEFT);

@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "helpers/chip_info.hpp"
+#include "peripherals/peripheral_registry.hpp"
 #include "settings_screen.hpp"
 #include "ui/themes/widget_factories.hpp"
 #include "ui/user_interface.hpp"
@@ -20,7 +21,7 @@ extern "C" {
 
 namespace toothless {
 
-esp_err_t SettingsScreen::CreateMenu() {
+esp_err_t SettingsScreen::BaseCreate() {
   FLOG_DEBUG("Creating Settings Menu");
   _labels->menu = ui::CreateMenu(_screen, "Settings");
   // lv_obj_set_flex_grow(_labels->menu, 1);
@@ -48,6 +49,8 @@ esp_err_t SettingsScreen::CreateMenu() {
   // }
   BuildSettingsUI(_labels->menu, "ui", "User Interface");
   BuildSettingsUI(_labels->menu, "heater", "Hearer Settings");
+  BuildSettingsUI(_labels->menu, "network", "Network Settings");
+  BuildSensorSettingsUI(_labels->menu);
 
   ui::CreateHeading(_labels->root_page, "Info");
   // lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Info", LV_SYMBOL_LIST);
@@ -79,32 +82,6 @@ esp_err_t SettingsScreen::SetSidebar(bool mode) {
     lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(lv_menu_get_cur_sidebar_page(_labels->menu), 0), 0),
                       LV_EVENT_CLICKED, NULL);
     ui::StyleMenuSidebar(_labels->menu);
-    // lv_menu_get_sidebar_header_back_button(_labels->menu);
-    //   {
-    //     goto nosidebarheader;
-    //     lv_obj_t* sidebar_header = lv_menu_get_sidebar_header(_labels->menu);
-    //     lv_obj_add_flag(sidebar_header, LV_OBJ_FLAG_CLICKABLE);
-    //     // lv_obj_add_event_cb(sidebar_header, MenuBackEventHandler, LV_EVENT_CLICKED, this); <-- already set in
-    //     // CreateMenu
-    //     lv_obj_set_style_pad_left(sidebar_header, 30, 0);  // increases clickable area
-    //     lv_obj_set_ext_click_area(sidebar_header, 10);
-    //     lv_obj_set_style_border_width(sidebar_header, 0, 0);
-    //     // lv_obj_set_width(sidebar_header, lv_pct(10));
-    //   }
-    // nosidebarheader:;
-    //   {
-    //     goto nobackbutton;
-    //     lv_obj_t* sidebar_back = lv_menu_get_sidebar_header_back_button(_labels->menu);
-    //     lv_obj_add_flag(sidebar_back, LV_OBJ_FLAG_CLICKABLE);
-    //     // lv_obj_set_ext_click_area(sidebar_back, 10);  // enlarge hitbox around the label
-    //     lv_obj_set_ext_click_area(sidebar_back, lv_pct(33));
-    //     lv_obj_set_width(sidebar_back, lv_pct(10));
-    //     lv_obj_set_style_pad_right(sidebar_back, 30, 0);  // increases clickable area
-
-    //     // lv_obj_add_event_cb(sidebar_back, MenuBackEventHandler, LV_EVENT_CLICKED, this);
-    //   }
-    // nobackbutton:;
-
   } else {
     _labels->sidebar = false;
     lv_menu_set_sidebar_page(_labels->menu, NULL);
@@ -122,21 +99,6 @@ void SettingsScreen::BuildSettingsUI(lv_obj_t* parent, const char* namespace_nam
   GetSettings(values, namespace_name);
   ConfigEntries ui_entries = GetConfigEntries(namespace_name);
   BuildFromEntries(_labels->menu, namespace_name, ui_entries, *values, title);
-
-  // Fetch entries
-  // const ConfigEntries* entries = GetConfigEntries(namespace_name);
-  // if (!entries) {
-  //   FLOG_ERROR("No entries for %s", namespace_name);
-  //   return;
-  // }
-
-  // Fetch current values
-  // auto values = std::make_shared<SettingsMap>();
-  // GetSettings(values, namespace_name);
-
-  // Build UI
-  // SettingsScreen screen;
-  // BuildFromEntries(parent, namespace_name, ui_config_entries, *values, "User Interface");
 }
 
 void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_name, const ConfigEntries& entries,
@@ -164,7 +126,10 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
     lv_obj_set_size(desc_label, lv_pct(50), LV_SIZE_CONTENT);
 
     lv_obj_t* col = ui::CreateColumnContainer(card);
-    lv_obj_set_size(col, lv_pct(50), LV_SIZE_CONTENT);
+    lv_obj_set_width(col, 0);
+    lv_obj_set_height(col, LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(col, 1);
+
     lv_obj_set_style_pad_all(col, 5, 0);
     lv_obj_set_style_pad_gap(col, 10, 0);
 
@@ -213,6 +178,30 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
   }
   lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, ui::SnakeToTitle(namespace_name).c_str(), LV_SYMBOL_LIST);
   lv_menu_set_load_page_event(_labels->menu, cont, sub_page);
+}
+
+void SettingsScreen::BuildSensorSettingsUI(lv_obj_t* parent) {
+  // auto values = std::make_shared<SettingsMap>();
+  // GetSettings(values, "sensors");
+  // BuildFromEntries(_labels->menu, "sensors", sensor::config_entries, *values, "Sensor Settings");
+  auto registry = PeripheralRegistry::GetEnabledInfo();
+
+  lv_obj_t* page = ui::CreateMenuPage(parent, "Peripherals");
+  lv_obj_t* section = ui::CreateMenuSection(page);
+  lv_obj_t* wrapper = ui::CreateColumnContainer(section);
+  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_width(wrapper, lv_pct(100));
+  lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
+
+  for (const auto& info : registry) {
+    FLOG_INFO("Enabled Peripheral: %s (%s) on bus %d at address 0x%02X", info.name, info.type,
+              static_cast<int>(info.bus), info.address);
+    ui::CreateIconItem(wrapper, std::format("{}", info.name).c_str(), LV_SYMBOL_BULLET);
+  }
+
+  lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Peripherals", LV_SYMBOL_LIST);
+  lv_menu_set_load_page_event(_labels->menu, cont, page);
 }
 
 lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* root) {
@@ -347,8 +336,6 @@ lv_obj_t* SettingsScreen::BuildBoolSetting(lv_obj_t* parent, const ConfigEntry& 
 
 lv_obj_t* SettingsScreen::BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry, int current_value) {
   auto validator = ParseValidatorFromFormat(entry.format);
-  FLOG_ERROR("Int setting: min=%f, max=%f, has_min=%s, has_max=%s, value=%li", validator.min_val, validator.max_val,
-             validator.has_min ? "true" : "false", validator.has_max ? "true" : "false", current_value);
 
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
@@ -432,40 +419,35 @@ lv_obj_t* SettingsScreen::BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& 
   return dropdown;
 }
 
-// lv_obj_t* SettingsScreen::BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& entry,
-//                                            const std::string& current_value) {
-//   auto enum_vals = ParseEnumFromFormat(entry.format);
-//   if (enum_vals.empty()) return nullptr;
-//   for (const auto& val : enum_vals) {
-//     FLOG_INFO("Enum option: %s", val.c_str());
-//   }
-
-//   // Build options string
-//   std::string opts;
-//   // std::string title = current_value;
-//   int selected_idx = 0;
-
-//   for (size_t i = 0; i < enum_vals.size(); ++i) {
-//     if (i > 0) opts += "\n";
-//     opts += ui::SnakeToTitle(enum_vals[i]);
-//     if (enum_vals[i] == current_value) selected_idx = i;
-//   }
-
-//   lv_obj_t* dropdown = ui::CreateDropdown(parent, NULL, opts.c_str(), selected_idx);
-//   lv_obj_add_event_cb(dropdown, OnDropdownChanged, LV_EVENT_VALUE_CHANGED, this);
-//   lv_obj_set_width(dropdown, lv_pct(100));
-
-//   return dropdown;
-// }
-
 lv_obj_t* SettingsScreen::BuildStringSetting(lv_obj_t* parent, const ConfigEntry& entry,
                                              const std::string& current_value) {
+  auto validator = ConfigManager::ParseValidator(entry.format);
   // For now, just show current value (could add text input)
-  return ui::CreateBodyText(parent, current_value.c_str());
+  lv_obj_t* textarea = ui::CreateTextArea(parent);  //, current_value.c_str(), lv_pct(100), LV_SIZE_CONTENT);
+
+  lv_obj_set_width(textarea, lv_pct(100));
+  // lv_obj_set_flex_grow(textarea, 1);
+
+  lv_textarea_set_one_line(textarea, true);
+  // lv_obj_t* textarea = ui::CreateBodyText(parent, current_value.c_str());
+  if (validator.password) {
+    lv_textarea_set_password_mode(textarea, true);
+    // lv_label_set_text(text, "********");
+  }
+
+  if (validator.max_len > 0) {
+    lv_textarea_set_max_length(textarea, validator.max_len);
+  }
+  lv_textarea_set_text(textarea, current_value.c_str());
+  lv_obj_add_event_cb(textarea, OnTextareaChanged, LV_EVENT_READY, this);
+  lv_obj_add_event_cb(textarea, TextAreaEventHandler, LV_EVENT_FOCUSED, _screen);
+  lv_obj_add_event_cb(textarea, TextAreaEventHandler, LV_EVENT_DEFOCUSED, _screen);
+  lv_obj_add_event_cb(textarea, TextAreaEventHandler, LV_EVENT_READY, _screen);
+  return textarea;
 }
 
 // ============================================================================
-// Event Handlers
+// Controlls Event Handlers
 // ============================================================================
 
 void SettingsScreen::OnSwitchChanged(lv_event_t* e) {
@@ -566,6 +548,25 @@ void SettingsScreen::OnDropdownChanged(lv_event_t* e) {
   PS_PUB_STR(topic, ui::TitleToSnake(std::string(option)).c_str());
 }
 
+void SettingsScreen::OnTextareaChanged(lv_event_t* e) {
+  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  lv_obj_t* ta = static_cast<lv_obj_t*>(lv_event_get_target(e));
+
+  auto it = screen->_widget_map.find(ta);
+  if (it == screen->_widget_map.end()) return;
+
+  WidgetData* data = it->second;
+  const char* text = lv_textarea_get_text(ta);
+
+  char topic[128];
+  snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
+  PS_PUB_STR(topic, text);
+}
+
+// ============================================================================
+// General Event Handlers
+// ============================================================================
+
 void SettingsScreen::SidebarHandler(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
@@ -597,24 +598,6 @@ void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {
   }
 }
 
-void SettingsScreen::NumpadOpenHandler(lv_event_t* e) {
-  SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
-
-  NumpadContext ctx{.parent_screen = obj->GetScreen(),
-                    .backdrop = nullptr,                         // backdrop
-                    .target_spinbox = obj->_labels->set_target,  // spinbox
-                    .on_confirm = [obj](std::optional<int32_t> val) {
-                      if (val.has_value() && !std::isnan(val.value())) {
-                        FLOG_INFO("Value: %li (* 100)", val.value());
-                        PS_PUB_INT("heater.target.temperature.set", val.value() * 100);
-                      } else {
-                        PS_PUB_NIL("heater.target.temperature.set");
-                      }
-                      // lv_label_set_text(obj->_labels->set_target, )
-                    }};
-  NumpadOpen(ctx);
-}
-
 void SettingsScreen::BackButtonHandler(lv_event_t* e) {
   FLOG_INFO("Back button pressed nao");
   lv_obj_remove_event_cb((lv_obj_t*)lv_event_get_target(e), SettingsScreen::BackButtonHandler);
@@ -623,49 +606,9 @@ void SettingsScreen::BackButtonHandler(lv_event_t* e) {
   if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
   PS_PUB_NIL("ui.action.return");
   return;
-  // SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
-  // if (!obj) return;
-  // ConfirmationContext ctx{.parent_screen = obj->GetScreen(),
-  //                         .backdrop = obj->_labels->backdrop,
-  //                         .object = nullptr,
-  //                         .title = "Apply changes?",
-  //                         .message = "Apply the new target temperature?",
-  //                         .confirm_text = "Apply",
-  //                         .cancel_text = "Cancel",
-  //                         .on_confirm =
-  //                             [obj](void*) {
-  //                               FLOG_INFO("Applying new target temperature: %d°C", (int)obj->_pending_value);
-  //                               // Publish new target temperature
-  //                               // PS_PUB_INT("heater.target.temperature.set", obj->_pending_value);
-  //                               PS_PUB_NIL("ui.action.return");
-
-  //                               obj->_has_pending = false;
-  //                               obj->_pending_value = 0;
-  //                               if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
-  //                             },
-  //                         .on_cancel =
-  //                             [obj](void*) {
-  //                               PS_PUB_NIL("ui.action.return");
-  //                               FLOG_INFO("Cancelled applying new target temperature");
-  //                               obj->_has_pending = false;
-  //                               obj->_pending_value = 0;
-  //                               if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
-  //                             }};
-
-  // ConfirmationPopup(ctx);
 }
 
 void SettingsScreen::ResetHandler(lv_event_t* e) { esp_restart(); };
-
-// esp_err_t SettingsScreen::GenerateFromConfig() {  // In your settings screen init:
-//   ConfigEntries ui_entries = GetEntries("ui");
-//   // SettingsMap ui_values;
-//   GetSettings(ui_values, "ui");
-
-//   SettingsScreen settings;
-//   settings.BuildFromEntries(parent_container, "ui", ui_entries, ui_config_values);
-//   return ESP_OK;
-// }
 
 // ============================================================================
 // Helpers
@@ -712,6 +655,8 @@ Validator SettingsScreen::ParseValidatorFromFormat(const std::string& format) {
     } else if (key == "max") {
       v.max_val = std::stod(val);
       v.has_max = true;
+    } else if (key == "password") {
+      v.password = true;
     }
 
     pos = comma + 1;

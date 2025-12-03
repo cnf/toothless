@@ -1,10 +1,11 @@
-#include "config.h"
-
 #include "MCP23008.hpp"
-#include "funlog.h"
+
 #include <bitset>
 
-MCP23008::MCP23008() : _i2c_addr(kMCP23008DefaultAddr), _i2c_mgr(I2cManager::GetInternalInstance()) {}
+#include "config.h"
+#include "funlog.h"
+
+MCP23008::MCP23008() : _i2c_addr(kMCP23008DefaultAddr), _i2c_mgr(I2cManager::GetInstance()) {}
 
 esp_err_t MCP23008::Init() {
   FLOG_INFO("Setting up Port Expander");
@@ -25,7 +26,7 @@ esp_err_t MCP23008::Init() {
   return ESP_OK;
 }
 
-esp_err_t MCP23008::Read(uint8_t reg, uint8_t &value) {
+esp_err_t MCP23008::Read(uint8_t reg, uint8_t& value) {
   esp_err_t err = _i2c_mgr->ReadRegister(_dev_handle, reg, &value, 1);
   if (err != ESP_OK) {
     FLOG_ERROR("i2c read reg 0x%02X fail: %s", reg, esp_err_to_name(err));
@@ -33,7 +34,7 @@ esp_err_t MCP23008::Read(uint8_t reg, uint8_t &value) {
   return err;
 }
 
-esp_err_t MCP23008::ReadBit(uint8_t reg, bool &value, uint8_t bit) {
+esp_err_t MCP23008::ReadBit(uint8_t reg, bool& value, uint8_t bit) {
   uint8_t data;
   ESP_ERROR_CHECK(_i2c_mgr->ReadRegister(_dev_handle, reg, &data, 1));
   value = (data >> bit) & 0x01;
@@ -103,19 +104,19 @@ esp_err_t MCP23008::GpioToggle(uint8_t number) {
   return ESP_OK;
 }
 
-esp_err_t MCP23008::GpioGetDirection(uint8_t number, gpio_mode_t &mode) {
+esp_err_t MCP23008::GpioGetDirection(uint8_t number, gpio_mode_t& mode) {
   bool get_mode;
   ESP_ERROR_CHECK(ReadBit(McpRegisterMap::kIoDirectionReg, get_mode, number));
   switch (get_mode) {
-  case 0:
-    mode = GPIO_MODE_OUTPUT;
-    break;
-  case 1:
-    mode = GPIO_MODE_INPUT;
-    break;
-  default:
-    return ESP_ERR_NOT_SUPPORTED;
-    break;
+    case 0:
+      mode = GPIO_MODE_OUTPUT;
+      break;
+    case 1:
+      mode = GPIO_MODE_INPUT;
+      break;
+    default:
+      return ESP_ERR_NOT_SUPPORTED;
+      break;
   }
   return ESP_OK;
 }
@@ -123,20 +124,20 @@ esp_err_t MCP23008::GpioGetDirection(uint8_t number, gpio_mode_t &mode) {
 esp_err_t MCP23008::GpioSetDirection(uint8_t number, const gpio_mode_t mode) {
   uint8_t set_mode;
   switch (mode) {
-  case GPIO_MODE_INPUT:
-    set_mode = 1;
-    break;
-  case GPIO_MODE_OUTPUT:
-    set_mode = 0;
-    break;
-  default:
-    return ESP_ERR_NOT_SUPPORTED;
+    case GPIO_MODE_INPUT:
+      set_mode = 1;
+      break;
+    case GPIO_MODE_OUTPUT:
+      set_mode = 0;
+      break;
+    default:
+      return ESP_ERR_NOT_SUPPORTED;
   }
   ESP_ERROR_CHECK(WriteBit(McpRegisterMap::kIoDirectionReg, set_mode, number));
   return ESP_OK;
 }
 
-esp_err_t MCP23008::GpioGetPullup(uint8_t number, bool &enable) {
+esp_err_t MCP23008::GpioGetPullup(uint8_t number, bool& enable) {
   ESP_ERROR_CHECK(ReadBit(McpRegisterMap::kPullupReg, enable, number));
   return ESP_OK;
 }

@@ -12,8 +12,8 @@
 
 namespace toothless {
 
-enum { LV_MENU_ITEM_BUILDER_VARIANT_1, LV_MENU_ITEM_BUILDER_VARIANT_2 };
-typedef uint8_t lv_menu_builder_variant_t;
+// enum { LV_MENU_ITEM_BUILDER_VARIANT_1, LV_MENU_ITEM_BUILDER_VARIANT_2 };
+// typedef uint8_t lv_menu_builder_variant_t;
 
 struct ModeContext {
   lv_obj_t* menu;
@@ -40,81 +40,122 @@ class SettingsScreen : public Screen {
   SettingsScreen();
   ~SettingsScreen();
 
+  /// @brief Create the settings screen UI
+  /// @return LVGL object representing the screen
   lv_obj_t* Create() override;
-  void Loop() override;
-  ScreenLabels* GetLabels() override { return _labels.get(); };
-  // void BuildSettingsUI(lv_obj_t* parent, const char* namespace_name);
-  void BuildSettingsUI(lv_obj_t* parent, const char* namespace_name, const char* title);
 
-  void BuildFromEntries(lv_obj_t* parent, const char* namespace_name, const ConfigEntries& entries,
-                        const SettingsMap& current_values, std::string title = "");
+  /// @brief Main loop for the settings screen
+  void Loop() override;
+
+  /// @brief Get screen labels
+  /// @return Pointer to screen labels
+  ScreenLabels* GetLabels() override { return _labels.get(); };
 
  private:
   struct WidgetData {
-    std::string namespace_name;
-    std::string key;
-    ConfigValueTypes type;
+    std::string namespace_name;  //<! Configuration namespace
+    std::string key;             //<! Configuration key
+    ConfigValueTypes type;       //<! Configuration value type
   };
   std::unique_ptr<SettingsScreenLabels> _labels;
   std::map<lv_obj_t*, WidgetData*> _widget_map;
 
-  // Widget builders per type
-  lv_obj_t* BuildBoolSetting(lv_obj_t* parent, const ConfigEntry& entry, bool current_value);
-  lv_obj_t* BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry, int current_value);
-  lv_obj_t* BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry& entry, double current_value);
-  lv_obj_t* BuildStringSetting(lv_obj_t* parent, const ConfigEntry& entry, const std::string& current_value);
-  lv_obj_t* BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& entry, const std::string& current_value);
+  /// @brief Create the main menu structure
+  /// @return ESP_OK on success, error code otherwise
+  esp_err_t BaseCreate();
 
-  // Helpers
-  std::vector<std::string> ParseEnumFromFormat(const std::string& format);
-  Validator ParseValidatorFromFormat(const std::string& format);
+  /// @brief Enable or disable the sidebar
+  /// @param mode True to enable sidebar, false to disable
+  /// @return ESP_OK on success, error code otherwise
+  esp_err_t SetSidebar(bool mode);
 
-  // Event handlers
+  /// @brief Build settings UI for a given namespace
+  /// @param parent Parent LVGL object
+  /// @param namespace_name Configuration namespace
+  /// @param title Title for the settings page
+  void BuildSettingsUI(lv_obj_t* parent, const char* namespace_name, const char* title);
+
+  /// @brief Build settings UI from given config entries and current values
+  /// @param parent Parent LVGL object
+  /// @param namespace_name Configuration namespace
+  /// @param entries Configuration entries to build UI from
+  /// @param current_values Current settings values
+  /// @param title Title for the settings page
+  void BuildFromEntries(lv_obj_t* parent, const char* namespace_name, const ConfigEntries& entries,
+                        const SettingsMap& current_values, std::string title = "");
+
+  /// @brief Build sensor settings UI
+  /// @param parent Parent LVGL object
+  void BuildSensorSettingsUI(lv_obj_t* parent);
+
+  /// @brief Create Firmware Info subpage
+  /// @param parent Parent LVGL object
+  /// @param section Section LVGL object
+  /// @return LVGL object representing the subpage
+  lv_obj_t* CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* section);
+
+  /// @brief Create System Info subpage
+  /// @param parent Parent LVGL object
+  /// @param root Root LVGL object
+  /// @return LVGL object representing the subpage
+  lv_obj_t* CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root);
+
+  /// @defgroup type_widget_builders
+  /// @name Setting Type Widget Builders
+  /// @brief Functions to build widgets for different setting types
+  /// @param parent Parent LVGL object
+  /// @param entry Configuration entry
+  /// @param current_value Current value of the setting
+  /// @{
+
+  lv_obj_t* BuildBoolSetting(lv_obj_t* parent, const ConfigEntry& entry,
+                             bool current_value);  //<! Build boolean setting widget
+  lv_obj_t* BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry,
+                            int current_value);  //<! Build integer setting widget
+  lv_obj_t* BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry& entry,
+                               double current_value);  //<! Build double setting widget
+  lv_obj_t* BuildStringSetting(lv_obj_t* parent, const ConfigEntry& entry,
+                               const std::string& current_value);  //<! Build string setting widget
+  lv_obj_t* BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& entry,
+                             const std::string& current_value);  //<! Build enum setting widget
+
+  /// @}
+
+  /// @defgroup type_change_handlers Data Type Event Handlers
+  /// @brief Event handlers for different data types
+  /// @implements @ref lv_event_cb_t
+  /// @param e LVGL event object
+  /// @{
   static void OnSwitchChanged(lv_event_t* e);
   static void OnSliderChanged(lv_event_t* e);
   static void OnRollerChanged(lv_event_t* e);
   static void OnDropdownChanged(lv_event_t* e);
+  static void OnTextareaChanged(lv_event_t* e);
+  /// @}
 
-  // UI construction helpers
-  esp_err_t GenerateFromConfig();
-  esp_err_t CreateTitle();
-  esp_err_t LocalCreateTitle();
-  static void MenuBackEventHandler(lv_event_t* e);
-  esp_err_t LocalCreateMenu();
-  esp_err_t CreateMenu();
-
-  /// @brief
-  /// @param parent lv_obj_t* to enter text under
-  /// @param icon Icon to set for the Text entry, or NUL
-  /// @param txt Text to show
-  /// @param builder_variant idno yet...
-  /// @return
-  lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, lv_menu_builder_variant_t builder_variant);
-  lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt,
-                       lv_menu_builder_variant_t builder_variant);
-  lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk);
-  lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val);
-  lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* icon, const char* txt, const char* options);
-
-  lv_obj_t* CreateSubMode(lv_obj_t* parent, lv_obj_t* section);
-  lv_obj_t* CreateSubDisplay(lv_obj_t* parent, lv_obj_t* section);
-  lv_obj_t* CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* section);
-  lv_obj_t* CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root);
+  /// @defgroup General Event Handlers
+  /// @brief General event handlers for the settings screen
+  /// @implements @ref lv_event_cb_t
+  /// @param e LVGL event object
+  /// @{
+  static void SidebarHandler(lv_event_t* e);        //<! Handle sidebar toggle events
+  static void MenuBackEventHandler(lv_event_t* e);  //<! Handle back button events
+  static void BackButtonHandler(lv_event_t* e);     //<! Handle back button events
   static void ResetHandler(lv_event_t* e);
-  esp_err_t CreateSettingsList();
-  esp_err_t CreateBackButton();
+  /// @}
 
-  esp_err_t SetSidebar(bool mode);
+  // Helpers
 
-  // Event handlers
-  static void SidebarHandler(lv_event_t* e);
-  static void BackButtonHandler(lv_event_t* e);
-  static void SettingChangedHandler(lv_event_t* e);
-  static void SliderChangedHandler(lv_event_t* e);
-  static void NumpadOpenHandler(lv_event_t* e);
-  static void ConfirmApply();
-  static void ConfirmApplyHandler(lv_event_t* e);
-  static void ConfirmCancelHandler(lv_event_t* e);
+  /// @brief Parse enum values from format string
+  /// @param format Format string
+  /// @return Vector of enum values
+  std::vector<std::string> ParseEnumFromFormat(const std::string& format);
+
+  /// @brief Parse validator from format string
+  /// @note FIXME: This is duplicated from config_mgr.hpp, should be refactored
+  /// @param format Format string
+  /// @return Validator struct
+  Validator ParseValidatorFromFormat(const std::string& format);
 };
 
 }  // namespace toothless

@@ -8,9 +8,6 @@ namespace toothless {
 
 enum class BusType { kI2C, kSPI, kGPIO };
 
-enum SensorType { kTemperature, kHumidity, kOtherSensor };
-enum ActuatorType { kHeater, kCooler, kFan, kOtherActuator };
-
 inline const char* BusTypeToString(BusType bus) {
   switch (bus) {
     case BusType::kI2C:
@@ -18,11 +15,28 @@ inline const char* BusTypeToString(BusType bus) {
     case BusType::kSPI:
       return "spi";
     case BusType::kGPIO:
-      return "spio";
+      return "gpio";
     default:
       return "Unknown";
   }
 }
+
+enum SensorType { kTemperature, kHumidity, kOtherSensor };
+
+inline const char* SensorTypeToString(SensorType type) {
+  switch (type) {
+    case kTemperature:
+      return "temperature";
+    case kHumidity:
+      return "humidity";
+    case kOtherSensor:
+      return "other";
+    default:
+      return "unknown";
+  }
+}
+
+enum ActuatorType { kHeater, kCooler, kFan, kOtherActuator };
 
 struct PeripheralInfo {
   const char* name;  // "M5 K-Meter"

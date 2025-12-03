@@ -26,7 +26,7 @@ UserInterface::UserInterface() {
 
   // TODO: make topic strings configurations
   // _chart_history = ChartHistory();
-  _chart_history.New("sensor.temperature.chamber");
+  _chart_history.New("sensor.temperature.zone");
   _chart_history.New("heater.target.temperature", true);
 }
 

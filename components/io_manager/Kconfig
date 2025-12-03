@@ -12,19 +12,19 @@ menu "IO Manager Configuration"
         config IOM_I2C_FREQUENCY
             int "I2C Frequency (Hz)"
             default 400000
-        config IOM_INTERNAL_ENABLE
+        config IOM_EXTERNAL_ENABLE
             bool "Enable Internal I2C Bus"
             default n
-        config IOM_INTERNAL_I2C_SDA_PIN
-            depends on IOM_INTERNAL_ENABLE
+        config IOM_EXTERNAL_I2C_SDA_PIN
+            depends on IOM_EXTERNAL_ENABLE
             int "Internal I2C SDA Pin"
             default 18
-        config IOM_INTERNAL_I2C_SCL_PIN
-            depends on IOM_INTERNAL_ENABLE
+        config IOM_EXTERNAL_I2C_SCL_PIN
+            depends on IOM_EXTERNAL_ENABLE
             int "Internal I2C SCL Pin"
             default 19
-        config IOM_INTERNAL_I2C_FREQUENCY
-            depends on IOM_INTERNAL_ENABLE
+        config IOM_EXTERNAL_I2C_FREQUENCY
+            depends on IOM_EXTERNAL_ENABLE
             int "Internal I2C Frequency (Hz)"
             default 400000
     endmenu

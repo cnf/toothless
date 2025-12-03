@@ -36,8 +36,8 @@ ReflowScreen::~ReflowScreen() {
 
 lv_obj_t* ReflowScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
-                                                   "heater.power", "heater.state", "heater"));
+  _subscription = ps_new_subscriber(
+      10, PS_STRLIST("sensor.temperature.zone", "heater.target.temperature", "heater.power", "heater.state", "heater"));
   _screen = lv_obj_create(NULL);
   lv_obj_set_style_bg_color(_screen, lv_color_black(), 0);
 
@@ -71,7 +71,7 @@ void ReflowScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 esp_err_t ReflowScreen::UpdateAllDisplays() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, "sensor.temperature.zone") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
       TemperatureUpdateCurrent((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "heater.target.temperature")) {
@@ -172,7 +172,7 @@ esp_err_t ReflowScreen::Chart() {
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+  _chart->series_map = {{std::string("sensor.temperature.zone"), temp_series},
                         {std::string("heater.target.temperature"), target_series}};
   _chart->history->Register(_labels->chart, _chart->series_map);
 

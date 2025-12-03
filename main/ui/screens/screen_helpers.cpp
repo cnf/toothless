@@ -93,7 +93,7 @@ lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
 
   //   // ChartSetScale();
   //   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  //   _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+  //   _chart->series_map = {{std::string("sensor.temperature.zone"), temp_series},
   //                         {std::string("heater.target.temperature"), target_series}};
   //   _chart->history->Register(_labels->chart, _chart->series_map);
 
@@ -341,6 +341,132 @@ void TimeRollerCleanupHandler(lv_event_t* e) {
   FLOG_INFO("All done");
 
   delete state;
+}
+
+void TextAreaEventHandler(lv_event_t* e) {
+  if (lv_display_get_vertical_resolution(NULL) <= 280) {
+    TextAreaFullscreenEventHandler(e);
+    return;
+  }
+  // ProfilesScreen* screen = (ProfilesScreen*)lv_event_get_user_data(e);
+  lv_obj_t* parent = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+  lv_obj_t* textarea = static_cast<lv_obj_t*>(lv_event_get_target(e));
+  lv_event_code_t code = lv_event_get_code(e);
+  static lv_obj_t* keyboard = nullptr;
+
+  if (code == LV_EVENT_FOCUSED) {
+    // Create keyboard if it doesn't exist
+    if (!keyboard) {
+      keyboard = lv_keyboard_create(lv_screen_active());
+      lv_obj_set_size(keyboard, lv_pct(100), lv_pct(60));
+
+      // Position at bottom using align
+      lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+      // Make it floating (ignores parent layout)
+      lv_obj_add_flag(keyboard, LV_OBJ_FLAG_FLOATING);
+    }
+    lv_keyboard_set_textarea(keyboard, textarea);
+    lv_obj_remove_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(keyboard);
+  } else if (code == LV_EVENT_DEFOCUSED) {
+    if (keyboard) {
+      lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
+  } else if (code == LV_EVENT_READY) {
+    // User pressed "OK" button on keyboard
+    FLOG_INFO("Keyboard OK pressed, text: %s", lv_textarea_get_text(textarea));
+    // Hide keyboard
+    if (keyboard) {
+      lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_send_event(textarea, LV_EVENT_READY, NULL);
+  }
+}
+
+void TextAreaFullscreenEventHandler(lv_event_t* e) {
+  FLOG_ERROR("Using fullscreen textarea keyboard");
+  lv_obj_t* parent = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+  lv_obj_t* textarea = static_cast<lv_obj_t*>(lv_event_get_target(e));
+  lv_event_code_t code = lv_event_get_code(e);
+  static lv_obj_t* backdrop = nullptr;
+  lv_obj_t* holder = nullptr;
+  lv_obj_t* keyboard = nullptr;
+
+  if (code == LV_EVENT_FOCUSED) {
+    FLOG_ERROR("Textarea focused - show fullscreen keyboard");
+    backdrop = CreateBackdrop(parent);
+    lv_obj_t* wrapper = ui::CreateColumnContainer(backdrop);
+    lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
+
+    // lv_obj_set_style_border_width(wrapper, 1, 0);
+    // lv_obj_set_style_border_color(wrapper, lv_color_hex(0x00CC00), 0);
+
+    lv_obj_t* holder = ui::CreateTextArea(wrapper);
+    lv_textarea_set_text(holder, lv_textarea_get_text(textarea));
+    lv_textarea_set_cursor_pos(holder, lv_textarea_get_cursor_pos(textarea));
+    lv_obj_set_size(holder, lv_pct(100), LV_SIZE_CONTENT);
+
+    keyboard = lv_keyboard_create(wrapper);
+    lv_obj_set_size(keyboard, lv_pct(100), lv_pct(60));
+    lv_keyboard_set_textarea(keyboard, holder);
+    lv_obj_add_event_cb(
+        keyboard,
+        [](lv_event_t* e) {
+          lv_obj_t* textarea = (lv_obj_t*)lv_event_get_user_data(e);
+          lv_obj_t* holder = lv_keyboard_get_textarea((lv_obj_t*)lv_event_get_target(e));
+          // lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
+          lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
+          lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
+          lv_obj_send_event(textarea, LV_EVENT_READY, NULL);
+          // lv_obj_delete(keyboard);
+          // keyboard = nullptr;
+          lv_obj_delete(backdrop);
+        },
+        LV_EVENT_READY, textarea);
+    lv_obj_add_event_cb(
+        backdrop,
+        [](lv_event_t* e) {
+          // lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
+          // lv_obj_delete(keyboard);
+          // keyboard = nullptr;
+          lv_obj_delete(backdrop);
+        },
+        LV_EVENT_CANCEL, NULL);
+
+    // lv_obj_set_flex_grow(keyboard, 1);
+
+    // Position at bottom using align
+    // lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    // Make it floating (ignores parent layout)
+    // lv_obj_add_flag(keyboard, LV_OBJ_FLAG_FLOATING);
+
+    lv_keyboard_set_textarea(keyboard, holder);
+    // lv_obj_remove_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    // lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
+    // lv_obj_move_foreground(keyboard);
+    // } else if (code == LV_EVENT_DEFOCUSED) {
+    //   FLOG_ERROR("Textarea defocused - hide fullscreen keyboard");
+    //   if (keyboard) {
+    //     lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
+    //     lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
+    //     lv_obj_delete(backdrop);
+    //     // lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    //   }
+  } else if (code == LV_EVENT_READY) {
+    FLOG_ERROR("Textarea ready - hide fullscreen keyboard");
+    // User pressed "OK" button on keyboard
+    FLOG_INFO("Keyboard OK pressed, text: %s", lv_textarea_get_text(textarea));
+    // Hide keyboard
+    if (backdrop) {
+      // lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
+      // lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
+      // lv_obj_delete(keyboard);
+      // keyboard = nullptr;
+      lv_obj_delete(backdrop);
+    }
+  }
 }
 
 void ConfirmationPopup(const ConfirmationContext& ctx) {

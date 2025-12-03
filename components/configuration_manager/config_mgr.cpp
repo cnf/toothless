@@ -72,7 +72,14 @@ void ConfigManager::Start() {
 
 void ConfigManager::Setup() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  // ESP_ERROR_CHECK(nvs_flash_erase());
+
+  {
+    // TODO: DEBUG ONLY
+    // ESP_ERROR_CHECK(nvs_flash_erase());
+    // DeleteSetting("ui", "theme");  // remove old theme setting
+    // FLOG_ERROR("Removing old theme setting to reset to default");
+  }
+
   ps_subscriber_t* rsub = ps_new_subscriber(1, PS_STRLIST("task.cfg_mngr.ready"));  // rsub to signal readiness
 
   FLOG_DEBUG("Listening on %s", kTopicConfig);
@@ -860,8 +867,6 @@ bool ConfigManager::WriteNamespaces() {
   _prefs.end();
   return true;
 }
-/////////////////////////////
-// Add to config_mgr.cpp:
 
 Validator ConfigManager::ParseValidator(const std::string& format) {
   Validator v;
@@ -900,6 +905,8 @@ Validator ConfigManager::ParseValidator(const std::string& format) {
         v.max_len = std::stoul(val.substr(colon + 1));
         v.has_len = true;
       }
+    } else if (key == "password") {
+      v.password = true;
     }
 
     pos = comma + 1;

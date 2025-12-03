@@ -66,7 +66,7 @@ lv_style_t success;
 // Chart styles
 namespace charts {
 lv_style_t background;
-lv_style_t grid_lines;
+lv_style_t grid;
 lv_style_t line_temp;
 lv_style_t line_target;
 lv_style_t cursor;
@@ -218,7 +218,7 @@ static void init_screen_styles() {
   lv_style_set_bg_opa(&screens::subscreen, LV_OPA_COVER);
   lv_style_set_text_color(&screens::subscreen, current_palette.on_background);
   lv_style_set_border_width(&screens::subscreen, 0);
-  lv_style_set_radius(&screens::card, 0);
+  lv_style_set_radius(&screens::subscreen, 0);
   lv_style_set_pad_all(&screens::subscreen, 0);
   lv_style_set_layout(&screens::subscreen, LV_LAYOUT_FLEX);
   lv_style_set_flex_flow(&screens::subscreen, LV_FLEX_FLOW_COLUMN);
@@ -235,7 +235,7 @@ static void init_screen_styles() {
   lv_style_set_border_color(&screens::card, current_palette.border);
   lv_style_set_pad_all(&screens::card, current_settings.element_padding);
   if (current_settings.borders) {
-    lv_style_set_border_width(&screens::card, 8);
+    lv_style_set_border_width(&screens::card, LV_DPX(8));
   } else {
     lv_style_set_border_width(&screens::card, 0);
   }
@@ -446,7 +446,7 @@ static void init_text_styles() {
   lv_style_set_border_color(&text::textentry, current_palette.border);
   lv_style_set_border_width(&text::textentry, 2);
   lv_style_set_radius(&text::textentry, 8);
-  lv_style_set_pad_all(&text::textentry, current_settings.element_padding / 2);
+  lv_style_set_pad_all(&text::textentry, current_settings.element_padding);
 
   // Danger/warning text
   lv_style_init(&text::danger);
@@ -471,11 +471,12 @@ static void init_chart_styles() {
   lv_style_set_pad_all(&charts::background, current_settings.element_padding);
 
   // Grid lines
-  lv_style_init(&charts::grid_lines);
-  lv_style_set_line_color(&charts::grid_lines, current_palette.border);
-  lv_style_set_line_width(&charts::grid_lines, 1);
-  lv_style_set_line_dash_width(&charts::grid_lines, 3);
-  lv_style_set_line_dash_gap(&charts::grid_lines, 3);
+  lv_style_init(&charts::grid);
+  lv_style_set_line_color(&charts::grid, current_palette.surface);
+  // lv_style_set_line_opa(&charts::grid, LV_OPA_30);
+  lv_style_set_line_width(&charts::grid, 1);
+  lv_style_set_line_dash_width(&charts::grid, 3);
+  lv_style_set_line_dash_gap(&charts::grid, 3);
 
   // Temperature line (actual)
   lv_style_init(&charts::line_temp);
@@ -805,7 +806,7 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&text::textentry);
 
   lv_style_reset(&charts::background);
-  lv_style_reset(&charts::grid_lines);
+  lv_style_reset(&charts::grid);
   lv_style_reset(&charts::line_temp);
   lv_style_reset(&charts::line_target);
   lv_style_reset(&charts::cursor);

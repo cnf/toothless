@@ -61,7 +61,7 @@ extern lv_style_t success;      ///< Success/confirmation text style
 /// Chart styles
 namespace charts {
 extern lv_style_t background;   ///< Chart background
-extern lv_style_t grid_lines;   ///< Grid line style
+extern lv_style_t grid;         ///< Grid line style
 extern lv_style_t line_temp;    ///< Temperature line color
 extern lv_style_t line_target;  ///< Target temperature line
 extern lv_style_t cursor;       ///< Chart cursor

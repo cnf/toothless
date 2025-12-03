@@ -48,8 +48,8 @@ ReflowScreen::~ReflowScreen() {
 lv_obj_t* ReflowScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
 
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater.target.temperature",
-                                                   "heater.power", "heater.state", "heater"));
+  _subscription = ps_new_subscriber(
+      10, PS_STRLIST("sensor.temperature.zone", "heater.target.temperature", "heater.power", "heater.state", "heater"));
 
   _screen = ui::CreateScreen();
   lv_obj_set_layout(_screen, LV_LAYOUT_FLEX);          // Set screen to vertical flex layout
@@ -75,64 +75,7 @@ void ReflowScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 }
 
 esp_err_t ReflowScreen::UpdateAllDisplays() {
-  ps_msg_t* msg = nullptr;
-  for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
-      FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
-      lv_subject_set_int(&_subjects->temperature, (float)msg->int_val / 100);
-      // TemperatureUpdateCurrent((uint32_t)msg->int_val);
-    } else if (ps_has_topic(msg, "heater.target.temperature")) {
-      if (PS_IS_INT(msg)) {
-        lv_subject_set_int(&_subjects->target, (float)msg->int_val / 100);
-        // TemperatureUpdateTarget(msg->int_val);
-      } else {
-        lv_subject_set_int(&_subjects->target, -100);
-        // TemperatureClearTarget();
-      }
-    } else if (ps_has_topic(msg, "heater.power") && PS_IS_BOOL(msg)) {
-      // FLOG_INFO("Power: %d", msg->bool_val);
-      switch (msg->bool_val) {
-        case true:
-          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, true);
-          if (_labels->temp_current)
-            lv_obj_set_style_text_color(_labels->temp_current, lv_palette_main(LV_PALETTE_RED), 0);
-
-          break;
-        case false:
-          if (_labels->heater_led) ui::SetLEDState(_labels->heater_led, false);
-          if (_labels->temp_current) lv_obj_set_style_text_color(_labels->temp_current, lv_color_white(), 0);
-          break;
-      }
-    } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
-      if (msg->int_val == heater::kStateOff) {
-        FLOG_INFO("Heater is OFF ><");
-        if (_labels->startstop_label) lv_label_set_text(_labels->startstop_label, "Start");
-      } else {
-        FLOG_INFO("Heater is ON <>");
-        if (_labels->startstop_label) lv_label_set_text(_labels->startstop_label, "Stop");
-      }
-    } else if (ps_has_topic(msg, "heater.profile.stage")) {
-      if (PS_IS_STR(msg)) {
-        if (lv_obj_has_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN)) {
-          PS_PUB_NIL("heater.profile.get");
-        }
-        lv_obj_remove_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_t* slabel = lv_obj_get_child(_labels->stage, 0);
-        lv_label_set_text(slabel, msg->str_val);
-      } else if (PS_IS_NIL(msg)) {
-        lv_obj_add_flag(_labels->stage, LV_OBJ_FLAG_HIDDEN);
-      }
-    } else if (ps_has_topic(msg, "heater.profile")) {
-      if (PS_IS_STR(msg)) {
-        lv_obj_remove_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_t* plabel = lv_obj_get_child(_labels->profile, 1);
-        lv_label_set_text(plabel, msg->str_val);
-      } else if (PS_IS_NIL(msg)) {
-        lv_obj_add_flag(_labels->profile, LV_OBJ_FLAG_HIDDEN);
-      }
-    }
-    ps_unref_msg(msg);
-  }
+  FLOG_ERROR("No longer done here, use subjects!");
   return ESP_OK;
 }
 
@@ -175,7 +118,7 @@ esp_err_t ReflowScreen::Chart() {
 
   // ChartSetScale();
   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  _chart->series_map = {{std::string("sensor.temperature.chamber"), temp_series},
+  _chart->series_map = {{std::string("sensor.temperature.zone"), temp_series},
                         {std::string("heater.target.temperature"), target_series}};
   _chart->history->Register(_labels->chart, _chart->series_map);
 

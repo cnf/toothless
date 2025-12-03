@@ -32,7 +32,7 @@ DryerScreen::~DryerScreen() {
 
 lv_obj_t* DryerScreen::Create() {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.chamber", "heater"));
+  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature.zone", "heater"));
   // FIXME: should probably make queue size configurable
 
   _screen = ui::CreateScreen();
@@ -57,7 +57,7 @@ void DryerScreen::UIUpdateTimerCB(lv_timer_t* timer) {
 esp_err_t DryerScreen::UpdateAllDisplays() {
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
-    if (ps_has_topic(msg, "sensor.temperature.chamber") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, "sensor.temperature.zone") && PS_IS_INT(msg)) {
       // FLOG_DEBUG("Received temperature: %d", (int)msg->int_val);
       TemperatureUpdateCurrent((uint32_t)msg->int_val);
     } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {

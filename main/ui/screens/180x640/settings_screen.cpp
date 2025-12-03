@@ -36,8 +36,7 @@ lv_obj_t* SettingsScreen::Create() {
   lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_gap(_screen, 10, 0);
 
-  CreateMenu();
-  // CreateBackButton();
+  BaseCreate();
   SetSidebar(true);
 
   return _screen;

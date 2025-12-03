@@ -37,7 +37,7 @@ lv_obj_t* SettingsScreen::Create() {
 
   // CreateTitle();
   // CreateSettingsList();
-  CreateMenu();
+  BaseCreate();
   // CreateBackButton();
   SetSidebar(true);
 
@@ -69,7 +69,7 @@ void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {
   }
 }
 
-esp_err_t SettingsScreen::CreateMenu() {
+esp_err_t SettingsScreen::BaseCreate() {
   FLOG_DEBUG("Creating Settings Menu");
   _labels->menu = lv_menu_create(_screen);
   lv_obj_set_size(_labels->menu, lv_pct(100), 0);

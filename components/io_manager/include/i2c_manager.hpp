@@ -87,17 +87,17 @@ class I2cManager {
   // i2c_master_bus_handle_t _int_bus_handle = nullptr; //<! Optional internal bus handle
   mutable std::mutex _mutex;
   bool _initialized = false;
-  bool _internal = false;                  //<! Whether this instance is for internal I2C bus
+  bool _external = false;                  //<! Whether this instance is for internal I2C bus
   std::vector<uint8_t> _device_addresses;  //<! List of scanned device addresses
 
-  I2cManager(bool internal = false) : _internal(internal) {};
+  I2cManager(bool internal = false) : _external(internal) {};
   // Delete copy/move operations
   I2cManager(const I2cManager&) = delete;
   I2cManager& operator=(const I2cManager&) = delete;
 
  public:
   static constexpr uint32_t kClockSpeedHz = 400000;  //<! Default I2C clock speed
-  static constexpr uint32_t kTimeoutMs = 1000;       //<! Default I2C timeout
+  static constexpr uint32_t kTimeoutMs = 500;        //<! Default I2C timeout
   /// @brief Get singleton instance. It wil be created on first call.
   /// @return Reference to singleton instance
   /// Get shared instance for main I2C bus
@@ -106,11 +106,17 @@ class I2cManager {
     return instance;
   }
 
-  /// Get shared instance for internal I2C bus
-  static std::shared_ptr<I2cManager> GetInternalInstance() {
-    static std::shared_ptr<I2cManager> int_instance(new I2cManager(true));
-    return int_instance;
+#if defined(CONFIG_IOM_EXTERNAL_ENABLE)
+
+  /// Get shared instance for external I2C bus
+  static std::shared_ptr<I2cManager> GetExternalInstance() {
+    static std::shared_ptr<I2cManager> ext_instance(new I2cManager(true));
+    return ext_instance;
   }
+#else
+  /// Get shared instance for internal I2C bus
+  static std::shared_ptr<I2cManager> GetExternalInstance() { return GetInstance(); }
+#endif
 
   /// @brief Initialize I2C bus
   esp_err_t Init();

@@ -100,6 +100,10 @@ void TimeRollerHandler(lv_event_t* e);
 
 void TimeRollerCleanupHandler(lv_event_t* e);
 
+void TextAreaEventHandler(lv_event_t* e);
+
+void TextAreaFullscreenEventHandler(lv_event_t* e);
+
 void ConfirmationPopup(const ConfirmationContext& ctx);
 
 void ConfirmationHandler(lv_event_t* e);
