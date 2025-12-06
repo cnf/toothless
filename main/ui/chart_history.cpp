@@ -23,10 +23,11 @@ ChartHistory::~ChartHistory() {
 void ChartHistory::New(std::string topic) { New(topic, false); }
 
 void ChartHistory::New(std::string topic, bool persist) {
-  Series& series = _series[topic];  // Creates if not exists
+  Series& series = _series[topic];
   series.topic = _series.find(topic)->first.c_str();
   series.persist = persist;
   series.data.fill(std::numeric_limits<float>::quiet_NaN());
+  series.data[0] = 19.0f;  // initial value
 
   ps_subscribe(_subscription, _series[topic].topic);
   FLOG_INFO("Watching %s", _series[topic].topic);
@@ -34,7 +35,7 @@ void ChartHistory::New(std::string topic, bool persist) {
 
 void ChartHistory::Loop() {
   static int64_t last = esp_timer_get_time();
-  if (esp_timer_get_time() - last < 250000) {  // TODO: make configurable;
+  if (esp_timer_get_time() - last < 1000 * 1000) {  // TODO: make configurable;
     return;
   }
   last = esp_timer_get_time();

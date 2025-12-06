@@ -11,6 +11,7 @@
 #include "heater/elements/element.hpp"
 #include "heater/profiles/profile.hpp"
 #include "heater/profiles/profile_manager.hpp"
+#include "topics.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -19,15 +20,37 @@ extern "C" {
 namespace toothless {
 
 namespace topics::heater {
-const char name[10] = "heater";
-const char power[16] = "heater.power";
-const char target[24] = "heater.target";
-const char target_temperature[36] = "heater.target.temperature";
-const char state[16] = "heater.state";
-const char mode[14] = "heater.mode";
-const char profile[18] = "heater.profile";
-const char timer[20] = "heater.timer";
-const char timer_remaining[26] = "heater.timer.remaining";
+static constexpr const char name[10] = "heater";
+static constexpr const char start[13] = "heater.start";
+static constexpr const char stop[12] = "heater.stop";
+static constexpr const char pause[13] = "heater.pause";
+static constexpr const char power[16] = "heater.power";
+
+static constexpr const char target[24] = "heater.target";
+static constexpr const char target_temperature[36] = "heater.target.temperature";
+static constexpr const char target_temperature_set[40] = "heater.target.temperature.set";
+
+static constexpr const char state[16] = "heater.state";
+static constexpr const char state_set[20] = "heater.state.set";
+
+static constexpr const char mode[14] = "heater.mode";
+static constexpr const char mode_set[18] = "heater.mode.set";
+
+static constexpr const char profile[18] = "heater.profile";
+static constexpr const char profile_set[22] = "heater.profile.set";
+static constexpr const char profile_get[22] = "heater.profile.get";
+static constexpr const char profile_changed[26] = "heater.profile.changed";
+
+static constexpr const char profile_stage[24] = "heater.profile.stage";
+
+static constexpr const char timer[20] = "heater.timer";
+static constexpr const char timer_set[24] = "heater.timer.set";
+static constexpr const char timer_remaining[26] = "heater.timer.remaining";
+inline const char* GetErrorTopic() {
+  static std::string s = std::string(kTopicStatusError) + TOPIC_DOT + name;
+  return s.c_str();
+}
+static const char* error = GetErrorTopic();
 
 }  // namespace topics::heater
 
@@ -111,10 +134,12 @@ inline ConfigEntries config_entries = {
 }  // namespace heater
 class Heater {
  public:
-  Heater() {};
+  Heater();
+  ~Heater();
   bool Init();
   void Loop();
   esp_err_t HandleSubscriptions();
+  esp_err_t ApplySettings();
   void AssertOff();
   esp_err_t LoadProfile(std::string name);
   /// @brief Refresh profile list in config manager
@@ -132,25 +157,26 @@ class Heater {
   esp_err_t ClearTarget();
 
   esp_err_t HeaterOn(float power);
+  esp_err_t HeaterOn(uint8_t power);
   esp_err_t HeaterOff();
 
  private:
   ps_subscriber_t* _subscription;
-  ConfigEntries* _config_entries;        // UI configuration entries
-  std::shared_ptr<SettingsMap> _config;  // UI settings map
+  std::unique_ptr<ConfigEntries> _config_entries;  // UI configuration entries
+  std::shared_ptr<SettingsMap> _config;            // UI settings map
   std::unique_ptr<BaseElement> _element;
-  heater::State _state;
-  heater::Mode _mode;
+  heater::State _state = heater::State::kStateOff;
+  heater::Mode _mode = heater::Mode::kModeReflow;
   // Profiles
   std::shared_ptr<ProfileManager> _profile_mgr;
   std::shared_ptr<Profile> _current_profile;  // Use shared_ptr
+  int32_t _maximum_temperature;
 
   int64_t _start_time_ms;  // time we started the current profile
   int64_t _timer_ms = 0;
   int64_t _time_remaining_ms = 0;
-  int32_t _target = std::numeric_limits<int32_t>::quiet_NaN();
-  uint32_t _last_temp_update;  // temp sensor failsafe
-  uint32_t _last_run;
+  std::optional<int32_t> _target = std::nullopt;  // target temperature
+  uint32_t _last_temp_update = 0;                 // temp sensor failsafe
   int32_t _temperature;
   int32_t _previous_temperature = std::numeric_limits<uint32_t>::max();
   // PID

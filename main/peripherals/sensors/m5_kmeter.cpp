@@ -45,7 +45,7 @@ bool M5KMeter::Detect() {
     FLOG_INFO("M5 KMeter detected at address 0x%02X", kMeterDefaultAddr);
     return true;
   }
-  FLOG_ERROR("M5 KMeter not detected at address 0x%02X", kMeterDefaultAddr);
+  FLOG_INFO("M5 KMeter not detected at address 0x%02X", kMeterDefaultAddr);
   return false;
 };
 
@@ -72,11 +72,20 @@ esp_err_t M5KMeter::Loop() {
   esp_err_t err = ReadCelsius(temp);
   if (err != ESP_OK) {
     FLOG_ERROR("Failed to get temperature: %s", esp_err_to_name(err));
+    _error_counter++;
+    if (_error_counter >= 5) {
+      FLOG_ERROR("M5 KMeter has too many errors, marking as uninitialized");
+      _initialized = false;
+      PeripheralRegistry::Disable(kM5KMeterName);
+    }
     return err;
   };
+  if (_error_counter > 0) {
+    _error_counter--;
+  }
   _avg.Add(temp);
   PS_PUB_INT(_topic.c_str(), _avg.Get());
-  PS_PUB_INT("sensor.temperature.zone", _avg.Get());
+  // PS_PUB_INT("sensor.temperature.zone", _avg.Get());
   last = esp_timer_get_time() / 1000;
   return ESP_OK;
 }

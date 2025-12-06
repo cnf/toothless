@@ -4,6 +4,8 @@
 
 #include "funlog.h"
 
+// LV_FONT_DECLARE(AdwaitaMonoB_256);
+LV_FONT_DECLARE(AdwaitaMonoB_160);
 LV_FONT_DECLARE(AdwaitaMonoB_128);
 LV_FONT_DECLARE(AdwaitaMonoB_96);
 LV_FONT_DECLARE(AdwaitaMonoB_64);
@@ -702,7 +704,7 @@ void Init(ThemeId theme) {
     current_settings.borders = false;
     current_settings.screen_padding = 0;
     current_settings.button_height = LV_DPX(20);
-    current_settings.element_padding = LV_DPX(4);
+    current_settings.element_padding = 4;
   } else if (screen_width <= 320) {
     FLOG_INFO("Small screen detected (%ux%u), using small fonts", screen_width, screen_height);
     fonts::tiny = lv_font_montserrat_8;
@@ -710,9 +712,9 @@ void Init(ThemeId theme) {
     fonts::medium = lv_font_montserrat_14;
     fonts::large = lv_font_montserrat_16;
     fonts::xlarge = lv_font_montserrat_18;
-    fonts::numbers_small = AdwaitaMonoB_28;
+    fonts::numbers_small = AdwaitaMonoB_21;
     fonts::numbers_medium = AdwaitaMonoB_32;
-    fonts::numbers_large = AdwaitaMonoB_96;
+    fonts::numbers_large = AdwaitaMonoB_64;
     current_settings.button_height = LV_DPX(30);
     current_settings.element_padding = LV_DPX(4);
   } else if (screen_width <= 480) {
@@ -722,19 +724,21 @@ void Init(ThemeId theme) {
     fonts::medium = lv_font_montserrat_20;
     fonts::large = lv_font_montserrat_24;
     fonts::xlarge = lv_font_montserrat_32;
-    fonts::numbers_small = AdwaitaMonoB_28;
-    fonts::numbers_medium = AdwaitaMonoB_32;
-    fonts::numbers_large = AdwaitaMonoB_48;
+    fonts::numbers_small = AdwaitaMonoB_48;
+    fonts::numbers_medium = AdwaitaMonoB_64;
+    fonts::numbers_large = AdwaitaMonoB_96;
+    current_settings.button_height = LV_DPX(40);
+    current_settings.element_padding = LV_DPX(8);
   } else {
     FLOG_INFO("Large screen detected (%ux%u), using large fonts", screen_width, screen_height);
-    fonts::tiny = lv_font_montserrat_12;
-    fonts::small = lv_font_montserrat_18;
-    fonts::medium = lv_font_montserrat_22;
+    fonts::tiny = lv_font_montserrat_18;
+    fonts::small = lv_font_montserrat_24;
+    fonts::medium = lv_font_montserrat_28;
     fonts::large = lv_font_montserrat_32;
-    fonts::xlarge = lv_font_montserrat_48;
-    fonts::numbers_small = AdwaitaMonoB_28;
-    fonts::numbers_medium = AdwaitaMonoB_64;
-    fonts::numbers_large = AdwaitaMonoB_128;
+    fonts::xlarge = lv_font_montserrat_36;
+    fonts::numbers_small = AdwaitaMonoB_48;
+    fonts::numbers_medium = AdwaitaMonoB_128;
+    fonts::numbers_large = AdwaitaMonoB_160;
     current_settings.button_height = LV_DPX(60);
     current_settings.element_padding = LV_DPX(12);
     // if (current_settings.screen_padding > 0) {

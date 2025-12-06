@@ -2,56 +2,16 @@
 
 #include <lvgl.h>
 
-// #include <atomic>
-
 #include "config.h"
 #include "heater/heater.hpp"
 #include "screen_helpers.hpp"
 #include "ui/display/display.hpp"
+#include "ui/screens/overlay_manager.hpp"
+#include "ui/screenshot.hpp"
+#include "ui/subjects.hpp"
 #include "ui/themes/widget_factories.hpp"
 
 namespace toothless {
-
-static bool _overlay_active = false;
-static lv_obj_t* _backdrop = nullptr;
-
-lv_obj_t* CreateBackdrop(lv_obj_t* screen) {
-  // FIXME: Move to widget_factories
-  FLOG_INFO("Create Backdrop");
-
-  // if existing and still in tree, reuse it
-  if (_backdrop) {
-    FLOG_ERROR("Backdrop already exists");
-    if (lv_obj_get_parent(_backdrop) == screen) return _backdrop;
-    lv_obj_delete(_backdrop);
-    _backdrop = nullptr;
-    // lv_obj_clean(backdrop);
-  }
-
-  // _backdrop = lv_obj_create(screen);
-  _backdrop = ui::CreateSubScreen(screen);
-  lv_obj_add_event_cb(_backdrop, BackdropDeleteCb, LV_EVENT_DELETE, NULL);
-  lv_obj_set_size(_backdrop, lv_pct(100), lv_pct(100));
-  lv_obj_set_pos(_backdrop, 0, 0);
-  // lv_obj_set_style_bg_color(_backdrop, lv_color_black(), 0);
-  // lv_obj_set_style_border_width(_backdrop, 0, 0);
-  // lv_obj_set_style_pad_all(_backdrop, 0, 0);
-  // lv_obj_remove_flag(_backdrop, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-  // lv_obj_add_flag(_backdrop, LV_OBJ_FLAG_FLOATING);
-  // lv_obj_set_layout(_backdrop, LV_LAYOUT_FLEX);
-  // lv_obj_set_flex_flow(_backdrop, LV_FLEX_FLOW_COLUMN);
-  // lv_obj_set_flex_align(_backdrop, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);  // ??
-
-  lv_obj_move_to_index(_backdrop, -1);
-
-  return _backdrop;
-}
-
-void BackdropDeleteCb(lv_event_t* e) {
-  FLOG_ERROR("Backdrop deleted");
-  _overlay_active = false;
-  _backdrop = nullptr;
-}
 
 lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
@@ -76,42 +36,14 @@ lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
   // lv_chart_set_div_line_count(chart, kYLabelCount, 5);
 
   return chart;
-
-  // {
-  //   // Scale
-  //   _labels->chart_scale_right = lv_scale_create(wrapper);
-  //   lv_scale_set_mode(_labels->chart_scale_right, LV_SCALE_MODE_VERTICAL_RIGHT);
-  //   lv_obj_set_size(_labels->chart_scale_right, 30, lv_pct(100));
-  //   lv_obj_set_flex_grow(_labels->chart_scale_right, 0);  // Don't grow
-  //   lv_scale_set_total_tick_count(_labels->chart_scale_right, kYLabelCount);
-  //   lv_scale_set_major_tick_every(_labels->chart_scale_right, 1);
-  //   // TODO: see of this needs dynamic calc for different screen
-  //   // lv_obj_set_style_pad_ver(_labels->chart_scale_right, lv_chart_get_first_point_center_offset(_labels->chart),
-  //   0); lv_obj_set_style_pad_ver(_labels->chart_scale_right, 10, 0);  // Fixed 10px padding
-  //   lv_obj_set_style_text_font(_labels->chart_scale_right, &lv_font_montserrat_12, 0);
-  //   // lv_obj_add_flag(_labels->chart_scale_right, LV_OBJ_FLAG_HIDDEN);
-
-  //   // ChartSetScale();
-  //   lv_chart_set_point_count(_labels->chart, kMaxPoints);  // Keep last 100 points
-  //   _chart->series_map = {{std::string("sensor.temperature.zone"), temp_series},
-  //                         {std::string("heater.target.temperature"), target_series}};
-  //   _chart->history->Register(_labels->chart, _chart->series_map);
-
-  //   return ESP_OK;
-  // }
 }
 
 void NumpadOpen(const NumpadContext& ctx) {
   FLOG_INFO("Open Numpad");
-  if (_overlay_active) return;  // already active
-  _overlay_active = true;
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return;
 
-  // create a small textarea + keyboard
-
-  // NumpadState *state = new (NumpadState);
-  NumpadState* state = new NumpadState();
-  state->backdrop = CreateBackdrop(ctx.parent_screen);
-  state->target_spinbox = ctx.target_spinbox;
+  auto* state = mgr.Open<NumpadState>(ctx.parent_screen);
   state->on_confirm = ctx.on_confirm;
 
   // clang-format off
@@ -176,9 +108,8 @@ void NumpadKeyHandler(lv_event_t* e) {
       // Handle backspace
       lv_textarea_delete_char(state->numpadtextarea);
     } else if (lv_strcmp(txt, LV_SYMBOL_CLOSE) == 0) {
-      if (state->backdrop) lv_obj_delete(state->backdrop);
+      OverlayManager::Instance().Close();
     } else if (lv_strcmp(txt, LV_SYMBOL_STOP) == 0) {
-      // TODO: how do we set NAN for a spinbox?
     } else {
       // Append character to textarea
       lv_textarea_add_text(state->numpadtextarea, txt);
@@ -201,13 +132,6 @@ void NumPadCleanupHandler(lv_event_t* e) {
   std::optional<int32_t> optval = std::nullopt;
   if (lv_strcmp(txt, "") != 0) {
     uint16_t val = atoi(txt);
-    // val = std::clamp<uint16_t>(val, static_cast<uint16_t>(0), static_cast<uint16_t>(kUIMaxTargetTemperatureC));
-
-    // if (state->target_spinbox != nullptr) {
-    //   lv_spinbox_set_value(state->target_spinbox, val);  // TODO: should be updated by pubsub
-    //   FLOG_INFO("Set spinbox to %d", val);
-    // }
-    // optval = val * 100;
     optval = val;
   }
   if (state->on_confirm) {
@@ -216,71 +140,33 @@ void NumPadCleanupHandler(lv_event_t* e) {
     FLOG_INFO("Done");
   }
 
-  if (state->backdrop) lv_obj_delete(state->backdrop);
-  state->backdrop = nullptr;
-  if (state->numpad) lv_obj_delete(state->numpad);
-  state->numpad = nullptr;
-  if (state->numpadtextarea) lv_obj_delete(state->numpadtextarea);
-  if (state->ok_btn) lv_obj_delete(state->ok_btn);
-  FLOG_INFO("All done");
+  OverlayManager::Instance().Close();
 
-  delete state;
+  FLOG_INFO("All done");
 }
 
 void TimeRollerOpen(const NumberRollerContext& ctx) {
-  // static float mult = 0.2;
-  // if (!Display::IsTall()) {
-  //   mult = 0.15;
-  // }
-  // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
-  // static size_t height = lv_obj_get_height(ctx.parent_screen) * mult;
-
   FLOG_INFO("Open Time Roller");
-  if (_overlay_active) return;  // already active
-  _overlay_active = true;
-  const char* minsecstr =
-      "00\n"
-      "05\n"
-      "10\n"
-      "15\n"
-      "20\n"
-      "25\n"
-      "30\n"
-      "35\n"
-      "40\n"
-      "45\n"
-      "50\n"
-      "55";
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return;
 
-  // create a small textarea + keyboard
+  const char* minsecstr = "00\n05\n10\n15\n20\n25\n30\n35\n40\n45\n50\n55";
 
-  NumberRollerState* state = new NumberRollerState();
-  // state->backdrop = ctx.backdrop;
-  state->target_spinbox = ctx.target_spinbox;
+  auto* state = mgr.Open<NumberRollerState>(ctx.parent_screen);
   state->on_confirm = ctx.on_confirm;
 
-  state->backdrop = CreateBackdrop(ctx.parent_screen);
   lv_obj_t* col;
-
-  // col = lv_obj_create(state->backdrop);
   col = ui::CreateRowContainer(state->backdrop);
   lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_size(col, lv_pct(100), 0);
   lv_obj_set_flex_grow(col, 1);
 
-  // Hours roller
   state->col_a = ui::CreateRoller(col, minsecstr, 00);
   lv_obj_add_event_cb(state->col_a, TimeRollerHandler, LV_EVENT_ALL, state);
-
   ui::CreateUnitLabel(col, ":");
-
-  // Minutes roller
   state->col_b = ui::CreateRoller(col, minsecstr, 00);
   lv_obj_add_event_cb(state->col_b, TimeRollerHandler, LV_EVENT_ALL, state);
-
   ui::CreateUnitLabel(col, ":");
-
-  // Seconds roller
   state->col_c = ui::CreateRoller(col, minsecstr, 00);
   lv_obj_add_event_cb(state->col_c, TimeRollerHandler, LV_EVENT_ALL, state);
 
@@ -308,12 +194,11 @@ void TimeRollerHandler(lv_event_t* e) {
 void TimeRollerCleanupHandler(lv_event_t* e) {
   FLOG_INFO("Time Roller cleanup started");
   NumberRollerState* state = (NumberRollerState*)lv_event_get_user_data(e);
-
   if (!state) {
-    FLOG_ERROR("no state passed... propably have a memory leak...");
+    FLOG_ERROR("no state passed...");
     return;
   }
-  // On apply, read value and close keyboard
+
   char buf[32];
   lv_roller_get_selected_str(state->col_a, buf, sizeof(buf));
   int hours = atoi(buf);
@@ -322,28 +207,18 @@ void TimeRollerCleanupHandler(lv_event_t* e) {
   lv_roller_get_selected_str(state->col_c, buf, sizeof(buf));
   int seconds = atoi(buf);
   FLOG_INFO("Got Time: %02d:%02d:%02d", hours, minutes, seconds);
-  int32_t total_seconds = (hours * 3600 + minutes * 60 + seconds);  // TODO: units
+  int32_t total_seconds = (hours * 3600 + minutes * 60 + seconds);
 
   if (state->on_confirm) {
-    FLOG_INFO("Running Callback");
     state->on_confirm(total_seconds);
-    FLOG_INFO("Done");
   }
-
-  if (state->backdrop) lv_obj_delete(state->backdrop);
-  state->backdrop = nullptr;
-  if (state->col_a) lv_obj_delete(state->col_a);
-  state->col_a = nullptr;
-  if (state->col_b) lv_obj_delete(state->col_b);
-  state->col_b = nullptr;
-  if (state->col_c) lv_obj_delete(state->col_c);
-  state->col_c = nullptr;
+  OverlayManager::Instance().Close();
   FLOG_INFO("All done");
-
-  delete state;
 }
 
 void TextAreaEventHandler(lv_event_t* e) {
+  TextAreaFullscreenEventHandler(e);
+  return;  // TODO: Figure out how to keep the text area above the keyboard.
   if (lv_display_get_vertical_resolution(NULL) <= 280) {
     TextAreaFullscreenEventHandler(e);
     return;
@@ -380,106 +255,59 @@ void TextAreaEventHandler(lv_event_t* e) {
     if (keyboard) {
       lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     }
-    lv_obj_send_event(textarea, LV_EVENT_READY, NULL);
+    // lv_obj_send_event(textarea, LV_EVENT_READY, NULL);
   }
 }
 
 void TextAreaFullscreenEventHandler(lv_event_t* e) {
-  FLOG_ERROR("Using fullscreen textarea keyboard");
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code != LV_EVENT_FOCUSED) return;
+
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return;
+
   lv_obj_t* parent = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
   lv_obj_t* textarea = static_cast<lv_obj_t*>(lv_event_get_target(e));
-  lv_event_code_t code = lv_event_get_code(e);
-  static lv_obj_t* backdrop = nullptr;
-  lv_obj_t* holder = nullptr;
-  lv_obj_t* keyboard = nullptr;
 
-  if (code == LV_EVENT_FOCUSED) {
-    FLOG_ERROR("Textarea focused - show fullscreen keyboard");
-    backdrop = CreateBackdrop(parent);
-    lv_obj_t* wrapper = ui::CreateColumnContainer(backdrop);
-    lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
+  FLOG_INFO("Textarea focused - show fullscreen keyboard");
 
-    // lv_obj_set_style_border_width(wrapper, 1, 0);
-    // lv_obj_set_style_border_color(wrapper, lv_color_hex(0x00CC00), 0);
+  auto* state = mgr.Open<TextAreaOverlayState>(parent);
+  state->original_textarea = textarea;
 
-    lv_obj_t* holder = ui::CreateTextArea(wrapper);
-    lv_textarea_set_text(holder, lv_textarea_get_text(textarea));
-    lv_textarea_set_cursor_pos(holder, lv_textarea_get_cursor_pos(textarea));
-    lv_obj_set_size(holder, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_t* wrapper = ui::CreateColumnContainer(state->backdrop);
+  lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
 
-    keyboard = lv_keyboard_create(wrapper);
-    lv_obj_set_size(keyboard, lv_pct(100), lv_pct(60));
-    lv_keyboard_set_textarea(keyboard, holder);
-    lv_obj_add_event_cb(
-        keyboard,
-        [](lv_event_t* e) {
-          lv_obj_t* textarea = (lv_obj_t*)lv_event_get_user_data(e);
-          lv_obj_t* holder = lv_keyboard_get_textarea((lv_obj_t*)lv_event_get_target(e));
-          // lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
-          lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
-          lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
-          lv_obj_send_event(textarea, LV_EVENT_READY, NULL);
-          // lv_obj_delete(keyboard);
-          // keyboard = nullptr;
-          lv_obj_delete(backdrop);
-        },
-        LV_EVENT_READY, textarea);
-    lv_obj_add_event_cb(
-        backdrop,
-        [](lv_event_t* e) {
-          // lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
-          // lv_obj_delete(keyboard);
-          // keyboard = nullptr;
-          lv_obj_delete(backdrop);
-        },
-        LV_EVENT_CANCEL, NULL);
+  state->holder = ui::CreateTextArea(wrapper);
+  lv_textarea_set_text(state->holder, lv_textarea_get_text(textarea));
+  lv_textarea_set_cursor_pos(state->holder, lv_textarea_get_cursor_pos(textarea));
+  lv_obj_set_size(state->holder, lv_pct(100), LV_SIZE_CONTENT);
 
-    // lv_obj_set_flex_grow(keyboard, 1);
+  lv_obj_t* keyboard = lv_keyboard_create(wrapper);
+  lv_obj_set_size(keyboard, lv_pct(100), lv_pct(60));
+  lv_keyboard_set_textarea(keyboard, state->holder);
 
-    // Position at bottom using align
-    // lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+  // On keyboard OK - copy text back and close
+  lv_obj_add_event_cb(
+      keyboard,
+      [](lv_event_t* e) {
+        auto* state = static_cast<TextAreaOverlayState*>(lv_event_get_user_data(e));
+        lv_textarea_set_text(state->original_textarea, lv_textarea_get_text(state->holder));
+        lv_textarea_set_cursor_pos(state->original_textarea, lv_textarea_get_cursor_pos(state->holder));
+        lv_obj_send_event(state->original_textarea, LV_EVENT_READY, NULL);
+        OverlayManager::Instance().Close();
+      },
+      LV_EVENT_READY, state);
 
-    // Make it floating (ignores parent layout)
-    // lv_obj_add_flag(keyboard, LV_OBJ_FLAG_FLOATING);
-
-    lv_keyboard_set_textarea(keyboard, holder);
-    // lv_obj_remove_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-    // lv_obj_remove_flag(backdrop, LV_OBJ_FLAG_HIDDEN);
-    // lv_obj_move_foreground(keyboard);
-    // } else if (code == LV_EVENT_DEFOCUSED) {
-    //   FLOG_ERROR("Textarea defocused - hide fullscreen keyboard");
-    //   if (keyboard) {
-    //     lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
-    //     lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
-    //     lv_obj_delete(backdrop);
-    //     // lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-    //   }
-  } else if (code == LV_EVENT_READY) {
-    FLOG_ERROR("Textarea ready - hide fullscreen keyboard");
-    // User pressed "OK" button on keyboard
-    FLOG_INFO("Keyboard OK pressed, text: %s", lv_textarea_get_text(textarea));
-    // Hide keyboard
-    if (backdrop) {
-      // lv_textarea_set_text(textarea, lv_textarea_get_text(holder));
-      // lv_textarea_set_cursor_pos(textarea, lv_textarea_get_cursor_pos(holder));
-      // lv_obj_delete(keyboard);
-      // keyboard = nullptr;
-      lv_obj_delete(backdrop);
-    }
-  }
+  // On keyboard Cancel - just close
+  lv_obj_add_event_cb(keyboard, [](lv_event_t* e) { OverlayManager::Instance().Close(); }, LV_EVENT_CANCEL, nullptr);
 }
 
 void ConfirmationPopup(const ConfirmationContext& ctx) {
   FLOG_INFO("Open Confirmation");
-  if (_overlay_active) return;  // already active
-  _overlay_active = true;
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return;
 
-  FLOG_INFO("Confirming...");
-
-  ConfirmationState* state = new ConfirmationState();
-  // state->backdrop = ctx.backdrop;
-
-  state->backdrop = CreateBackdrop(ctx.parent_screen);
+  auto* state = mgr.Open<ConfirmationState>(ctx.parent_screen);
   state->object = ctx.object;
   state->cancel_text = ctx.cancel_text;
   state->confirm_text = ctx.confirm_text;
@@ -495,9 +323,7 @@ void ConfirmationPopup(const ConfirmationContext& ctx) {
 void ConfirmationHandler(lv_event_t* e) {
   ConfirmationState* state = (ConfirmationState*)lv_event_get_user_data(e);
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
-
-  // Get button text to determine action
-  lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
+  lv_obj_t* label = lv_obj_get_child(button, 0);
   const char* text = lv_label_get_text(label);
 
   if (strcmp(text, state->confirm_text.c_str()) == 0) {
@@ -507,33 +333,30 @@ void ConfirmationHandler(lv_event_t* e) {
     FLOG_DEBUG("Canceled");
     if (state->on_cancel) state->on_cancel(state);
   }
-  if (state->backdrop) {
-    lv_obj_delete_async(state->backdrop);
-  }
-  free(state);
+  OverlayManager::Instance().Close();
 }
 
 lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
-  if (_overlay_active) return nullptr;  // already active
-  _overlay_active = true;
-  lv_obj_t* backdrop = CreateBackdrop(screen);
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return nullptr;
 
-  lv_obj_t* wrapper = ui::CreateColumnContainer(backdrop);
+  auto* state = mgr.Open<ModeSwitcherState>(screen);
+
+  lv_obj_t* wrapper = ui::CreateColumnContainer(state->backdrop);
   lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
-
   lv_obj_set_style_pad_gap(wrapper, 10, 0);
 
   ui::CreateTitle(wrapper, "Select Mode");
 
-  // CreateText(wrapper, LV_SYMBOL_WARNING, "Switching mode will stop the current one.", false);
-  lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, "Select Profile", lv_pct(100), LV_SIZE_CONTENT, true);
-  lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
-  btn = ui::CreatePrimaryButton(wrapper, "Drying", lv_pct(100), LV_SIZE_CONTENT, true);
-  lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
-  btn = ui::CreatePrimaryButton(wrapper, "Reflow", lv_pct(100), LV_SIZE_CONTENT, true);
-  lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
-  btn = ui::CreatePrimaryButton(wrapper, "Cancel", lv_pct(100), LV_SIZE_CONTENT, true);
-  lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, backdrop);
+  auto add_btn = [&](const char* txt) {
+    lv_obj_t* btn = ui::CreatePrimaryButton(wrapper, txt, lv_pct(100), LV_SIZE_CONTENT, true);
+    lv_obj_add_event_cb(btn, ModeSwitcherHandler, LV_EVENT_CLICKED, nullptr);
+  };
+  add_btn("Select Profile");
+  add_btn("Drying");
+  add_btn("Reflow");
+  add_btn("Cancel");
+  add_btn("Snapshot");
 
   return wrapper;
 }
@@ -541,26 +364,56 @@ lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
 void ModeSwitcherHandler(lv_event_t* e) {
   FLOG_INFO("Event Handler Called");
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);
-  lv_obj_t* backdrop = (lv_obj_t*)lv_event_get_user_data(e);
-
-  // lv_obj_t* label = lv_obj_get_child(button, 0);  // Button's label
   lv_obj_t* label = lv_obj_get_child_by_type(button, 0, &lv_label_class);
   if (!label) return;
   const char* text = lv_label_get_text(label);
 
   if (lv_strcmp(text, "Drying") == 0) {
-    FLOG_INFO("Setting Drying Mode");
-    PS_PUB_INT("heater.mode.set", heater::Mode::kModeDrying);
+    PS_PUB_INT(topics::heater::mode_set, heater::Mode::kModeDrying);
   } else if (lv_strcmp(text, "Reflow") == 0) {
-    FLOG_INFO("Setting Reflow Mode");
-    PS_PUB_INT("heater.mode.set", heater::Mode::kModeReflow);
+    PS_PUB_INT(topics::heater::mode_set, heater::Mode::kModeReflow);
   } else if (lv_strcmp(text, "Select Profile") == 0) {
-    FLOG_INFO("Selecting Profile");
-    // PS_PUB_INT("heater.mode.set", heater::Mode::kModeReflow);
     PS_PUB_NIL("ui.action.profiles");
-  } else if (lv_strcmp(text, "Cancel") == 0) {
+  } else if (lv_strcmp(text, "Snapshot") == 0) {
+    FLOG_INFO("Taking Screenshot");
+    TakeSnapshot();
   }
-  lv_obj_delete_async(backdrop);
+  OverlayManager::Instance().Close();
+}
+
+lv_obj_t* CreateMidSection(lv_obj_t* parent) {
+  std::shared_ptr<Subjects> subjects = SubjectManager::Instance().subjects;
+  lv_obj_t* mid = ui::CreateRowContainer(parent);
+  lv_obj_set_height(mid, LV_SIZE_CONTENT);
+  lv_obj_set_width(mid, lv_pct(100));
+  // lv_obj_set_flex_grow(mid, 1);  //<<<<<<<<<<<<<<<<<<<<<<<
+  lv_obj_set_flex_flow(mid, LV_FLEX_FLOW_ROW_WRAP);
+  lv_obj_set_flex_align(mid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  // lv_obj_set_style_pad_gap(mid, 5, 0);  // Gap between blocks
+
+  // lv_obj_set_style_flex_cross_place(mid, LV_FLEX_ALIGN_CENTER, 0);
+  // lv_obj_set_style_flex_main_place(mid, LV_FLEX_ALIGN_CENTER, 0);
+
+  {
+    lv_obj_t* profile = ui::CreateContainer(mid);
+    lv_obj_set_size(profile, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+    lv_obj_t* profile_label = ui::CreateBodyText(profile, "No Profile Loaded");
+    lv_obj_set_size(profile_label, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_label_bind_text(profile_label, &subjects->profile, "%s");
+    lv_obj_add_flag(profile, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_bind_flag_if_eq(profile, &subjects->show_profile, LV_OBJ_FLAG_HIDDEN, 0);
+  }
+  {
+    lv_obj_t* stage = ui::CreateContainer(mid);
+    ui::CreateSmallText(stage, LV_SYMBOL_RIGHT);
+    lv_obj_t* stage_label = ui::CreateBodyText(stage, "-");
+    lv_label_bind_text(stage_label, &subjects->stage, "%s");
+    lv_obj_add_flag(stage, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_bind_flag_if_eq(stage, &subjects->show_stage, LV_OBJ_FLAG_HIDDEN, 0);
+  }
+
+  return mid;
 }
 
 lv_obj_t* CreateBottomRow(lv_obj_t* container) {
@@ -576,9 +429,12 @@ lv_obj_t* CreateBottomRow(lv_obj_t* container) {
 }
 
 lv_obj_t* CreateStartStopButton(lv_obj_t* container) {
+  std::shared_ptr<Subjects> subjects = SubjectManager::Instance().subjects;
+
   lv_obj_t* button = ui::CreatePrimaryButton(container, "Start", LV_SIZE_CONTENT, NULL, true);
   lv_obj_t* startstop_label = lv_obj_get_child_by_type(button, 0, &lv_label_class);
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, startstop_label);
+  lv_label_bind_text(startstop_label, &subjects->start_stop, "%s");
   return startstop_label;
 }
 
@@ -593,86 +449,6 @@ lv_obj_t* CreateSettingsButton(lv_obj_t* container) {
   lv_obj_add_event_cb(button, ButtonEventHandler, LV_EVENT_CLICKED, NULL);
   return button;
 }
-
-// lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant) {
-//   return CreateText(parent, icon, txt, NULL, builder_variant);
-// }
-
-// lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant) {
-//   lv_obj_t* obj = lv_menu_cont_create(parent);
-
-//   lv_obj_t* img = NULL;
-//   lv_obj_t* label = NULL;
-
-//   if (icon) {
-//     img = lv_image_create(obj);
-//     lv_image_set_src(img, icon);
-//   }
-
-//   if (txt) {
-//     label = lv_label_create(obj);
-//     lv_label_set_text_fmt(label, txt, fmt);
-//     lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL_CIRCULAR);
-//     lv_obj_set_flex_grow(label, 1);
-//   }
-
-//   if (builder_variant && icon && txt) {
-//     lv_obj_add_flag(img, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-//     lv_obj_swap(img, label);
-//   }
-
-//   return obj;
-// }
-
-// lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk) {
-//   lv_obj_t* obj = CreateText(parent, icon, txt, false);
-
-//   lv_obj_t* sw = lv_switch_create(obj);
-//   lv_obj_add_state(sw, chk ? LV_STATE_CHECKED : LV_STATE_DEFAULT);
-
-//   return sw;
-// }
-
-// lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val) {
-//   lv_obj_t* obj = CreateText(parent, icon, txt, true);
-
-//   lv_obj_t* slider = lv_slider_create(obj);
-//   lv_obj_set_flex_grow(slider, 1);
-//   lv_slider_set_range(slider, min, max);
-//   lv_slider_set_value(slider, val, LV_ANIM_OFF);
-
-//   if (icon == NULL) {
-//     lv_obj_add_flag(slider, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
-//   }
-
-//   return obj;
-// }
-
-// lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow) {
-//   static float mult = 0.2;
-//   if (!Display::IsTall()) {
-//     mult = 0.15;
-//   }
-//   static size_t btn_height = lv_display_get_vertical_resolution(NULL) * mult;
-//   // static size_t btn_height = lv_obj_get_height(ctx.parent_screen) * mult;
-
-//   // if (Display::IsTall()) {
-//   // }
-//   lv_obj_t* btn = lv_button_create(parent);
-//   lv_obj_set_style_min_height(btn, btn_height, 0);
-//   lv_obj_set_style_min_width(btn, btn_height, 0);
-//   if (grow) {
-//     lv_obj_set_size(btn, lv_pct(100), 0);
-//     lv_obj_set_flex_grow(btn, 1);
-//   } else {
-//     lv_obj_set_size(btn, LV_SIZE_CONTENT, btn_height);
-//   }
-//   lv_obj_t* btn_label = lv_label_create(btn);
-//   if (txt) lv_label_set_text(btn_label, txt);
-//   lv_obj_center(btn_label);
-
-//   return btn;
-// }
 
 lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_cb_t callback, void* user_data) {
   lv_obj_t* btn = ui::CreatePrimaryButton(parent, txt, grow ? lv_pct(100) : LV_SIZE_CONTENT,
@@ -694,13 +470,12 @@ void ButtonEventHandler(lv_event_t* e) {
 
   if (lv_strcmp(text, "Start") == 0) {
     FLOG_DEBUG("Start Button clicked!");
-    PS_PUB_INT("heater.state.set", heater::kStateOn);
-    lv_label_set_text(label, "Stop");
+    PS_PUB_NIL(topics::heater::start);
+    // lv_label_set_text(label, "Stop");
     // PS_PUB_NIL("ui.action.start");
     return;
   } else if (lv_strcmp(text, "Stop") == 0) {
     CreateStopConfirmation(label);
-    // PS_PUB_INT("heater.state.set", heater::kStateOff);
     // lv_label_set_text(label, "Start");
     // Get the screen object if you passed it as user_data
     // ReflowScreen* screen = (ReflowScreen*)lv_event_get_user_data(e);
@@ -727,31 +502,24 @@ void ButtonEventHandler(lv_event_t* e) {
 
 void CreateStopConfirmation(lv_obj_t* label) {
   lv_obj_t* screen = lv_display_get_screen_active(NULL);
-  // lv_obj_t* backdrop = lv_obj_create(screen);
 
   ConfirmationContext ctx{.parent_screen = screen,
                           .backdrop = nullptr,
                           .object = label,
                           .title = "Stop?",
-                          .message = "Are you sure you want to stop the heating process?",
+                          .message = "Are you sure you want to stop?",
                           .confirm_text = "Stop!",
                           .cancel_text = "Cancel",
                           .on_confirm =
                               [](void* obj) {
-                                ConfirmationState* state = static_cast<ConfirmationState*>(obj);
                                 FLOG_INFO("Stopping");
-                                // PS_PUB_INT("heater.state.set", heater::kStateOff);
-                                PS_PUB_NIL("heater.stop");
-                                // lv_label_set_text(state->object, "Start");
-                                // PS_PUB_NIL("ui.action.return");
-                                if (state->backdrop) lv_obj_delete(state->backdrop);
+                                PS_PUB_NIL(topics::heater::stop);
+                                // mgr.Close() called by ConfirmationHandler
                               },
                           .on_cancel =
                               [](void* obj) {
-                                ConfirmationState* state = static_cast<ConfirmationState*>(obj);
-                                // PS_PUB_NIL("ui.action.return");
-                                FLOG_INFO("Cancelled Stopping");
-                                if (state->backdrop) lv_obj_delete(state->backdrop);
+                                FLOG_INFO("Cancelled");
+                                // mgr.Close() called by ConfirmationHandler
                               }};
   ConfirmationPopup(ctx);
 }
@@ -766,7 +534,7 @@ void StopConfirmationHandler(lv_event_t* e) {
 
   if (lv_strcmp(text, "Stop!") == 0) {
     FLOG_DEBUG("Stop confirmed!");
-    PS_PUB_INT("heater.state.set", heater::kStateOff);
+    PS_PUB_NIL(topics::heater::stop);
 
     // PS_PUB_NIL("ui.action.stop");
     // return;
@@ -774,9 +542,17 @@ void StopConfirmationHandler(lv_event_t* e) {
   } else if (lv_strcmp(text, LV_SYMBOL_SETTINGS) == 0) {
     PS_PUB_NIL("ui.action.settings");
   }
-  if (backdrop) {
-    lv_obj_delete_async(backdrop);
-  }
+  OverlayManager::Instance().Close();
 }
 
+void AutoDeleter(lv_obj_t* target) {
+  lv_obj_add_event_cb(
+      target,
+      [](lv_event_t* e) {
+        lv_obj_t* obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+        FLOG_DEBUG("Auto deleting object %p", obj);
+        lv_obj_delete(obj);
+      },
+      LV_EVENT_DELETE, NULL);
+}
 }  // namespace toothless

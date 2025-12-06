@@ -31,7 +31,7 @@ class DemoTemperature : public Peripheral {
 
  private:
   static const PeripheralInfo _info;
-  std::string _topic;
+
   RollingAverage<uint32_t, kTemperatureAverageSamples> _avg;
   bool _heating = false;
   uint32_t _room_temp = 2200;     // 22.00°C

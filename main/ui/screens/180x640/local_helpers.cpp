@@ -1,17 +1,20 @@
 #include "local_helpers.hpp"
 
 #include "funlog.h"
+#include "ui/screens/overlay_manager.hpp"
 #include "ui/themes/widget_factories.hpp"
 
 namespace toothless {
 
 void LocalTempRollerOpen(const NumberRollerContext& ctx) {
-  // static size_t height = lv_display_get_vertical_resolution(ctx.parent_screen) * mult;
-  // static size_t height = 60;
-
   FLOG_INFO("Open Target Roller");
-  // if (_overlay_active) return;  // already active
-  // _overlay_active = true;
+  auto& mgr = OverlayManager::Instance();
+  if (mgr.IsActive()) return;
+
+  auto* state = mgr.Open<NumberRollerState>(ctx.parent_screen);
+  state->on_confirm = ctx.on_confirm;
+  state->target_spinbox = ctx.target_spinbox;
+
   const char* digit_list =
       "0\n"
       "1\n"
@@ -23,12 +26,6 @@ void LocalTempRollerOpen(const NumberRollerContext& ctx) {
       "7\n"
       "8\n"
       "9";
-
-  NumberRollerState* state = new NumberRollerState();
-  state->target_spinbox = ctx.target_spinbox;
-  state->on_confirm = ctx.on_confirm;
-
-  state->backdrop = CreateBackdrop(ctx.parent_screen);
 
   lv_obj_t* col;
 
@@ -79,20 +76,8 @@ void LocalTempRollerCleanupHandler(lv_event_t* e) {
   FLOG_INFO("Got numbers: %d%d%d", hours, minutes, seconds);
   int32_t total_seconds = (hours * 100 + minutes * 10 + seconds);  // TODO: units
 
-  if (state->on_confirm) {
-    FLOG_INFO("Running Callback");
-    state->on_confirm(total_seconds);
-    FLOG_INFO("Done");
-  }
-
-  if (state->backdrop) lv_obj_delete(state->backdrop);
-  state->backdrop = nullptr;
-  if (state->col_a) lv_obj_delete(state->col_a);
-  state->col_a = nullptr;
-  if (state->col_b) lv_obj_delete(state->col_b);
-  state->col_b = nullptr;
-  if (state->col_c) lv_obj_delete(state->col_c);
-  state->col_c = nullptr;
+  if (state->on_confirm) state->on_confirm(total_seconds);
+  OverlayManager::Instance().Close();  // Single cleanup path
   FLOG_INFO("All done");
 
   delete state;

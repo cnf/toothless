@@ -1,8 +1,10 @@
 #include "http_server.hpp"
 
+#include <dirent.h>
 #include <esp_app_format.h>
 #include <esp_ota_ops.h>
 #include <esp_system.h>
+#include <sys/stat.h>
 
 #include <cstring>
 #include <memory>
@@ -129,6 +131,7 @@ bool HttpServer::Start(const HttpServerConfig& config) {
   httpd_config.max_uri_handlers = _config.max_uri_handlers;
   httpd_config.stack_size = _config.stack_size;
   httpd_config.lru_purge_enable = true;
+  httpd_config.uri_match_fn = httpd_uri_match_wildcard;
 
   esp_err_t err = httpd_start(&_server, &httpd_config);
   if (err != ESP_OK) {
@@ -181,6 +184,14 @@ bool HttpServer::RegisterHandlers() {
 
   // Reboot endpoint
   httpd_uri_t reboot = {.uri = "/api/reboot", .method = HTTP_POST, .handler = RebootHandler, .user_ctx = nullptr};
+
+  // File serving (if enabled)
+  if (!_file_serve_path.empty()) {
+    httpd_uri_t files = {.uri = "/files", .method = HTTP_GET, .handler = FileListHandler, .user_ctx = nullptr};
+    httpd_uri_t download = {.uri = "/files/*", .method = HTTP_GET, .handler = FileDownloadHandler, .user_ctx = nullptr};
+    httpd_register_uri_handler(_server, &files);
+    httpd_register_uri_handler(_server, &download);
+  }
 
   esp_err_t err;
   err = httpd_register_uri_handler(_server, &root);
@@ -327,6 +338,120 @@ esp_err_t HttpServer::RebootHandler(httpd_req_t* req) {
   httpd_resp_sendstr(req, "Rebooting...");
   vTaskDelay(pdMS_TO_TICKS(500));
   esp_restart();
+  return ESP_OK;
+}
+
+void HttpServer::EnableFileServing(const std::string& base_path) { _file_serve_path = base_path; }
+
+esp_err_t HttpServer::FileListHandler(httpd_req_t* req) {
+  if (!_instance || _instance->_file_serve_path.empty()) {
+    httpd_resp_send_404(req);
+    return ESP_OK;
+  }
+
+  // Get subpath from URI (after "/files")
+  const char* subpath = req->uri + 6;  // Skip "/files"
+  if (subpath[0] == '/') subpath++;    // Skip leading slash
+
+  char full_path[128];
+  if (strlen(subpath) > 0) {
+    snprintf(full_path, sizeof(full_path), "%s/%s", _instance->_file_serve_path.c_str(), subpath);
+  } else {
+    snprintf(full_path, sizeof(full_path), "%s", _instance->_file_serve_path.c_str());
+  }
+
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_sendstr_chunk(
+      req,
+      "<html><head><meta charset=\"UTF-8\"><style>"
+      "body{font-family:sans-serif;background:#1a1a2e;color:#eee;max-width:600px;margin:50px auto;padding:20px;}"
+      "a{color:#4ecdc4;}</style></head>"
+      "<body><h1>📁 Files</h1>");
+
+  // Show parent link if in subdirectory
+  if (strlen(subpath) > 0) {
+    httpd_resp_sendstr_chunk(req, "<p><a href=\"/files\">⬆️ Parent</a></p>");
+  }
+
+  httpd_resp_sendstr_chunk(req, "<ul>");
+
+  DIR* dir = opendir(full_path);
+  if (dir) {
+    struct dirent* ent;
+    while ((ent = readdir(dir))) {
+      if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
+
+      char link[256];
+      const char* prefix = strlen(subpath) > 0 ? subpath : "";
+      const char* sep = strlen(subpath) > 0 ? "/" : "";
+
+      if (ent->d_type == DT_DIR) {
+        snprintf(link, sizeof(link), "<li>📁 <a href=\"/files/%s%s%.64s/\">%.64s/</a></li>", prefix, sep, ent->d_name,
+                 ent->d_name);
+      } else {
+        snprintf(link, sizeof(link), "<li>📄 <a href=\"/files/%s%s%.64s\">%.64s</a></li>", prefix, sep, ent->d_name,
+                 ent->d_name);
+      }
+      httpd_resp_sendstr_chunk(req, link);
+    }
+    closedir(dir);
+  } else {
+    httpd_resp_sendstr_chunk(req, "<li>Unable to open directory</li>");
+  }
+
+  httpd_resp_sendstr_chunk(req, "</ul></body></html>");
+  httpd_resp_send_chunk(req, nullptr, 0);
+  return ESP_OK;
+}
+
+esp_err_t HttpServer::FileDownloadHandler(httpd_req_t* req) {
+  if (!_instance || _instance->_file_serve_path.empty()) {
+    httpd_resp_send_404(req);
+    return ESP_OK;
+  }
+
+  // Extract path from URI (skip "/files/")
+  const char* filepath = req->uri + 7;
+  char path[128];
+  snprintf(path, sizeof(path), "%s/%s", _instance->_file_serve_path.c_str(), filepath);
+
+  // Remove trailing slash if present
+  size_t len = strlen(path);
+  if (len > 1 && path[len - 1] == '/') path[len - 1] = '\0';
+
+  struct stat st;
+  if (stat(path, &st) != 0) {
+    httpd_resp_send_404(req);
+    return ESP_OK;
+  }
+
+  // If directory, redirect to list handler
+  if (S_ISDIR(st.st_mode)) {
+    return FileListHandler(req);
+  }
+
+  FILE* f = fopen(path, "rb");
+  if (!f) {
+    httpd_resp_send_404(req);
+    return ESP_OK;
+  }
+
+  // Get just filename for header
+  const char* filename = strrchr(filepath, '/');
+  filename = filename ? filename + 1 : filepath;
+
+  char header[128];
+  snprintf(header, sizeof(header), "attachment; filename=\"%.64s\"", filename);
+  httpd_resp_set_hdr(req, "Content-Disposition", header);
+  httpd_resp_set_type(req, "application/octet-stream");
+
+  char buf[512];
+  size_t read;
+  while ((read = fread(buf, 1, sizeof(buf), f)) > 0) {
+    httpd_resp_send_chunk(req, buf, read);
+  }
+  httpd_resp_send_chunk(req, nullptr, 0);
+  fclose(f);
   return ESP_OK;
 }
 

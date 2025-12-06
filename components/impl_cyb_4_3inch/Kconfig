@@ -55,13 +55,11 @@ config IOM_EXTERNAL_I2C_SDA_PIN
     int
     default 17
     depends on IMPL_CYB_4_3_INCH
-    depends on IOM_EXTERNAL_ENABLE
 
 config IOM_EXTERNAL_I2C_SCL_PIN
     int
     default 18
     depends on IMPL_CYB_4_3_INCH
-    depends on IOM_EXTERNAL_ENABLE
 
 
 #define TOUCH_GT911

@@ -38,8 +38,8 @@ class Screen {  // Abstract interface
   virtual ScreenLabels* GetLabels() = 0;
 
  protected:
-  lv_timer_t* _update_timer;
-  ps_subscriber_t* _subscription;
+  lv_timer_t* _update_timer = nullptr;
+  ps_subscriber_t* _subscription = nullptr;
   lv_obj_t* _screen = nullptr;
   std::unique_ptr<ScreenLabels> _labels;
   std::shared_ptr<Subjects> _subjects;

@@ -12,6 +12,7 @@
 #include "helpers/chip_info.hpp"
 #include "peripherals/peripheral_registry.hpp"
 #include "settings_screen.hpp"
+#include "ui/screens/overlay_manager.hpp"
 #include "ui/themes/widget_factories.hpp"
 #include "ui/user_interface.hpp"
 
@@ -20,6 +21,16 @@ extern "C" {
 }
 
 namespace toothless {
+
+SettingsScreen::SettingsScreen() { _labels = std::make_unique<SettingsScreenLabels>(); }
+
+SettingsScreen::~SettingsScreen() {
+  // FIXME: make widget_map a smart pointer
+  // for (auto& [widget, data] : _widget_map) {
+  //   delete data;
+  // }
+  _widget_map.clear();
+}
 
 esp_err_t SettingsScreen::BaseCreate() {
   FLOG_DEBUG("Creating Settings Menu");
@@ -50,7 +61,8 @@ esp_err_t SettingsScreen::BaseCreate() {
   BuildSettingsUI(_labels->menu, "ui", "User Interface");
   BuildSettingsUI(_labels->menu, "heater", "Hearer Settings");
   BuildSettingsUI(_labels->menu, "network", "Network Settings");
-  BuildSensorSettingsUI(_labels->menu);
+  BuildSettingsUI(_labels->menu, "peripheral", "Peripheral Settings");
+  // BuildSensorSettingsUI(_labels->menu);
 
   ui::CreateHeading(_labels->root_page, "Info");
   // lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Info", LV_SYMBOL_LIST);
@@ -172,8 +184,11 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
 
     // Store metadata for callbacks
     if (widget) {
-      auto* data = new WidgetData{namespace_name, entry.key, entry.type};
-      _widget_map[widget] = data;
+      // AutoDeleter
+      // auto* data = new WidgetData{namespace_name, entry.key, entry.type};
+      // _widget_map[widget] = data;
+      _widget_map[widget] = std::make_shared<WidgetData>(namespace_name, entry.key, entry.type);
+      lv_obj_add_event_cb(widget, OnWidgetDeleted, LV_EVENT_DELETE, this);
     }
   }
   lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, ui::SnakeToTitle(namespace_name).c_str(), LV_SYMBOL_LIST);
@@ -181,6 +196,18 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
 }
 
 void SettingsScreen::BuildSensorSettingsUI(lv_obj_t* parent) {
+  // Populate dropdown options from registry
+  // auto temps = PeripheralRegistry::GetDetectedByType("temperature");
+  // std::string options;
+  // for (const auto& p : temps) {
+  //   if (!options.empty()) options += "\n";
+  //   options += p.name;
+  // }
+  // // ui::CreateDropdownLabel(parent, "Zone Temperature Sensor", "Select the temperature sensor for the reflow
+  // zone.");
+
+  // lv_dropdown_set_options(temp_dropdown, options.c_str());
+
   // auto values = std::make_shared<SettingsMap>();
   // GetSettings(values, "sensors");
   // BuildFromEntries(_labels->menu, "sensors", sensor::config_entries, *values, "Sensor Settings");
@@ -214,8 +241,9 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* root
   lv_obj_set_width(wrapper, lv_pct(100));
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
 
-  char lvgl_version[10];
-  sprintf(lvgl_version, "%d.%d.%d", LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
+  // char lvgl_version[10];
+  // sprintf(lvgl_version, "%d.%d.%d", LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
+  std::string lvgl_version = std::format("{}.{}.{}", LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
 
   ui::CreateIconItem(wrapper, "Toothless is an open-source reflow oven controller firmware.", LV_SYMBOL_BULLET);
   // ui::CreateIconItem(wrapper, std::format("Firmware: {}", desc->project_name).c_str(), LV_SYMBOL_BULLET);
@@ -451,13 +479,14 @@ lv_obj_t* SettingsScreen::BuildStringSetting(lv_obj_t* parent, const ConfigEntry
 // ============================================================================
 
 void SettingsScreen::OnSwitchChanged(lv_event_t* e) {
-  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
   lv_obj_t* sw = static_cast<lv_obj_t*>(lv_event_get_target(e));
 
   auto it = screen->_widget_map.find(sw);
   if (it == screen->_widget_map.end()) return;
 
-  WidgetData* data = it->second;
+  std::shared_ptr<WidgetData> data = it->second;
   bool val = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
   char topic[128];
@@ -467,13 +496,14 @@ void SettingsScreen::OnSwitchChanged(lv_event_t* e) {
 
 void SettingsScreen::OnSliderChanged(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
-  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
   lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
 
   auto it = screen->_widget_map.find(slider);
   if (it == screen->_widget_map.end()) return;
 
-  WidgetData* data = it->second;
+  std::shared_ptr<WidgetData> data = it->second;
   int32_t val = lv_slider_get_value(slider);
 
   char topic[128];
@@ -511,12 +541,14 @@ void SettingsScreen::OnSliderChanged(lv_event_t* e) {
 
 void SettingsScreen::OnRollerChanged(lv_event_t* e) {
   auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
+
   lv_obj_t* roller = static_cast<lv_obj_t*>(lv_event_get_target(e));
 
   auto it = screen->_widget_map.find(roller);
   if (it == screen->_widget_map.end()) return;
 
-  WidgetData* data = it->second;
+  std::shared_ptr<WidgetData> data = it->second;
   uint16_t idx = lv_roller_get_selected(roller);
 
   char buf[64];
@@ -529,13 +561,14 @@ void SettingsScreen::OnRollerChanged(lv_event_t* e) {
 
 void SettingsScreen::OnDropdownChanged(lv_event_t* e) {
   auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
   lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
 
   auto it = screen->_widget_map.find(dropdown);
   if (it == screen->_widget_map.end()) return;
 
-  WidgetData* data = it->second;
-  uint16_t idx = lv_dropdown_get_selected(dropdown);
+  std::shared_ptr<WidgetData> data = it->second;
+  // uint16_t idx = lv_dropdown_get_selected(dropdown);
 
   char option[64];
   lv_dropdown_get_selected_str(dropdown, option, sizeof(option));
@@ -550,17 +583,29 @@ void SettingsScreen::OnDropdownChanged(lv_event_t* e) {
 
 void SettingsScreen::OnTextareaChanged(lv_event_t* e) {
   auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
   lv_obj_t* ta = static_cast<lv_obj_t*>(lv_event_get_target(e));
 
   auto it = screen->_widget_map.find(ta);
   if (it == screen->_widget_map.end()) return;
 
-  WidgetData* data = it->second;
+  std::shared_ptr<WidgetData> data = it->second;
   const char* text = lv_textarea_get_text(ta);
 
   char topic[128];
   snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
   PS_PUB_STR(topic, text);
+}
+
+void SettingsScreen::OnWidgetDeleted(lv_event_t* e) {
+  // BUG: this crashes vionlently on screen destruction... need to figure out why
+  return;
+  auto* screen = static_cast<SettingsScreen*>(lv_event_get_user_data(e));
+  if (!screen) return;
+  lv_obj_t* obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+  if (!obj) return;
+  if (!screen->_widget_map.contains(obj)) return;
+  screen->_widget_map.erase(obj);
 }
 
 // ============================================================================
@@ -588,6 +633,7 @@ void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {
   lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
   // lv_obj_t* menu = (lv_obj_t*)lv_event_get_user_data(e);
   SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
 
   if (lv_menu_back_button_is_root(screen->_labels->menu, obj)) {
     BackButtonHandler(e);
@@ -603,7 +649,9 @@ void SettingsScreen::BackButtonHandler(lv_event_t* e) {
   lv_obj_remove_event_cb((lv_obj_t*)lv_event_get_target(e), SettingsScreen::BackButtonHandler);
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
   if (!obj) return;
-  if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
+  // if (obj->_labels->backdrop) lv_obj_delete(obj->_labels->backdrop);
+  OverlayManager::Instance().Close();
+
   PS_PUB_NIL("ui.action.return");
   return;
 }

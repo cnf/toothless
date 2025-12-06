@@ -7,6 +7,8 @@
 #include <string>
 #include <utility>
 
+#include "config_mgr.hpp"
+
 namespace toothless::themes {
 
 /// Color palette for a theme
@@ -65,21 +67,22 @@ inline std::string ToString(ThemeId t) {
 //   return ThemeId::TOOTHLESS;
 // };
 inline ThemeId FromString(const std::string& name) {
-  auto normalize = [](const std::string& s) {
-    std::string result;
-    for (char c : s) {
-      if (c == ' ' || c == '-')
-        result += '_';
-      else
-        result += std::toupper(c);
-    }
-    return result;
-  };
+  // auto normalize = [](const std::string& s) {
+  //   std::string result;
+  //   for (char c : s) {
+  //     if (c == ' ' || c == '-')
+  //       result += '_';
+  //     else
+  //       result += std::toupper(c);
+  //   }
+  //   return result;
+  // };
 
-  std::string normalized = normalize(name);
+  // std::string normalized = normalize(name);
+  std::string normalized = config_utils::NormalizeString(name);
 
   for (const auto& [id, theme_name] : kThemeMap) {
-    if (normalized == normalize(theme_name)) {
+    if (normalized == config_utils::NormalizeString(theme_name)) {
       return id;
     }
   }
@@ -101,7 +104,7 @@ inline std::string MakeFormat() {
 HeaterMode mode = StringToMode(std::get<std::string>(settings["mode"]));
 
 // Save:
-PS_PUB_STR("config.heater.mode.set", ModeToString(mode));
+PS_PUB_STR(topics::heater::mode_set, ModeToString(mode));
 */
 
 // Theme palette definitions

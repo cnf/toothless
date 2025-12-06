@@ -1,0 +1,38 @@
+#include "funlog.h"
+#include "unity.h"
+
+void setUp() {
+  // Setup code before each test
+}
+
+void tearDown() {
+  // Cleanup code after each test
+}
+
+void test_funlog_init() {
+  funlog_t logger;
+  TEST_ASSERT_EQUAL(FUNLOG_OK, funlog_init(&logger));
+}
+
+void test_funlog_log_message() {
+  funlog_t logger;
+  funlog_init(&logger);
+  TEST_ASSERT_EQUAL(FUNLOG_OK, funlog_log(&logger, FUNLOG_LEVEL_INFO, "Test message"));
+}
+
+void test_funlog_invalid_level() {
+  funlog_t logger;
+  funlog_init(&logger);
+  TEST_ASSERT_EQUAL(FUNLOG_ERR, funlog_log(&logger, -1, "Invalid level"));
+}
+
+void test_funlog_null_logger() { TEST_ASSERT_EQUAL(FUNLOG_ERR, funlog_log(NULL, FUNLOG_LEVEL_INFO, "Null logger")); }
+
+int main() {
+  UNITY_BEGIN();
+  RUN_TEST(test_funlog_init);
+  RUN_TEST(test_funlog_log_message);
+  RUN_TEST(test_funlog_invalid_level);
+  RUN_TEST(test_funlog_null_logger);
+  return UNITY_END();
+}

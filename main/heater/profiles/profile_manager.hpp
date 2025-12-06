@@ -11,6 +11,11 @@
 
 namespace toothless {
 
+namespace topics::profile {
+const char name[8] = "profile";
+const char changed[20] = "profile.changed";
+}  // namespace topics::profile
+
 /// @brief Manages reflow profiles with LittleFS persistence
 class ProfileManager {
  public:

@@ -33,7 +33,7 @@ esp_err_t DemoTemperature::Init() {
   _initialized = true;
   _last_update = esp_timer_get_time();
   FLOG_INFO("Demo Temperature initialized, topic: %s", _topic.c_str());
-  _sub = ps_new_subscriber(10, PS_STRLIST("heater.target", "heater.state"));
+  _sub = ps_new_subscriber(10, PS_STRLIST(topics::heater::target, topics::heater::state));
 
   return ESP_OK;
 }
@@ -43,9 +43,9 @@ esp_err_t DemoTemperature::Loop() {
 
   ps_msg_t* msg = nullptr;
   for ((msg = ps_get(_sub, 0)); msg != NULL; (msg = ps_get(_sub, 0))) {
-    if (ps_has_topic(msg, "heater.target") && PS_IS_INT(msg)) {
+    if (ps_has_topic(msg, topics::heater::target) && PS_IS_INT(msg)) {
       _target_temp = msg->int_val;
-    } else if (ps_has_topic(msg, "heater.state") && PS_IS_INT(msg)) {
+    } else if (ps_has_topic(msg, topics::heater::state) && PS_IS_INT(msg)) {
       if (msg->int_val == heater::kStateOn) {
         _heating = true;
       } else {
@@ -82,6 +82,7 @@ esp_err_t DemoTemperature::Loop() {
 
   _avg.Add(_current_temp);
   PS_PUB_INT(_topic.c_str(), _avg.Get());
+  // PS_PUB_INT("sensor.temperature.zone", _avg.Get());
   // PS_PUB_INT("sensor.temperature.", _avg.Get());
   return ESP_OK;
 }

@@ -58,7 +58,8 @@ class SettingsScreen : public Screen {
     ConfigValueTypes type;       //<! Configuration value type
   };
   std::unique_ptr<SettingsScreenLabels> _labels;
-  std::map<lv_obj_t*, WidgetData*> _widget_map;
+  // std::map<lv_obj_t*, WidgetData*> _widget_map;  // FIXME:: make smart pointer
+  std::map<lv_obj_t*, std::shared_ptr<WidgetData>> _widget_map;
 
   /// @brief Create the main menu structure
   /// @return ESP_OK on success, error code otherwise
@@ -131,6 +132,7 @@ class SettingsScreen : public Screen {
   static void OnRollerChanged(lv_event_t* e);
   static void OnDropdownChanged(lv_event_t* e);
   static void OnTextareaChanged(lv_event_t* e);
+  static void OnWidgetDeleted(lv_event_t* e);
   /// @}
 
   /// @defgroup General Event Handlers

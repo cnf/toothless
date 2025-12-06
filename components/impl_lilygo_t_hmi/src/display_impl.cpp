@@ -309,10 +309,11 @@ void Backlight() {
   const esp_timer_create_args_t timer_args = {
       .callback = BacklightTimerCallback, .arg = NULL, .name = "backlight_timer"};
   ESP_ERROR_CHECK(esp_timer_create(&timer_args, &backlight_timer));
-  ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 100000));
+  ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 100 * 1000));
 }
 
 void BacklightTimerCallback(void* arg) {
+  LV_LOG_USER("Turning on TFT backlight");
   ESP_ERROR_CHECK(gpio_set_direction(kTftBacklightPin, GPIO_MODE_OUTPUT));
   gpio_set_level(kTftBacklightPin, 1);
 };

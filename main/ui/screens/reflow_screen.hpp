@@ -64,7 +64,7 @@ class ReflowScreen : public Screen {
   static void UIUpdateTimerCB(lv_timer_t* timer);
   esp_err_t UpdateAllDisplays();
 
-  esp_err_t Chart();
+  esp_err_t Chart(lv_obj_t* parent);
   void UpdateChart();
 
   esp_err_t Temperature(lv_obj_t* parent);

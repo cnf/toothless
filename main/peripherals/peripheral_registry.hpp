@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "config_mgr.hpp"
 #include "peripheral.hpp"
 
 namespace toothless {
@@ -15,6 +16,20 @@ inline constexpr char const* const humidity = "sensor.humidity";
 inline constexpr char const* const current = "sensor.current";
 
 }  // namespace topics::peripherals::sensors
+
+struct PeripheralConfig {
+  std::string mode;
+  std::string profile;
+  uint16_t max_temp;
+  float pid_kp;
+  float pid_kd;
+  float pid_ki;
+};
+
+inline ConfigEntries config_entries = {
+    ConfigEntry("zone_temp", "Zone Temperature Sensor", "enum=", std::string(""), ""),
+    ConfigEntry("zone_heater", "Heater Element", "enum=", std::string(""), ""),
+};
 
 class PeripheralRegistry {
  public:
@@ -34,8 +49,11 @@ class PeripheralRegistry {
 
   static void Register(Registration reg);
   static std::vector<PeripheralInfo> ProbeAll();
+  static void RegisterZoneConfig();
   static std::shared_ptr<Peripheral> Create(const char* name);
   static const std::vector<PeripheralInfo> GetEnabledInfo();
+  static std::vector<PeripheralInfo> GetDetectedByType(const char* type);
+  static std::string GetPeripheralTopic(const char* name);
 
  private:
   static std::vector<Registration>& GetRegistry();

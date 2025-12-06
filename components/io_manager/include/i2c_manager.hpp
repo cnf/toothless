@@ -34,6 +34,8 @@
 #include <mutex>
 #include <vector>
 
+#include "sdkconfig.h"
+
 /// @brief Convert to/from network byte order (big-endian), depending on host endian-ness
 /// @tparam T data type (e.g., uint16_t, uint32_t, float)
 /// @param x value to convert

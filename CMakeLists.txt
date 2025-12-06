@@ -30,7 +30,6 @@ idf_component_set_property(espressif__esp32_display_panel COMPILE_OPTIONS "-w" A
 idf_component_set_property(lvgl__lvgl COMPILE_OPTIONS "-w" APPEND)
 
 
-
 ## Link time optimization
 idf_build_set_property(
   COMPILE_OPTIONS

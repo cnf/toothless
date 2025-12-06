@@ -34,6 +34,9 @@
  */
 // cSpell: words _config_mngr
 #pragma once
+// clang-format off
+#include "topics.hpp"  //<! include these first
+// clang-format on
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -45,9 +48,9 @@
 #include <variant>
 #include <vector>
 
+#include "cfgmgr_topics.hpp"
 #include "funlog.h"
 #include "preferences.hpp"
-#include "topics.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -168,10 +171,21 @@ inline std::string ValidateAndNormalize(const std::string& value, const std::str
 
 }  // namespace config_utils
 
+static constexpr const char* kTopicIncPrefix = TOPIC_INC_PREFIX;
+static constexpr const char* kTopicDelimiter = TOPIC_DOT;
+static constexpr const char* kTopicVerbSet = TOPIC_VERB_SET;
+static constexpr const char* kTopicVerbGet = TOPIC_VERB_GET;
+static constexpr const char* kTopicVerbErase = TOPIC_VERB_ERASE;
+
+namespace topics::config {
+static constexpr const char name[15] = "config";
+static constexpr const char get[19] = "config.get";
+static constexpr const char set[19] = "config.set";
+static constexpr const char erase[22] = "config.erase";
+}  // namespace topics::config
+
 static constexpr char kConfigManagerNamespace[] = "_config_mngr";
 static constexpr uint8_t kMaxNvsNameLength = 15;
-
-// char re[32]
 
 enum ConfigValueTypes { kInt, kDouble, kBool, kString, kBytes, kVector };
 inline const char* ConfigValueTypeToString(ConfigValueTypes type) {
@@ -323,8 +337,6 @@ struct Validator {
     return true;
   }
 };
-
-/////////////////
 
 using ConfigEntries = std::vector<ConfigEntry>;
 

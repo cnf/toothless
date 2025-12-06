@@ -182,6 +182,8 @@ bool NetworkManager::StartHttpServer(uint16_t port) {
     }
   });
 
+  _http->EnableFileServing("/storage");
+
   return _http->Start(config);
 }
 

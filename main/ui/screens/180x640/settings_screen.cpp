@@ -19,10 +19,6 @@ extern "C" {
 
 namespace toothless {
 
-SettingsScreen::SettingsScreen() { _labels = std::make_unique<SettingsScreenLabels>(); }
-
-SettingsScreen::~SettingsScreen() {}
-
 lv_obj_t* SettingsScreen::Create() {
   FLOG_INFO("Creating 180x640 Settings Screen");
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);

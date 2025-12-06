@@ -6,6 +6,7 @@
 #include <lvgl.h>
 
 #include "funlog.h"
+#include "heater/heater.hpp"
 #include "ui/chart_history.hpp"
 #include "ui/display/display.hpp"
 #include "ui/screens/dryer_screen.hpp"
@@ -18,7 +19,7 @@ namespace toothless {
 
 UserInterface::UserInterface() {
   _display = nullptr;
-  _current_screen_state = ScreenList::kDryerScreen;
+  // _current_screen_state = ScreenList::kDryerScreen;
   _current_screen_obj = nullptr;  // Initialize before calling SwitchTo
   _current_screen = nullptr;
   _switching_screen_state = false;
@@ -27,7 +28,7 @@ UserInterface::UserInterface() {
   // TODO: make topic strings configurations
   // _chart_history = ChartHistory();
   _chart_history.New("sensor.temperature.zone");
-  _chart_history.New("heater.target.temperature", true);
+  _chart_history.New(topics::heater::target_temperature, true);
 }
 
 UserInterface::~UserInterface() {
@@ -48,11 +49,13 @@ UserInterface::~UserInterface() {
 }
 
 esp_err_t UserInterface::Start() {
-  ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
+  // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
 
   lv_async_call(
       [](void*) {
+        // FIXME:: memory leak? how do we clean this up on shutdown?
         UserInterface* ui = new UserInterface();
+        vTaskDelay(pdMS_TO_TICKS(1000));  // give the rest of the code time to settle
         ui->Init();
       },
       nullptr);
@@ -71,8 +74,6 @@ esp_err_t UserInterface::Init() {
 
   _subscription = ps_new_subscriber(10, PS_STRLIST(topics::ui::name, topics::heater::mode));
 
-  // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
-
   _display = Display::GetDisplayPtr();
   FLOG_DEBUG("Display ptr: %p, lv_display_get_default: %p, free heap: %u", _display, lv_display_get_default(),
              esp_get_free_heap_size());
@@ -89,15 +90,13 @@ esp_err_t UserInterface::Init() {
       50, this);
 
   // lv_timer_t* ui_timer =
-  lv_timer_create(
-      +[](lv_timer_t* timer) {
-        UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
-        ui->SwitchTo(ui->_current_screen_state);
-        lv_timer_del(timer);  // or lv_timer_set_repeat_count(timer, 1);
-      },
-      200 /*ms*/, this);
-
-  // SwitchTo(_current_screen_state);
+  // lv_timer_create(
+  //     +[](lv_timer_t* timer) {
+  //       UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
+  //       ui->SwitchTo(ui->_current_screen_state);
+  //       lv_timer_del(timer);  // or lv_timer_set_repeat_count(timer, 1);
+  //     },
+  //     200 /*ms*/, this);
 
 #if defined(CONFIG_LV_USE_SYSMON)
   /* Create generic monitor */
@@ -188,13 +187,12 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
     // lv_screen_load_anim(new_screen_obj, LV_SCREEN_LOAD_ANIM_FADE_IN, 250, 0, true);
     // lv_refr_now(NULL);  //<! force screen refresh, so the new screen loads faster
 
-    // Now safely replace the old with new
-    _current_screen = std::move(new_screen);  // Old screen auto-destructs here
-    _current_screen_state = screen;
     if (_current_screen_obj) {
-      lv_obj_delete(_current_screen_obj);  //<! Delete old screen object
+      lv_obj_delete(_current_screen_obj);  // Delete LVGL objects FIRST
+      _current_screen_obj = nullptr;
       FLOG_DEBUG("Deleted old screen object: %p", _current_screen_obj);
     }
+    _current_screen = std::move(new_screen);  // THEN destroy C++ objects
     _current_screen_obj = new_screen_obj;
   }
   FLOG_DEBUG("Completed screen switch");
@@ -229,8 +227,8 @@ esp_err_t UserInterface::HandleSubscriptions() {
       SwitchTo(ScreenList::kSettingsScreen);
     } else if (ps_has_topic(msg, "ui.action.profiles")) {
       SwitchTo(ScreenList::kProfilesScreen);
-    } else if (ps_has_topic(msg, "heater.mode.set")) {
-    } else if (ps_has_topic(msg, "heater.mode") && PS_IS_INT(msg)) {
+    } else if (ps_has_topic(msg, topics::heater::mode_set)) {
+    } else if (ps_has_topic(msg, topics::heater::mode) && PS_IS_INT(msg)) {
       heater::Mode new_mode = static_cast<heater::Mode>(msg->int_val);
       if (true) {
         FLOG_DEBUG("Heater mode changed to %d", static_cast<int>(new_mode));

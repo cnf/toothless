@@ -48,6 +48,10 @@ class HttpServer {
   /// @brief Set callback for OTA completion
   void SetOTACompleteCallback(OTACompleteCallback callback);
 
+  /// @brief Enable file serving from a path
+  /// @param base_path VFS path to serve files from (e.g., "/storage")
+  void EnableFileServing(const std::string& base_path = "/storage");
+
   /// @brief Get server port
   uint16_t GetPort() const;
 
@@ -57,6 +61,8 @@ class HttpServer {
   static esp_err_t StatusHandler(httpd_req_t* req);
   static esp_err_t OTAUploadHandler(httpd_req_t* req);
   static esp_err_t RebootHandler(httpd_req_t* req);
+  static esp_err_t FileListHandler(httpd_req_t* req);
+  static esp_err_t FileDownloadHandler(httpd_req_t* req);
 
   /// Register all URI handlers
   bool RegisterHandlers();
@@ -66,6 +72,7 @@ class HttpServer {
   HttpServerConfig _config;
   OTAProgressCallback _ota_progress_cb;
   OTACompleteCallback _ota_complete_cb;
+  std::string _file_serve_path;
 
   /// Static instance pointer for callbacks
   static HttpServer* _instance;

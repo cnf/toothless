@@ -3,23 +3,42 @@
 #include <esp_err.h>
 #include <esp_timer.h>
 
+#include "config_mgr.hpp"
 #include "funlog.h"
 #include "heater.hpp"
 #include "heater/elements/element.hpp"
 #include "heater/elements/gpio_element.hpp"
 #include "heater/elements/m5_acssr_element.hpp"
 #include "heater/profiles/profile_manager.hpp"
+#include "topics.hpp"
 
 namespace toothless {
 
 using namespace heater;
 
-bool Heater::Init() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-
+Heater::Heater() {
   // Set up Config
   _config = std::make_shared<SettingsMap>();
-  _config_entries = new ConfigEntries;
+  _config_entries = std::make_unique<ConfigEntries>();
+  _subscription =
+      ps_new_subscriber(10, PS_STRLIST("sensor.temperature", topics::heater::name, topics::profile::changed));
+}
+
+Heater::~Heater() {
+  if (_element && _element->IsOn()) {
+    _element->Off();
+  }
+  if (_subscription) {
+    ps_free_subscriber(_subscription);
+    _subscription = nullptr;
+  }
+}
+
+bool Heater::Init() {
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+
+  // _config_entries = new ConfigEntries;  // This is shared as a ptr across pubsub. Don't think this can be memory
+  // managed
   _config_entries->insert(std::end(*_config_entries), std::begin(config_entries), std::end(config_entries));
 
   // Set up Profile manager
@@ -29,35 +48,39 @@ bool Heater::Init() {
   UpdateProfileConfigEntry();
 
   // Register Config
-  RegisterConfig(_config_entries, topics::heater::name);
+  RegisterConfig(_config_entries.get(), topics::heater::name);
   FLOG_DEBUG("Waiting for settings...");
   GetSettings(_config, topics::heater::name);
 
-  _element = std::make_unique<GPIOElement>();
-  // _element = std::make_unique<M5I2CElement>();
-  esp_err_t err = _element->Init();
-  if (err != ESP_OK) {
-    FLOG_ERROR("Heater element initialization failed");
-    _element = std::make_unique<M5I2CElement>();
+  ApplySettings();
+
+  {
+    // FIXME: proper element config and handeling
+    _element = std::make_unique<GPIOElement>();
+    // _element = std::make_unique<M5I2CElement>();
+    esp_err_t err = _element->Init();
+    if (err != ESP_OK) {
+      FLOG_ERROR("Heater element initialization failed");
+      _element = std::make_unique<M5I2CElement>();
+    }
   }
   _time_slice = 200;
-  _kp = 0.01;  // expected 0.01 - 2.0
-  _kd = 0;     // expected 0.0 - 50
-  _ki = 0;     // expected 0.0001 - 0.01
-  _target = std::numeric_limits<int32_t>::quiet_NaN();
+  // _kp = 0.01;
+  // _kd = 0;
+  // _ki = 0;
+  // _kp = std::get<double>(_config->at("pid_kp"));  // expected 0.01 - 2.0
+  // _ki = std::get<double>(_config->at("pid_ki"));  // expected 0.0001 - 0.01
+  // _kd = std::get<double>(_config->at("pid_kd"));  // expected 0.0 - 50
+
+  _target = std::nullopt;
   _temperature_integral = 0;
   _previous_temperature = std::numeric_limits<int32_t>::max();
-  _last_run = esp_timer_get_time() * 1000;
-  // SetMode(heater::Mode::kModeDrying);  // TODO: configure
 
-  SetMode(FromString(std::get<std::string>(_config->at("mode"))));
-  LoadProfile(std::get<std::string>(_config->at("profile")));
-
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", "heater", "profiles.changed"));
   return true;
 }
 
 void Heater::Loop() {
+  PS_PUB_NIL("watchdog.heater");  // FIXME: flesh out watchdog mechanisms
   HandleSubscriptions();
   UpdateTimer();
 
@@ -65,7 +88,8 @@ void Heater::Loop() {
     AssertOff();
     if (_state != heater::kStateOff) {
       SetState(heater::kStateOff);
-      PS_PUB_STR("heater.status", "error: temperature sensor timeout");
+      PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT, "No temperature updates received for heater, turning off",
+                    PS_FL_STICKY);
       FLOG_ERROR("No temperature updates received for heater, turning off");
     };
     return;
@@ -99,15 +123,11 @@ void Heater::Loop() {
   } else {
     HeaterOff();
   }
-
-  _last_run = esp_timer_get_time() * 1000;
 }
 
 esp_err_t Heater::HandleSubscriptions() {
   bool new_settings = false;
-  // uint32_t tdelta = esp_timer_get_time() - _last_run;
   ps_msg_t* msg = NULL;
-  // uint32_t temperature;
   for ((msg = ps_get(_subscription, 0)); msg != NULL; (msg = ps_get(_subscription, 0))) {
     if (ps_has_topic(msg, "sensor.temperature.zone") && PS_IS_INT(msg)) {
       _temperature = msg->int_val;
@@ -115,7 +135,7 @@ esp_err_t Heater::HandleSubscriptions() {
         _previous_temperature = _temperature;
       }
       _last_temp_update = esp_timer_get_time();
-    } else if (ps_has_topic(msg, "heater.state.set")) {
+    } else if (ps_has_topic(msg, topics::heater::state_set)) {
       if (PS_IS_INT(msg)) {
         heater::State state = static_cast<heater::State>(msg->int_val);
         SetState(state);
@@ -123,7 +143,7 @@ esp_err_t Heater::HandleSubscriptions() {
         SetState(heater::kStateOff);
         FLOG_ERROR("Invalid heater state message");
       }
-    } else if (ps_has_topic(msg, "heater.timer.set")) {
+    } else if (ps_has_topic(msg, topics::heater::timer_set)) {
       if (PS_IS_INT(msg)) {
         SetTimer(msg->int_val);
       } else if (PS_IS_NIL(msg)) {
@@ -131,43 +151,36 @@ esp_err_t Heater::HandleSubscriptions() {
       } else {
         FLOG_ERROR("Invalid heater timer message");
       }
-    } else if (ps_has_topic(msg, "heater.mode.set") && PS_IS_INT(msg)) {
+    } else if (ps_has_topic(msg, topics::heater::mode_set) && PS_IS_INT(msg)) {
       heater::Mode mode = static_cast<heater::Mode>(msg->int_val);
       SetMode(mode);
-    } else if (ps_has_topic(msg, "heater.start")) {
+    } else if (ps_has_topic(msg, topics::heater::start)) {
       SetState(heater::kStateOn);
-      // HeaterOn();
-      FLOG_INFO("Heater started");
-    } else if (ps_has_topic(msg, "heater.stop")) {
+    } else if (ps_has_topic(msg, topics::heater::stop)) {
       SetState(heater::kStateOff);
-      // HeaterOff();
-      FLOG_INFO("Heater stopped");
-    } else if (ps_has_topic(msg, "heater.pause")) {
+    } else if (ps_has_topic(msg, topics::heater::pause)) {
       SetState(heater::kStatePause);
-      FLOG_INFO("Heater paused");
-    } else if (ps_has_topic(msg, "heater.target.temperature.set")) {
+    } else if (ps_has_topic(msg, topics::heater::target_temperature_set)) {
       if (PS_IS_INT(msg)) {
         SetTarget(msg->int_val);
-        FLOG_INFO("Heater target set to %d", _target);
       } else if (PS_IS_NIL(msg)) {
         ClearTarget();
-        FLOG_INFO("Heater target cleared");
       } else {
         FLOG_ERROR("Invalid heater target temperature message");
       }
-    } else if (ps_has_topic(msg, "heater.profile.get")) {
+    } else if (ps_has_topic(msg, topics::heater::profile_get)) {
       if (_current_profile) {
-        PS_PUB_STR_FL("heater.profile", _current_profile->Name().c_str(), PS_FL_STICKY);  // TODO: profile name
+        PS_PUB_STR_FL(topics::heater::profile, _current_profile->Name().c_str(), PS_FL_STICKY);  // TODO: profile name
       } else {
-        PS_PUB_NIL_FL("heater.profile", PS_FL_STICKY);
+        PS_PUB_NIL_FL(topics::heater::profile, PS_FL_STICKY);
       }
-    } else if (ps_has_topic(msg, "heater.profile.set")) {
+    } else if (ps_has_topic(msg, topics::heater::profile_set)) {
       if (PS_IS_STR(msg)) {
         LoadProfile(std::string(msg->str_val));
       } else {
         FLOG_ERROR("Invalid heater profile message");
       }
-    } else if (ps_has_topic(msg, "profiles.changed")) {
+    } else if (ps_has_topic(msg, topics::profile::changed)) {
       FLOG_INFO("Profile list changed, refreshing config");
       RefreshProfileConfig();
     } else if (ps_has_topic_suffix(msg, kTopicConfigGet) && PS_IS_NIL(msg)) {
@@ -185,14 +198,23 @@ esp_err_t Heater::HandleSubscriptions() {
   return ESP_OK;
 }
 
-void Heater::AssertOff() { HeaterOff(); }
+esp_err_t Heater::ApplySettings() {
+  SetMode(FromString(std::get<std::string>(_config->at("mode"))));
+  LoadProfile(std::get<std::string>(_config->at("profile")));
+  _maximum_temperature = std::get<int>(_config->at("max_temp")) * 100;
 
-// esp_err_t Heater::LoadProfile(std::string name) {
-//   _current_profile = &leaded;
-//   // PS_PUB_STR_FL("heater.profile", _current_profile, PS_FL_STICKY);
-//   PS_PUB_STR_FL("heater.profile", name.c_str(), PS_FL_STICKY);
-//   return ESP_OK;
-// }
+  _kp = std::get<double>(_config->at("pid_kp"));  // expected 0.01 - 2.0
+  _ki = std::get<double>(_config->at("pid_ki"));  // expected 0.0001 - 0.01
+  _kd = std::get<double>(_config->at("pid_kd"));  // expected 0.0 - 50
+  return ESP_OK;
+}
+
+void Heater::AssertOff() {
+  FLOG_ERROR("Heater ASSERT OFF called!");
+  ESP_ERROR_CHECK(HeaterOff());
+  _power_setting = 0;
+  _target = std::nullopt;
+}
 
 esp_err_t Heater::LoadProfile(std::string name) {
   _current_profile = _profile_mgr->GetProfile(name);
@@ -200,7 +222,7 @@ esp_err_t Heater::LoadProfile(std::string name) {
     FLOG_ERROR("Profile '%s' not found", name.c_str());
     return ESP_ERR_NOT_FOUND;
   }
-  PS_PUB_STR_FL("heater.profile", name.c_str(), PS_FL_STICKY);
+  PS_PUB_STR_FL(topics::heater::profile, name.c_str(), PS_FL_STICKY);
   return ESP_OK;
 }
 
@@ -262,28 +284,26 @@ esp_err_t Heater::SetMode(heater::Mode new_mode) {
   switch (new_mode) {
     case heater::Mode::kModeHeating:
       _mode = heater::Mode::kModeHeating;
-      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
-      FLOG_DEBUG("Heater mode: HEATING");
+      // FLOG_DEBUG("Heater mode: HEATING");
       break;
     case heater::Mode::kModeDrying:
       _mode = heater::Mode::kModeDrying;
-      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
-      FLOG_DEBUG("Heater mode: DRYING");
+      // FLOG_DEBUG("Heater mode: DRYING");
       break;
     case heater::Mode::kModeReflow:
       _mode = heater::Mode::kModeReflow;
-      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
-      FLOG_DEBUG("Heater mode: REFLOW");
+      // FLOG_DEBUG("Heater mode: REFLOW");
       break;
     case heater::Mode::kModeCooldown:
       _mode = heater::Mode::kModeCooldown;
-      PS_PUB_INT_FL("heater.mode", _mode, PS_FL_STICKY);
-      FLOG_DEBUG("Heater mode: COOLDOWN");
+      // FLOG_DEBUG("Heater mode: COOLDOWN");
       break;
     default:
       FLOG_ERROR("Unknown heater mode %d", _mode);
       return ESP_ERR_INVALID_ARG;
   }
+  PS_PUB_INT_FL(topics::heater::mode, _mode, PS_FL_STICKY);
+  FLOG_DEBUG("Heater mode set to %s", ToString(_mode).c_str());
   return ESP_OK;
 }
 
@@ -298,41 +318,58 @@ esp_err_t Heater::SetPower(uint8_t power) {
 
 esp_err_t Heater::SetTimer(uint32_t time_sec) {
   _timer_ms = time_sec * 1000;  // store in ms
-  PS_PUB_INT_FL("heater.timer", _timer_ms / 1000, PS_FL_STICKY);
-  PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 1000, PS_FL_STICKY);
-  FLOG_INFO("Heater timer set to %d seconds", time_sec);
+  _time_remaining_ms = _timer_ms;
+  PS_PUB_INT_FL(topics::heater::timer, _timer_ms / 1000, PS_FL_STICKY);
+  PS_PUB_INT_FL(topics::heater::timer_remaining, _time_remaining_ms / 1000, PS_FL_STICKY);
+  FLOG_INFO("Heater timer set to %d seconds", _timer_ms / 1000);
   return ESP_OK;
 }
 
 esp_err_t Heater::ClearTimer() {
   _timer_ms = 0;
-  PS_PUB_NIL_FL("heater.timer", PS_FL_STICKY);
-  PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
-
+  _time_remaining_ms = 0;
+  PS_PUB_NIL_FL(topics::heater::timer, PS_FL_STICKY);
+  PS_PUB_NIL_FL(topics::heater::timer_remaining, PS_FL_STICKY);
+  FLOG_INFO("Heater timer cleared");
   return ESP_OK;
 }
 
 esp_err_t Heater::SetTarget(int32_t target) {
   if (target > 99900 || target < -9900) {
     FLOG_ERROR("Target temperature %d out of range (-99 to 999)", target);
+    PS_PUB_ERR_FL(kTopicStatusError, ESP_ERR_INVALID_ARG,
+                  std::format("Heater target temperature {} out of range", target).c_str(), PS_FL_STICKY);
+    PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_INVALID_ARG,
+                  std::format("Heater target temperature {} out of range", target).c_str(), PS_FL_STICKY);
     return ESP_ERR_INVALID_ARG;
   }
-  _target = target;
-  PS_PUB_INT_FL("heater.target.temperature", _target, PS_FL_STICKY);
+  if (target > _maximum_temperature) {
+    _target = _maximum_temperature;
+  } else {
+    _target = target;
+  }
+  if (_target.has_value()) {
+    FLOG_INFO("Set target temperature to %d", _target.value() / 100);
+    PS_PUB_INT_FL(topics::heater::target_temperature, _target.value(), PS_FL_STICKY);
+  }
   return ESP_OK;
 }
 
 esp_err_t Heater::ClearTarget() {
-  _target = std::numeric_limits<int32_t>::quiet_NaN();
-  PS_PUB_NIL_FL("heater.target.temperature", PS_FL_STICKY);
+  _target = std::nullopt;
+  PS_PUB_NIL_FL(topics::heater::target_temperature, PS_FL_STICKY);
   FLOG_DEBUG("Cleared target temperature");
   return ESP_OK;
 };
 
 esp_err_t Heater::HeaterOn(float power) {
-  // TODO: figure out what unit power is in
-  return _element->On((uint8_t)power * 100);
+  // BUG: Don't know what unit power is in here
+  FLOG_ERROR("DON'T USE THIS BEFORE KNOWING THE UNIT OF POWER");
+  return ESP_ERR_NOT_SUPPORTED;
+  // return HeaterOn(static_cast<uint8_t>(power * 100));
 }
+
+esp_err_t Heater::HeaterOn(uint8_t power) { return _element->On(power); }
 
 esp_err_t Heater::HeaterOff() { return _element->Off(); }
 
@@ -352,25 +389,29 @@ void Heater::UpdateProfileConfigEntry() {
       for (size_t i = 0; i < profile_names.size(); ++i) {
         if (i > 0) enum_str += "|";
         // **NORMALIZE PROFILE NAMES IN FORMAT**
-        std::string normalized = profile_names[i];
-        std::replace(normalized.begin(), normalized.end(), ' ', '_');
-        std::transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
-        enum_str += normalized;
+
+        // std::string normalized = profile_names[i];
+        // std::replace(normalized.begin(), normalized.end(), ' ', '_');
+        // std::transform(normalized.begin(), normalized.end(), normalized.begin(), ::tolower);
+        enum_str += config_utils::NormalizeString(profile_names[i]);
       }
 
       entry.format = enum_str;
 
       // Update default value to normalized first profile if current isn't valid
+      // std::string current_default = std::get<std::string>(entry.default_value);
+      // std::string normalized_default = current_default;
+      // std::replace(normalized_default.begin(), normalized_default.end(), ' ', '_');
+      // std::transform(normalized_default.begin(), normalized_default.end(), normalized_default.begin(), ::tolower);
       std::string current_default = std::get<std::string>(entry.default_value);
-      std::string normalized_default = current_default;
-      std::replace(normalized_default.begin(), normalized_default.end(), ' ', '_');
-      std::transform(normalized_default.begin(), normalized_default.end(), normalized_default.begin(), ::tolower);
+      std::string normalized_default = config_utils::NormalizeString(current_default);
 
       bool found = false;
       for (const auto& name : profile_names) {
-        std::string norm_name = name;
-        std::replace(norm_name.begin(), norm_name.end(), ' ', '_');
-        std::transform(norm_name.begin(), norm_name.end(), norm_name.begin(), ::tolower);
+        // std::string norm_name = name;
+        std::string norm_name = config_utils::NormalizeString(name);
+        // std::replace(norm_name.begin(), norm_name.end(), ' ', '_');
+        // std::transform(norm_name.begin(), norm_name.end(), norm_name.begin(), ::tolower);
 
         if (norm_name == normalized_default) {
           found = true;
@@ -379,9 +420,10 @@ void Heater::UpdateProfileConfigEntry() {
       }
 
       if (!found && !profile_names.empty()) {
-        std::string first = profile_names[0];
-        std::replace(first.begin(), first.end(), ' ', '_');
-        std::transform(first.begin(), first.end(), first.begin(), ::tolower);
+        // std::string first = profile_names[0];
+        // std::replace(first.begin(), first.end(), ' ', '_');
+        // std::transform(first.begin(), first.end(), first.begin(), ::tolower);
+        std::string first = config_utils::NormalizeString(profile_names[0]);
         entry.default_value = first;
       }
 
@@ -392,6 +434,11 @@ void Heater::UpdateProfileConfigEntry() {
 }
 
 void Heater::Tune() {
+  if (!_target.has_value()) {
+    AssertOff();
+    FLOG_ERROR("No target temperature set, skipping PID");
+    return;
+  }
   /*
   uint32_t _time_slice;           // time slice in ms
   uint32_t _temperature_delta;    // proportional
@@ -412,9 +459,9 @@ void Heater::Tune() {
   _previous_temperature = _temperature;
   */
 
-  FLOG_DEBUG("==== PID =========================================");
-  _temperature_delta = _target - _temperature;
-  FLOG_DEBUG("Temp: %d, Target: %d, Delta: %d", _temperature, _target, _temperature_delta);
+  FLOG_TRACE("==== PID =========================================");
+  _temperature_delta = _target.value() - _temperature;
+  FLOG_TRACE("Temp: %d, Target: %d, Delta: %d", _temperature, _target.value(), _temperature_delta);
 
   // Integral term with windup protection
   _temperature_integral = (_temperature_delta * _time_slice) + _temperature_integral;
@@ -427,7 +474,7 @@ void Heater::Tune() {
   // Derivative term with zero division protection
   // _rate_of_change = (_temperature - _previous_temperature) / _time_slice;
   _rate_of_change = (_time_slice > 0) ? (float)(_temperature - _previous_temperature) / _time_slice : 0;
-  FLOG_DEBUG("I: %.02f,  RoC: (%d - %d) / %d -> %.02f", _temperature_integral, _temperature, _previous_temperature,
+  FLOG_TRACE("I: %.02f,  RoC: (%d - %d) / %d -> %.02f", _temperature_integral, _temperature, _previous_temperature,
              _time_slice, _rate_of_change);
 
   _power_setting = (_kp * _temperature_delta) + (_kd * _rate_of_change) + (_ki * _temperature_integral);
@@ -436,7 +483,7 @@ void Heater::Tune() {
   if (_power_setting < 0) _power_setting = 0;
   if (_power_setting > 100) _power_setting = 100;  // Adjust max value for your system
 
-  FLOG_DEBUG("Pwr setting: %.02f", _power_setting);
+  FLOG_TRACE("Pwr setting: %.02f", _power_setting);
   // printf(">delta:%d, rate:%.02f, integral:%.02f, power:%.02f\r\n", _temperature_delta, _rate_of_change,
   //        _temperature_integral, _power_setting);
 
@@ -450,13 +497,16 @@ esp_err_t Heater::StateToOn() {
 
   switch (_mode) {
     case heater::Mode::kModeDrying:
-      if (_time_remaining_ms == 0 && _timer_ms != 0) {
+      if (_time_remaining_ms <= 0 && _timer_ms != 0) {
         _time_remaining_ms = _timer_ms;
       }
       break;
     case heater::Mode::kModeReflow:
       if (!_current_profile) {
         FLOG_ERROR("No profile loaded, cannot start profile mode");
+        // PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_INVALID_STATE, "No profile loaded, cannot start profile mode",
+        //               PS_FL_STICKY);
+        PS_PUB_ERR(kTopicStatusWarning, ESP_ERR_INVALID_STATE, "No profile loaded, cannot start profile mode");
         return ESP_ERR_INVALID_STATE;
       }
       _start_time_ms = esp_timer_get_time() / 1000;
@@ -466,8 +516,8 @@ esp_err_t Heater::StateToOn() {
       break;
   }
   _state = heater::kStateOn;
-  FLOG_DEBUG("Heater state: ON");
-  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  FLOG_INFO("Heater changed state to ON in mode %s", ToString(_mode).c_str());
+  PS_PUB_INT_FL(topics::heater::state, _state, PS_FL_STICKY);
   return ESP_OK;
 }
 
@@ -482,18 +532,18 @@ esp_err_t Heater::StateToOff() {
     case heater::Mode::kModeReflow:
       ClearTarget();
       _start_time_ms = 0;
-      PS_PUB_NIL("heater.profile.stage");
+      PS_PUB_NIL(topics::heater::profile_stage);
       _state = heater::kStateOff;
       break;
     default:
       ClearTarget();
       _state = heater::kStateOff;
-      PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+      PS_PUB_INT_FL(topics::heater::state, _state, PS_FL_STICKY);
       return ESP_ERR_NOT_SUPPORTED;
       break;
   }
-  FLOG_DEBUG("Heater state: OFF");
-  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  FLOG_INFO("Heater changed state to OFF");
+  PS_PUB_INT_FL(topics::heater::state, _state, PS_FL_STICKY);
   return ESP_OK;
 }
 
@@ -509,8 +559,8 @@ esp_err_t Heater::StateToPause() {
       return ESP_ERR_NOT_SUPPORTED;
       break;
   }
-  FLOG_DEBUG("Heater state: PAUSE");
-  PS_PUB_INT_FL("heater.state", _state, PS_FL_STICKY);
+  FLOG_INFO("Heater changed state to PAUSE");
+  PS_PUB_INT_FL(topics::heater::state, _state, PS_FL_STICKY);
   return ESP_OK;
 }
 
@@ -519,20 +569,23 @@ esp_err_t Heater::UpdateTimer() {
   static int64_t last = esp_timer_get_time();
   if (_timer_ms == 0 && _time_remaining_ms != 0) {
     _time_remaining_ms = 0;
-    PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
+    PS_PUB_NIL_FL(topics::heater::timer_remaining, PS_FL_STICKY);
+    FLOG_ERROR("Timer cleared externally");
     return ESP_OK;
   }
+  if (_time_remaining_ms <= 0) {
+    return ESP_OK;
+  }
+
   switch (_state) {
     case heater::kStateOn:
-      if (_time_remaining_ms <= 0) break;
       _time_remaining_ms -= (esp_timer_get_time() - last) / 1000;
       break;
     default:
       break;
   }
   last = esp_timer_get_time();
-
-  // }
+  FLOG_INFO("timer remaining: %li", _time_remaining_ms);
   return ESP_OK;
 }
 
@@ -548,12 +601,12 @@ esp_err_t Heater::LoopProfile() {
       ;
     }
     int32_t profile_target = static_cast<int32_t>(_current_profile->TargetTemp(elapsed) * 100.0f);
-    if (profile_target != _target) {
+    if (!_target.has_value() || profile_target != _target.value()) {
       SetTarget(profile_target);
       FLOG_DEBUG("Profile target temperature updated to %d", profile_target);
     }
     std::string stage = _current_profile->CurrentStage(elapsed);
-    PS_PUB_STR("heater.profile.stage", stage.c_str());
+    PS_PUB_STR(topics::heater::profile_stage, stage.c_str());
   }
   return ESP_OK;
 }
@@ -564,20 +617,20 @@ esp_err_t Heater::LoopDryer() {
     SetState(heater::kStateOff);
     _time_remaining_ms = 0;
     FLOG_INFO("Dryer cycle complete");
-    if (_timer_ms > 0) PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 100, PS_FL_STICKY);
+    if (_timer_ms > 0) PS_PUB_INT_FL(topics::heater::timer_remaining, _timer_ms / 100, PS_FL_STICKY);
     return ESP_OK;
   }
-  if (refresh + 1000000 < esp_timer_get_time()) {
+  if (refresh + 1000 * 1000 < esp_timer_get_time()) {
     if (_time_remaining_ms > 0) {
       refresh = esp_timer_get_time();
       // _time_remaining_ms -= 1000;
-      FLOG_DEBUG("Timer remaining: %d seconds", _time_remaining_ms / 1000);
-      PS_PUB_INT_FL("heater.timer.remaining", _time_remaining_ms / 1000, PS_FL_STICKY);
+      FLOG_DEBUG("Timer remaining: %lli seconds", _time_remaining_ms / 1000);
+      PS_PUB_INT_FL(topics::heater::timer_remaining, _time_remaining_ms / 1000, PS_FL_STICKY);
       // } else {
       //   if (_timer_ms > 0) {
-      //     PS_PUB_INT_FL("heater.timer.remaining", _timer_ms / 1000, PS_FL_STICKY);
+      //     PS_PUB_INT_FL(topics::heater::timer_remaining, _timer_ms / 1000, PS_FL_STICKY);
       //   } else {
-      //     PS_PUB_NIL_FL("heater.timer.remaining", PS_FL_STICKY);
+      //     PS_PUB_NIL_FL("topics::heater::timer_remaining, PS_FL_STICKY);
       //   }
     }
   }

@@ -54,9 +54,11 @@ class Peripheral {
   virtual esp_err_t Init() = 0;
   virtual esp_err_t Loop() = 0;
   virtual const PeripheralInfo& Info() const = 0;
+  inline std::string Topic() const { return _topic; }
 
  protected:
   bool _initialized = false;
+  std::string _topic;
 };
 
 }  // namespace toothless

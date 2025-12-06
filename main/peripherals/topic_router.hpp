@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "config_mgr.hpp"
 #include "esp_err.h"
 #include "peripheral.hpp"
 #include "topics.hpp"
@@ -47,14 +49,13 @@ class TopicRouter {
   TopicRouter();
   ~TopicRouter();
   void Init();
-  esp_err_t StartTask();
+  static esp_err_t StartTask();
   esp_err_t Loop();
-  void AddRoute(const char* from, const char* to);
-  void RemoveRoute(const char* from);
-  // void LoadFromNvs();
-  // void SaveToNvs();
-  void Start();  // Subscribes to all source topics
-                 // uint32_t ParseTopic(const char* topic, TopicParts* parts);
+  void ApplySettings(std::shared_ptr<SettingsMap> config);
+  void AddRoute(const std::string from, const std::string to);
+  void RemoveRoute(std::string from);
+  void RemoveTarget(std::string to);
+  // uint32_t ParseTopic(const char* topic, TopicParts* parts);
 
  private:
   ps_subscriber_t* _subscriptions = nullptr;
@@ -63,6 +64,7 @@ class TopicRouter {
     std::string to;
   };
   std::vector<Route> _routes;
+  std::shared_ptr<SettingsMap> _config = nullptr;
 
   static void OnMessage(const char* topic, ps_msg_t* msg, void* ctx);
 };

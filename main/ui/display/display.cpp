@@ -24,28 +24,16 @@ static lv_display_t* _display_ptr = nullptr;
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
 
-  // Initialize _resolution dynamically
-  // if (!_resolution) {
-  //   _resolution = std::make_unique<DisplayResolution>();
-  //   _resolution->width = 0;
-  //   _resolution->height = 0;
-  //   _resolution->is_portrait = false;
-  // }
-
   ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
   ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
   _display_ptr = display::impl::GetDisplayObjPtr();
-  // ui::theme::SetTheme(_display_ptr);
   themes::Init(themes::ThemeId::TOOTHLESS);
-  // themes::Init(themes::ThemeId::JADE);
 
   // display::impl::GetDisplayDimensions(_resolution->width, _resolution->height);
 
   // FLOG_INFO("Display initialized: %ux%u (%s)", _resolution->width, _resolution->height,
   //           _resolution->is_portrait ? "portrait" : "landscape");
-
-  // TODO: SetTheme();
 
   FLOG_DEBUG("Free heap: %u, Min free: %u", esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
   ESP_RETURN_ON_FALSE(xTaskCreatePinnedToCore(LvglPortTask,               //<! Task function
@@ -101,56 +89,6 @@ esp_err_t Display::SetupTouchPanel() {
 // std::mutex& Display::GetLvglMutex() { return _lvgl_mutex; }
 
 lv_display_t* Display::GetDisplayPtr() { return _display_ptr; }
-
-// DisplayResolution Display::GetResolution() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   return *_resolution;
-// }
-
-// uint16_t Display::GetWidth() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   return _resolution->width;
-// }
-
-// uint16_t Display::GetHeight() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   return _resolution->height;
-// }
-
-// bool Display::IsPortrait() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   return _resolution->is_portrait;
-// }
-
-// bool Display::IsTall() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   if (_resolution->height >= 300) return true;
-//   return false;
-// }
-
-// bool Display::IsWide() {
-//   if (!_resolution) {
-//     FLOG_ERROR("Resolution not initialized! Call Display::Init() first.");
-//     throw std::runtime_error("Resolution not initialized");
-//   }
-//   if (_resolution->width >= 400) return true;
-//   return false;
-// }
 
 void Display::LvglTickCallback(void* arg) { lv_tick_inc(kLvglTickPeriodMs); }
 

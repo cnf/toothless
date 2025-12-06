@@ -32,7 +32,7 @@ static constexpr uint8_t kMeterRegInternalTemperatureFahrenheitString = 0x60;
 static constexpr uint8_t kMeterRegFirmwareVersion = 0xFE;
 static constexpr uint8_t kMeterRegI2CAddress = 0xFF;
 
-static constexpr uint32_t kTemperatureReadIntervalMs = 500;
+static constexpr uint32_t kTemperatureReadIntervalMs = 250;
 static constexpr BusType kM5KMeterBusType = BusType::kI2C;
 static constexpr char kM5KMeterName[] = "M5 K-Meter";
 
@@ -55,10 +55,10 @@ class M5KMeter : public Peripheral {
   }
 
  private:
-  std::string _topic;
   i2c_master_dev_handle_t _dev_handle;
   std::shared_ptr<I2cManager> _i2c_mgr;
   static const PeripheralInfo _info;
   RollingAverage<uint32_t, kTemperatureAverageSamples> _avg;
+  uint8_t _error_counter = 0;
 };
 }  // namespace toothless

@@ -30,7 +30,7 @@ class SubjectManager {
   SubjectManager();
   SubjectManager(const SubjectManager&) = delete;
   SubjectManager& operator=(const SubjectManager&) = delete;
-  ~SubjectManager() = default;
+  ~SubjectManager();
   static SubjectManager& Instance() {
     static SubjectManager instance;
     return instance;

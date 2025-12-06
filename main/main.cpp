@@ -17,6 +17,8 @@ extern "C" {
 #include "i2c_manager.hpp"
 #include "networking.hpp"
 #include "peripherals/peripheral_registry.hpp"
+#include "peripherals/topic_router.hpp"
+#include "ui/display/display.hpp"
 #include "ui/user_interface.hpp"
 
 DynamicContextPool context_pool;
@@ -43,7 +45,8 @@ void SetLogLevels() {
   esp_log_level_set("wifi_init", ESP_LOG_WARN);
   esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_DEBUG);
   esp_log_level_set("FT5x06", ESP_LOG_DEBUG);
-  esp_log_level_set("i2c", ESP_LOG_DEBUG);
+  esp_log_level_set("i2c", ESP_LOG_ERROR);
+  esp_log_level_set("i2c.master", ESP_LOG_NONE);
 
   // esp_log_level_set("nvs", ESP_LOG_NONE);
   // esp_log_level_set("tmc2208", ESP_LOG_ERROR);
@@ -72,6 +75,9 @@ extern "C" void app_main(void) {
   I2cManager::GetExternalInstance()->Init();
 #endif
 #endif
+
+  Display::Init();
+
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
 
@@ -81,17 +87,19 @@ extern "C" void app_main(void) {
   network_mgr.Init();
   main_dispatcher.callEvery(500, &networking::NetworkManager::Loop, &network_mgr);
 
-  FLOG_INFO("Initializing User Interface");
-  UserInterface::Start();
-
   FLOG_INFO("Initializing peripherals");
   PeripheralRegistry::Init();
   main_dispatcher.callEvery(50, PeripheralRegistry::Loop, NULL);
+
+  TopicRouter::StartTask();
 
   FLOG_INFO("Initializing heater");
   static Heater heater;
   heater.Init();
   prio_dispatcher.callEvery(200, &Heater::Loop, &heater);
+
+  FLOG_INFO("Initializing User Interface");
+  UserInterface::Start();
 
   xTaskCreatePinnedToCore(
       [](void* arg) {

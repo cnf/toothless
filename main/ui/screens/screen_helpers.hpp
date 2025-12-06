@@ -58,6 +58,12 @@ struct NumberRollerState {
   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
 };
 
+struct TextAreaOverlayState {
+  lv_obj_t* backdrop;
+  lv_obj_t* original_textarea;  // The textarea that triggered the overlay
+  lv_obj_t* holder;             // Copy of textarea inside overlay
+};
+
 struct ConfirmationContext {
   lv_obj_t* parent_screen = nullptr;  // Screen where confirmation is opened
   lv_obj_t* backdrop = nullptr;       // Where to create backdrop
@@ -82,9 +88,13 @@ struct ConfirmationState {
   std::function<void(void*)> on_cancel;   // Callback when user cancels
 };
 
-lv_obj_t* CreateBackdrop(lv_obj_t* screen);
+struct ModeSwitcherState {
+  lv_obj_t* backdrop;
+};
 
-static void BackdropDeleteCb(lv_event_t* e);
+// lv_obj_t* CreateBackdrop(lv_obj_t* screen);
+
+// static void BackdropDeleteCb(lv_event_t* e);
 
 lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points);
 
@@ -112,6 +122,10 @@ lv_obj_t* CreateModeSwitcher(lv_obj_t* screen);
 
 void ModeSwitcherHandler(lv_event_t* e);
 
+lv_obj_t* CreateMidSection(lv_obj_t* parent);
+
+void TimerHandler(lv_event_t* e);
+
 lv_obj_t* CreateBottomRow(lv_obj_t* container);
 
 lv_obj_t* CreateStartStopButton(lv_obj_t* container);
@@ -120,16 +134,6 @@ lv_obj_t* CreateModeButton(lv_obj_t* container);
 
 lv_obj_t* CreateSettingsButton(lv_obj_t* container);
 
-lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, bool builder_variant);
-
-lv_obj_t* CreateText(lv_obj_t* parent, const char* icon, const char* txt, const char* fmt, bool builder_variant);
-
-lv_obj_t* CreateSwitch(lv_obj_t* parent, const char* icon, const char* txt, bool chk);
-
-lv_obj_t* CreateSlider(lv_obj_t* parent, const char* icon, const char* txt, int32_t min, int32_t max, int32_t val);
-
-lv_obj_t* CreateButton(lv_obj_t* parent, const char* txt, bool grow);
-
 lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_cb_t callback, void* user_data);
 
 void ButtonEventHandler(lv_event_t* e);
@@ -137,5 +141,9 @@ void ButtonEventHandler(lv_event_t* e);
 void CreateStopConfirmation(lv_obj_t* e);
 
 void StopConfirmationHandler(lv_event_t* e);
+
+// void TakeSnapshot();
+
+void AutoDeleter(lv_obj_t* target);
 
 }  // namespace toothless

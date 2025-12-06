@@ -9,6 +9,7 @@
 #include <string>
 
 #include "iom_config.h"
+#include "sdkconfig.h"
 
 esp_err_t I2cManager::Init() {
   std::lock_guard<std::mutex> lock(_mutex);

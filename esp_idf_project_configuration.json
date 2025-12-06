@@ -80,7 +80,7 @@
       "args": []
     },
     "tasks": {
-      "preBuild": "",
+      "preBuild": "rm -f sdkconfig",
       "preFlash": "",
       "postBuild": "",
       "postFlash": ""

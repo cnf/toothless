@@ -1,4 +1,8 @@
+// clang-format off
+#include "topics.hpp"
 #include "config_mgr.hpp"
+#include "cfgmgr_topics.hpp"
+// clang-format on
 
 #include <esp_app_desc.h>
 #include <esp_task_wdt.h>
@@ -12,11 +16,10 @@
 #include <tuple>  // for std::get
 
 #include "funlog.h"
-#include "topics.hpp"
 
 Preferences _prefs;
 
-static uint32_t rt_counter = 0;
+// static uint32_t rt_counter = 0;
 
 TaskHandle_t ConfigManager::_core_task_handle = NULL;
 
@@ -76,7 +79,8 @@ void ConfigManager::Setup() {
   {
     // TODO: DEBUG ONLY
     // ESP_ERROR_CHECK(nvs_flash_erase());
-    // DeleteSetting("ui", "theme");  // remove old theme setting
+    // DeleteSetting("peripheral", "zone_temp");  // remove old theme setting
+    // DeleteSetting("peripheral", "zone_heater");
     // FLOG_ERROR("Removing old theme setting to reset to default");
   }
 
@@ -197,7 +201,7 @@ void ConfigManager::Loop() {
       //       PS_PUB_NIL(msg->rtopic);
       //     }
       //   }
-    } else if (ps_has_topic_suffix(msg, TOPIC_DOT TOPIC_GET)) {
+    } else if (ps_has_topic_suffix(msg, TOPIC_DOT TOPIC_VERB_GET)) {
       if (parts.verb == kVerbGet && parts.module == "system") {
         FLOG_DEBUG("System Description requested");
         SystemDescription();
@@ -243,7 +247,7 @@ void ConfigManager::Loop() {
         // FLOG_DEBUG("Done showing config");
       }
       // .set
-    } else if (ps_has_topic_suffix(msg, TOPIC_DOT TOPIC_SET)) {
+    } else if (ps_has_topic_suffix(msg, TOPIC_DOT TOPIC_VERB_SET)) {
       FLOG_DEBUG("Setting %s to new value", parts.name.c_str());
       switch (msg->flags & PS_MSK_TYP) {
         case PS_INT_TYP:
@@ -528,7 +532,7 @@ size_t ConfigManager::WriteSetting(const char* name_space, const char* name, con
   _prefs.end();
 
   // char topic[kMaxTopicLength];
-  // snprintf(topic, kMaxTopicLength, "%s.%s.%s.%s", kTopicConfig, name_space, name, TOPIC_SET);
+  // snprintf(topic, kMaxTopicLength, "%s.%s.%s.%s", kTopicConfig, name_space, name, TOPIC_VERB_SET);
   // PS_PUB_STR(topic, normalized.c_str());
 
   return written;
@@ -607,70 +611,7 @@ ConfigEntries ConfigManager::GetConfigEntries(const char* name_space) {
   return ConfigEntries();  // Return empty vector
 }
 
-void ConfigManager::SendPref(std::string module_name, std::string key) {
-  // if (!_entries.contains(module_name.c_str())) {
-  //   FLOG_ERROR("Module %s not found", module_name.c_str());
-  //   return;
-  // }
-  // if (_entries[module_name.c_str()].empty()) {
-  //   FLOG_ERROR("No entries for module %s", module_name.c_str());
-  //   return;
-  // }
-  // ConfigEntry entry = GetSetting(module_name, key);
-  // if (strlen(entry.key) == 0) {
-  //   FLOG_ERROR("Key %s not found in module %s", key.c_str(), module_name.c_str());
-  //   // delete msg;
-  //   return;
-  // }
-  // FLOG_DEBUG("Getting config for %s.%s", module_name.c_str(), key.c_str());  // FIXME: remove
-  // protofun::ConfigMessage* msg = new protofun::ConfigMessage();
-
-  // _prefs.begin(module_name.c_str(), true);
-
-  // msg->module_name = module_name;
-  // msg->key = key;
-  // msg->description = entry.description;
-  // msg->format = entry.format;
-  // msg->unit = entry.unit;
-
-  // switch (entry.type) {
-  //   case ConfigValueTypes::kInt:
-  //     msg->value = std::to_string(_prefs.getInt(entry.key, std::get<int>(entry.default_value)));
-  //     msg->default_value = std::to_string(std::get<int>(entry.default_value));
-  //     break;
-  //   case ConfigValueTypes::kDouble:
-  //     msg->value = std::to_string(_prefs.getDouble(entry.key, std::get<double>(entry.default_value)));
-  //     msg->default_value = std::to_string(std::get<double>(entry.default_value));
-  //     break;
-  //   case ConfigValueTypes::kBool:
-  //     msg->value = _prefs.getBool(entry.key, std::get<bool>(entry.default_value)) ? "True" : "False";
-  //     msg->default_value = std::get<bool>(entry.default_value) ? "True" : "False";
-  //     break;
-  //   case ConfigValueTypes::kString:
-  //     msg->value = _prefs.getString(entry.key, std::get<std::string>(entry.default_value).c_str()).c_str();
-  //     msg->default_value = std::get<std::string>(entry.default_value);
-  //     break;
-  //   case ConfigValueTypes::kVector: {
-  //     std::string serialized;
-  //     // ConfigVector vec;
-  //     // msg->value = "Vectors / Lists Not Implemented yet";
-  //     serialized = _prefs.getString(entry.key, "");
-  //     FLOG_DEBUG("Serialized data: %s", serialized.c_str());
-  //     // DeSerialize(&serialized, vec);
-  //     msg->value = serialized;
-  //     // msg->value = _prefs.getString(entry.key, std::get<std::string>(entry.default_value).c_str()).c_str();
-  //     // msg->default_value = std::get<std::string>(entry.default_value);
-  //     break;
-  //   }
-  //   default:
-  //     msg->value = "Not Impl";
-  // }
-  // _prefs.end();
-  // // PS_PUB_PTR(kTopicReport, msg); // FIXME: figure out the right topic
-  // PS_PUB_BUF("report.config", msg, sizeof(protofun::ConfigMessage),
-  //            [](void* p) { delete static_cast<protofun::ConfigMessage*>(p); });
-  // FLOG_DEBUG("Sent config message for %s.%s: %s", module_name.c_str(), key.c_str(), msg->value.c_str());
-}
+void ConfigManager::SendPref(std::string module_name, std::string key) { FLOG_ERROR("NOT IMPLEMENTED"); }
 
 void ConfigManager::SendPrefs(std::string module_name) {
   _prefs.end();
@@ -750,7 +691,7 @@ uint32_t ConfigManager::ParseTopic(const char* topic, TopicParts* parts) {
     return counter;
   }
 
-  if (strcmp(t, TOPIC_INC_PREFIX) == 0) {
+  if (strcmp(t, kTopicIncPrefix) == 0) {
     parts->incoming = true;
     t = strtok(nullptr, del);
   }
@@ -930,6 +871,13 @@ void RegisterConfig(ConfigEntries* config_entries, const char* name) {
   PS_CALL_PTR(t_topic, config_entries, 10000);
 }
 
+void RegisterConfig(std::shared_ptr<ConfigEntries> config_entries, const char* name) {
+  char t_topic[kMaxTopicLength];
+  snprintf(t_topic, kMaxTopicLength, "%s.%s.%s", kTopicConfig, name, kTopicRegister);
+  PS_CALL_PTR(t_topic, config_entries.get(), 10000);
+  // PS_CALL_PTR(t_topic, (void*)(&config_entries), 10000);
+}
+
 // const ConfigEntries* GetConfigEntries(const char* name_space) {
 //   // char topic[kMaxTopicLength];
 //   // char rtopic[32];
@@ -971,7 +919,7 @@ void GetSettings(std::shared_ptr<SettingsMap>& config, const char* name) {
   char r_topic[32] = {0};
   ps_msg_t* ret_msg = NULL;
 
-  snprintf(t_topic, kMaxTopicLength, "%s.%s.%s", kTopicConfig, name, TOPIC_GET);
+  snprintf(t_topic, kMaxTopicLength, "%s.%s.%s", kTopicConfig, name, TOPIC_VERB_GET);
   // snprintf(r_topic, sizeof(r_topic), "$r.config.%lu", ++rt_counter);
   // ps_subscriber_t* su = ps_new_subscriber(1, PS_STRLIST(r_topic));
 

@@ -6,6 +6,7 @@
 
 #include "funlog.h"
 #include "heater/heater.hpp"
+#include "ui/screens/overlay_manager.hpp"
 #include "ui/screens/screen_helpers.hpp"
 #include "ui/themes/widget_factories.hpp"
 
@@ -484,22 +485,22 @@ void ProfilesScreen::ProfileDeleteHandler(lv_event_t* e) {
                           .confirm_text = "Delete!",
                           .cancel_text = "Cancel",
                           .on_confirm =
-                              [screen, name](void* obj) {
+                              [name_copy = std::string(name)](void* obj) {
                                 ConfirmationState* state = static_cast<ConfirmationState*>(obj);
                                 FLOG_DEBUG("Deleting profile");
-                                esp_err_t err = screen->_profile_mgr->DeleteProfile(name);
+                                esp_err_t err = ProfileManager::GetInstance()->DeleteProfile(name_copy);
                                 if (err == ESP_OK) {
-                                  screen->RefreshProfileList();
+                                  PS_PUB_NIL("profiles.changed");
                                 } else {
-                                  FLOG_ERROR("Failed to delete profile '%s'", name);
+                                  FLOG_ERROR("Failed to delete profile '%s'", name_copy.c_str());
                                 }
-                                // if (state->backdrop) lv_obj_delete(state->backdrop);
+                                OverlayManager::Instance().Close();
                               },
                           .on_cancel =
                               [](void* obj) {
                                 ConfirmationState* state = static_cast<ConfirmationState*>(obj);
                                 FLOG_DEBUG("Cancelled Deleting profile");
-                                // if (state->backdrop) lv_obj_delete(state->backdrop);
+                                OverlayManager::Instance().Close();
                               }};
   ConfirmationPopup(ctx);
 }
@@ -517,7 +518,7 @@ void ProfilesScreen::ProfileLoadHandler(lv_event_t* e) {
   }
 
   // std::string(topics::heater::profile + ".set").c_str()
-  PS_PUB_STR("heater.profile.set", name);  // TODO: template topics
+  PS_PUB_STR(topics::heater::profile_set, name);
   PS_PUB_NIL("ui.action.return");
 }
 
@@ -759,7 +760,7 @@ void ProfilesScreen::StageDeleteHandler(lv_event_t* e) {
 
 // TODO: centralize this
 
-void ProfilesScreen::TextAreaEventHandler(lv_event_t* e) {
+void ProfilesScreen::PTextAreaEventHandler(lv_event_t* e) {
   ProfilesScreen* screen = (ProfilesScreen*)lv_event_get_user_data(e);
   lv_obj_t* ta = (lv_obj_t*)lv_event_get_target(e);
   lv_event_code_t code = lv_event_get_code(e);

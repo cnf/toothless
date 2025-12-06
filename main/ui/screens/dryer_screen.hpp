@@ -30,35 +30,19 @@ class DryerScreen : public Screen {
 
  private:
   std::unique_ptr<DryerScreenLabels> _labels;
-  // ps_subscriber_t *_subscription;
-  static void UIUpdateTimerCB(lv_timer_t* timer);
-  esp_err_t UpdateAllDisplays();
-
-  esp_err_t Temperature(lv_obj_t* parent);
-  void TemperatureUpdateTarget(int32_t temp);
-  void TemperatureClearTarget();
-  void TemperatureUpdateCurrent(int32_t temp);
-
-  void TimerUpdate(uint32_t seconds);
-  void TimerClear();
-  void UpdateTemperatureDisplay(uint32_t temp);
-
-  void MainSection(lv_obj_t* parent);
 
   void CreateTemperature(lv_obj_t* parent);
 
-  void CreateTimer(lv_obj_t* parent);
+  void CreateTimerTargetRow(lv_obj_t* parent);
+
+  lv_obj_t* CreateTimer(lv_obj_t* parent);
 
   static void TimerHandler(lv_event_t* e);
+
+  lv_obj_t* CreateTarget(lv_obj_t* parent);
 
   static void TargetHandler(lv_event_t* e);
 
   void HeaterLED(lv_obj_t* parent);
-
-  esp_err_t BottomRow();
-
-  esp_err_t StartButton(lv_obj_t* container);
-  static void StartButtonEventHandler(lv_event_t* e);
-  void HandleStartButtonPress();
 };
 }  // namespace toothless
