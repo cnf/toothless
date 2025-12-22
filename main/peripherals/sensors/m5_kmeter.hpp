@@ -8,6 +8,7 @@
 #include "helpers/rolling_average.hpp"
 #include "i2c_manager.hpp"
 #include "peripherals/peripheral.hpp"
+#include "peripherals/sensors/sensor.hpp"
 
 namespace toothless {
 // #define KMETER_DEFAULT_ADDR 0x66
@@ -22,7 +23,7 @@ namespace toothless {
 // #define KMETER_I2C_ADDRESS_REG 0xFF
 
 static constexpr uint8_t kMeterDefaultAddr = 0x66;
-static constexpr uint8_t kMeterRegTempertureValue = 0x00;
+static constexpr uint8_t kMeterRegTemperatureValue = 0x00;
 static constexpr uint8_t kMeterRegInternalTemperatureValue = 0x10;
 static constexpr uint8_t kMeterRegErrorStatus = 0x20;
 static constexpr uint8_t kMeterRegTemperatureCelsiusString = 0x30;
@@ -38,7 +39,7 @@ static constexpr char kM5KMeterName[] = "M5 K-Meter";
 
 namespace topics::sensors::m5_kmeter {}
 
-class M5KMeter : public Peripheral {
+class M5KMeter : public Sensor {
  public:
   M5KMeter();
   ~M5KMeter();

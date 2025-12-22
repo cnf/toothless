@@ -106,6 +106,10 @@ esp_err_t DisplayPanelSetup() {
   }
   lv_display_set_dpi(_display, kLcdDPI);
   LV_LOG_USER("Display resolution: %dx%d, %d DPI", kLcdHRes, kLcdVRes, kLcdDPI);
+  // lv_display_set_rotation(_display, LV_DISPLAY_ROTATION_90);
+  // esp_lcd_panel_mirror(panel_handle, false, true);
+
+  // esp_lcd_panel_swap_xy(panel_handle, true);
 
   {
     LV_LOG_USER("Allocating LVGL buffers from PSRAM");

@@ -104,10 +104,6 @@ inline std::string ValidateAndNormalize(const std::string& value, const std::str
 
     std::string enum_part = format.substr(pos, end - pos);
 
-    // DEBUG
-    FLOG_INFO("DEBUG ValidateAndNormalize: value='%s' normalized='%s' format='%s'\n", value.c_str(),
-              normalized_value.c_str(), enum_part.c_str());
-
     // Check if normalized value matches any normalized enum option
     size_t start = 0;
     while (start < enum_part.size()) {
@@ -117,19 +113,11 @@ inline std::string ValidateAndNormalize(const std::string& value, const std::str
       std::string option = enum_part.substr(start, pipe - start);
       std::string normalized_option = NormalizeString(option);
 
-      // DEBUG
-      FLOG_INFO("  Checking option='%s' normalized='%s' against '%s'\n", option.c_str(), normalized_option.c_str(),
-                normalized_value.c_str());
-
       if (normalized_option == normalized_value) {
-        FLOG_INFO("  MATCH! Returning '%s'\n", normalized_value.c_str());
         return normalized_value;
       }
       start = pipe + 1;
     }
-
-    // Not found in enum - validation failed
-    FLOG_INFO("  NO MATCH - validation failed\n");
     return "";
   }
 
@@ -211,17 +199,6 @@ using ConfigVector = std::vector<std::string>;
 
 using ConfigValue = std::variant<int, double, bool, std::string, std::vector<uint8_t>, ConfigVector>;
 
-// ConfigVector::Print() {
-//   std::string result;
-//   for (const auto &item : *this) {
-//     if (!result.empty()) {
-//       result += ", ";
-//     }
-//     result += item;
-//   }
-//   return result;
-// }
-
 /// @brief  Configuration entry structure.
 /// This structure defines a configuration entry with a unique key, description, format, type, default value, and unit.
 /// @struct ConfigEntry
@@ -272,7 +249,7 @@ struct ConfigEntry {
     default_value = default_val;
     unit = iunit;
   }
-  ConfigEntry(char nkey[kMaxNvsNameLength], std::string descr, std::string fmt, std::string default_val,
+  ConfigEntry(const char nkey[kMaxNvsNameLength], std::string descr, std::string fmt, std::string default_val,
               std::string iunit) {
     strncpy(key, nkey, kMaxNvsNameLength);
     description = descr;
@@ -406,10 +383,6 @@ class ConfigManager {
   ConfigManager();
   // ~ConfigManager();
   // std::shared_ptr<TaskContext> GetTask();
-  static std::shared_ptr<ConfigManager> GetInstance() {
-    // static std::shared_ptr<ConfigManager> instance(new ConfigManager());
-    return _instance;
-  }
   static void Start();
   static void StarterTask(void*);
 

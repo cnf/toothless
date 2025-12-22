@@ -17,7 +17,6 @@ extern "C" {
 #include "i2c_manager.hpp"
 #include "networking.hpp"
 #include "peripherals/peripheral_registry.hpp"
-#include "peripherals/topic_router.hpp"
 #include "ui/display/display.hpp"
 #include "ui/user_interface.hpp"
 
@@ -43,10 +42,10 @@ void SetLogLevels() {
 
   esp_log_level_set("wifi", ESP_LOG_ERROR);
   esp_log_level_set("wifi_init", ESP_LOG_WARN);
-  esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_DEBUG);
-  esp_log_level_set("FT5x06", ESP_LOG_DEBUG);
-  esp_log_level_set("i2c", ESP_LOG_ERROR);
-  esp_log_level_set("i2c.master", ESP_LOG_NONE);
+  // esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_ERROR);
+  // esp_log_level_set("i2c", ESP_LOG_ERROR);
+  // esp_log_level_set("i2c.master", ESP_LOG_NONE);
+  esp_log_level_set("i2c_manager.cpp", ESP_LOG_DEBUG);
 
   // esp_log_level_set("nvs", ESP_LOG_NONE);
   // esp_log_level_set("tmc2208", ESP_LOG_ERROR);
@@ -88,10 +87,11 @@ extern "C" void app_main(void) {
   main_dispatcher.callEvery(500, &networking::NetworkManager::Loop, &network_mgr);
 
   FLOG_INFO("Initializing peripherals");
-  PeripheralRegistry::Init();
-  main_dispatcher.callEvery(50, PeripheralRegistry::Loop, NULL);
+  auto& registry = PeripheralRegistry::Instance();
+  registry.Init();
+  main_dispatcher.callEvery(50, &PeripheralRegistry::Loop, &registry);
 
-  TopicRouter::StartTask();
+  // TopicRouter::StartTask();
 
   FLOG_INFO("Initializing heater");
   static Heater heater;

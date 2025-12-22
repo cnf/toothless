@@ -24,6 +24,8 @@ static lv_display_t* _display_ptr = nullptr;
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
 
+  // ESP_RETURN_ON_ERROR(display::impl::Setup(), FLOG_SHORT_FILENAME, "Display hardware setup failed");
+
   ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
   ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
@@ -62,8 +64,6 @@ esp_err_t Display::SetupDisplayPanel() {
 }
 
 esp_err_t Display::RegisterCallbacks() {
-  // lv_display_set_flush_cb(_display_ptr, LvglFlushCallback);
-
   FLOG_INFO("Install LVGL tick timer");
   {
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)

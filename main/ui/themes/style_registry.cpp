@@ -87,8 +87,12 @@ lv_style_t switch_knob;
 lv_style_t roller;
 lv_style_t roller_selected;
 lv_style_t dropdown;
+lv_style_t dropdown_indicator;
+lv_style_t dropdown_list;
 lv_style_t dropdown_selected;
-lv_style_t dropdown_button;
+lv_style_t keypad;
+lv_style_t keys;
+lv_style_t keys_pressed;
 }  // namespace controls
 
 // LED indicators
@@ -184,17 +188,14 @@ static void init_button_styles() {
   lv_style_set_radius(&buttons::settings, 8);
   lv_style_set_height(&buttons::settings, current_settings.button_height);
 
-  // lv_style_set_pad_all(&buttons::settings, 12);
-  // lv_style_set_border_width(&buttons::settings, 10);
-  // lv_style_set_border_color(&buttons::settings, current_palette.border);
-  lv_style_set_shadow_width(&buttons::primary, 4);
-  lv_style_set_shadow_color(&buttons::primary, lv_color_black());
-  lv_style_set_shadow_opa(&buttons::primary, LV_OPA_30);
+  lv_style_set_shadow_width(&buttons::settings, 4);
+  lv_style_set_shadow_color(&buttons::settings, lv_color_black());
+  lv_style_set_shadow_opa(&buttons::settings, LV_OPA_30);
 
   // Pressed state (applies to all buttons)
   lv_style_init(&buttons::pressed);
-  lv_style_set_bg_opa(&buttons::pressed, LV_OPA_70);
-  lv_style_set_radius(&buttons::settings, 16);
+  lv_style_set_bg_opa(&buttons::pressed, LV_OPA_60);
+  lv_style_set_radius(&buttons::settings, 8);
   // lv_style_set_transform_scale(&buttons::pressed, 240);  // Slight shrink
 
   // Disabled state
@@ -228,6 +229,11 @@ static void init_screen_styles() {
   lv_style_set_flex_cross_place(&screens::subscreen, LV_FLEX_ALIGN_CENTER);
   lv_style_set_flex_track_place(&screens::subscreen, LV_FLEX_ALIGN_CENTER);
   lv_style_set_text_font(&screens::subscreen, &fonts::medium);
+  if (current_settings.tiny) {
+    lv_style_set_pad_gap(&screens::subscreen, current_settings.element_padding / 2);
+  } else {
+    // lv_style_set_pad_all(&screens::subscreen, current_settings.element_padding);
+  }
 
   // Card/panel surface
   lv_style_init(&screens::card);
@@ -360,6 +366,7 @@ static void init_screen_styles() {
   lv_style_set_bg_color(&screens::sidebar, current_palette.surface);
   lv_style_set_bg_opa(&screens::sidebar, LV_OPA_COVER);
   lv_style_set_pad_all(&screens::sidebar, current_settings.element_padding);
+  lv_style_set_width(&screens::sidebar, LV_SIZE_CONTENT);
   // lv_style_set_size(&screens::sidebar, lv_pct(20), lv_pct(100));
 
   // Sidebar background
@@ -446,9 +453,14 @@ static void init_text_styles() {
   lv_style_set_bg_opa(&text::textentry, LV_OPA_COVER);
   lv_style_set_text_color(&text::textentry, current_palette.text);
   lv_style_set_border_color(&text::textentry, current_palette.border);
-  lv_style_set_border_width(&text::textentry, 2);
+  lv_style_set_border_width(&text::textentry, current_settings.border_width);
   lv_style_set_radius(&text::textentry, 8);
-  lv_style_set_pad_all(&text::textentry, current_settings.element_padding);
+  if (current_settings.tiny) {
+    lv_style_set_pad_all(&text::textentry, 0);  // current_settings.element_padding / 2);
+    lv_style_set_pad_gap(&text::textentry, current_settings.element_padding / 2);
+  } else {
+    lv_style_set_pad_all(&text::textentry, current_settings.element_padding);
+  }
 
   // Danger/warning text
   lv_style_init(&text::danger);
@@ -535,8 +547,13 @@ static void init_control_styles() {
   lv_style_set_bg_opa(&controls::slider_knob, LV_OPA_COVER);
   lv_style_set_radius(&controls::slider_knob, LV_RADIUS_CIRCLE);
   lv_style_set_pad_all(&controls::slider_knob, current_settings.element_padding);
+
   lv_style_set_border_width(&controls::slider_knob, 2);
-  lv_style_set_border_color(&controls::slider_knob, lv_color_white());
+  lv_style_set_border_color(&controls::slider_knob, lv_color_darken(current_palette.primary, LV_OPA_30));
+  lv_style_set_shadow_color(&controls::slider_knob, lv_color_black());
+  lv_style_set_shadow_opa(&controls::slider_knob, LV_OPA_40);
+  lv_style_set_shadow_width(&controls::slider_knob, current_settings.element_padding * 2);
+  lv_style_set_shadow_spread(&controls::slider_knob, current_settings.element_padding);
 
   // Switch - background
   lv_style_init(&controls::switch_bg);
@@ -575,19 +592,72 @@ static void init_control_styles() {
   lv_style_init(&controls::dropdown);
   lv_style_set_bg_color(&controls::dropdown, current_palette.surface);
   lv_style_set_bg_opa(&controls::dropdown, LV_OPA_COVER);
-  lv_style_set_text_color(&controls::dropdown, current_palette.text);
+  lv_style_set_text_color(&controls::dropdown, current_palette.on_surface);
   lv_style_set_border_color(&controls::dropdown, current_palette.border);
   lv_style_set_text_font(&controls::dropdown, &fonts::medium);
   lv_style_set_width(&controls::dropdown, LV_SIZE_CONTENT);
-  lv_style_set_flex_grow(&controls::dropdown, 1);
+
+  lv_style_set_shadow_color(&controls::dropdown, lv_color_black());
+  lv_style_set_shadow_opa(&controls::dropdown, LV_OPA_20);
+  lv_style_set_shadow_width(&controls::dropdown, 4);
+  lv_style_set_shadow_spread(&controls::dropdown, 2);
+
+  // lv_style_set_max_height(&controls::dropdown, lv_pct(100));
+  // lv_style_set_flex_grow(&controls::dropdown, 1);
+  // lv_style_set_radius(&controls::dropdown, 8);
+
+  lv_style_init(&controls::dropdown_indicator);
+  lv_style_set_bg_color(&controls::dropdown_indicator, current_palette.surface);
+  lv_style_set_bg_opa(&controls::dropdown_indicator, LV_OPA_COVER);
+  lv_style_set_pad_hor(&controls::dropdown_indicator, current_settings.element_padding);
+  lv_style_set_width(&controls::dropdown_indicator, 40);
+
+  lv_style_init(&controls::dropdown_list);
+  lv_style_set_bg_color(&controls::dropdown_list, current_palette.surface);
+  lv_style_set_bg_opa(&controls::dropdown_list, LV_OPA_COVER);
+  lv_style_set_text_color(&controls::dropdown_list, current_palette.on_surface);
+  lv_style_set_border_color(&controls::dropdown_list, current_palette.border);
+  lv_style_set_radius(&controls::dropdown_list, 8);
+  lv_style_set_max_height(&controls::dropdown_list, lv_pct(100));
+  lv_style_set_flex_grow(&controls::dropdown_list, 1);
+  lv_style_set_radius(&controls::dropdown_list, 8);
+  lv_style_set_pad_row(&controls::dropdown_list, current_settings.element_padding);
+  lv_style_set_shadow_color(&controls::dropdown_list, lv_color_black());
+  lv_style_set_shadow_opa(&controls::dropdown_list, LV_OPA_20);
+  lv_style_set_shadow_width(&controls::dropdown_list, 6);
+  lv_style_set_shadow_spread(&controls::dropdown_list, 4);
 
   lv_style_init(&controls::dropdown_selected);
   lv_style_set_bg_color(&controls::dropdown_selected, current_palette.primary);
   lv_style_set_bg_opa(&controls::dropdown_selected, LV_OPA_COVER);
 
-  lv_style_init(&controls::dropdown_button);
-  lv_style_set_bg_color(&controls::dropdown_button, current_palette.surface);
-  lv_style_set_bg_opa(&controls::dropdown_button, LV_OPA_COVER);
+  // Keypad style
+  lv_style_init(&controls::keypad);
+  lv_style_set_bg_color(&controls::keypad, current_palette.background);
+  lv_style_set_bg_opa(&controls::keypad, LV_OPA_COVER);
+  lv_style_set_pad_all(&controls::keypad, 0);  // current_settings.element_padding);
+  lv_style_set_border_width(&controls::keypad, 0);
+  if (current_settings.tiny) {
+    lv_style_set_pad_gap(&controls::keypad, current_settings.element_padding / 2);
+  } else {
+    lv_style_set_pad_gap(&controls::keypad, current_settings.element_padding);
+  }
+
+  // On-screen keys style
+  lv_style_init(&controls::keys);
+  lv_style_set_bg_color(&controls::keys, current_palette.surface);
+  lv_style_set_bg_opa(&controls::keys, LV_OPA_COVER);
+  lv_style_set_text_color(&controls::keys, current_palette.text);
+  lv_style_set_radius(&controls::keys, 8);
+  lv_style_set_text_font(&controls::keys, &fonts::medium);
+  lv_style_set_size(&controls::keys, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+  // Pressed key style
+  lv_style_init(&controls::keys_pressed);
+  lv_style_set_bg_color(&controls::keys_pressed, current_palette.primary);
+  lv_style_set_bg_opa(&controls::keys_pressed, LV_OPA_COVER);
+  lv_style_set_text_color(&controls::keys_pressed, current_palette.on_primary);
+  lv_style_set_radius(&controls::keys_pressed, 8);
 }
 
 static void init_indicator_styles() {
@@ -705,6 +775,7 @@ void Init(ThemeId theme) {
     current_settings.screen_padding = 0;
     current_settings.button_height = LV_DPX(20);
     current_settings.element_padding = 4;
+    current_settings.tiny = true;
   } else if (screen_width <= 320) {
     FLOG_INFO("Small screen detected (%ux%u), using small fonts", screen_width, screen_height);
     fonts::tiny = lv_font_montserrat_8;
@@ -825,8 +896,13 @@ void SwitchTheme(ThemeId new_theme) {
   lv_style_reset(&controls::switch_knob);
   lv_style_reset(&controls::roller);
   lv_style_reset(&controls::dropdown);
+  lv_style_reset(&controls::dropdown_indicator);
+  lv_style_reset(&controls::dropdown_list);
   lv_style_reset(&controls::dropdown_selected);
-  lv_style_reset(&controls::dropdown_button);
+  lv_style_reset(&controls::roller_selected);
+  lv_style_reset(&controls::keypad);
+  lv_style_reset(&controls::keys);
+  lv_style_reset(&controls::keys_pressed);
 
   lv_style_reset(&indicators::led_on);
   lv_style_reset(&indicators::led_off);

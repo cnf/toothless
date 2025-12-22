@@ -25,21 +25,50 @@ constexpr bool kTallDisplay = false;
 #endif
 
 struct NumpadContext {
-  lv_obj_t* parent_screen = nullptr;                       // Screen where numpad is opened
-  lv_obj_t* backdrop = nullptr;                            // Where to create backdrop
-  lv_obj_t* target_spinbox = nullptr;                      // Spinbox to update
-  std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
-  std::optional<int32_t> initial_value = std::nullopt;     // Initial value to show
+  lv_obj_t* parent_screen = nullptr;
+  std::function<void(std::optional<double>)> on_confirm;
+  std::optional<double> initial_value = std::nullopt;
+  int decimal_places = 0;  // 0 = int mode, >0 = double mode
+  std::optional<double> min = std::nullopt;
+  std::optional<double> max = std::nullopt;
 };
 
 struct NumpadState {
-  lv_obj_t* numpad;  // Numpad object
+  lv_obj_t* numpad;
   lv_obj_t* numpadtextarea;
-  lv_obj_t* ok_btn;
-  lv_obj_t* backdrop;                                      // Backdrop object
-  lv_obj_t* target_spinbox;                                // Spinbox being edited
-  std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
+  lv_obj_t* backdrop;
+  int decimal_places = 0;
+  std::function<void(std::optional<double>)> on_confirm;
 };
+
+// struct NumpadContext {
+//   lv_obj_t* parent_screen = nullptr;                       // Screen where numpad is opened
+//   lv_obj_t* backdrop = nullptr;                            // Where to create backdrop
+//   lv_obj_t* target_spinbox = nullptr;                      // Spinbox to update
+//   std::function<void(std::optional<int32_t>)> on_confirm;  // Callback when user confirms
+//   std::optional<int32_t> initial_value = std::nullopt;     // Initial value to show
+// };
+
+// struct NumpadDoubleContext {
+//   lv_obj_t* parent_screen = nullptr;                      // Screen where numpad is opened
+//   lv_obj_t* backdrop = nullptr;                           // Where to create backdrop
+//   lv_obj_t* target_spinbox = nullptr;                     // Spinbox to update
+//   std::function<void(std::optional<double>)> on_confirm;  // Callback when user confirms
+//   std::optional<double> initial_value = std::nullopt;     // Initial value to show
+//   std::optional<int> decimal_places = std::nullopt;       // Number of decimal places to allow
+//   std::optional<double> step = std::nullopt;              // Step value for increment/decrement
+//   std::optional<double> min = std::nullopt;               //
+//   std::optional<double> max = std::nullopt;               //
+// };
+
+// struct NumpadState {
+//   lv_obj_t* numpad;  // Numpad object
+//   lv_obj_t* numpadtextarea;
+//   lv_obj_t* ok_btn;
+//   lv_obj_t* backdrop;                                     // Backdrop object
+//   lv_obj_t* target_spinbox;                               // Spinbox being edited
+//   std::function<void(std::optional<double>)> on_confirm;  // Callback when user confirms
+// };
 
 struct NumberRollerContext {
   lv_obj_t* parent_screen = nullptr;                       // Screen where roller is opened
@@ -62,6 +91,12 @@ struct TextAreaOverlayState {
   lv_obj_t* backdrop;
   lv_obj_t* original_textarea;  // The textarea that triggered the overlay
   lv_obj_t* holder;             // Copy of textarea inside overlay
+};
+
+struct DoubleOverlayState {
+  lv_obj_t* backdrop;
+  lv_obj_t* original_obj;  // The spinbox that triggered the overlay
+  lv_obj_t* holder;        // Copy of spinbox inside overlay
 };
 
 struct ConfirmationContext {

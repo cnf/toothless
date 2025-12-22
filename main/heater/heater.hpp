@@ -8,9 +8,9 @@
 #include <optional>
 
 #include "config_mgr.hpp"
-#include "heater/elements/element.hpp"
 #include "heater/profiles/profile.hpp"
 #include "heater/profiles/profile_manager.hpp"
+#include "peripherals/actuators/actuator.hpp"
 #include "topics.hpp"
 
 extern "C" {
@@ -72,12 +72,6 @@ inline std::string ToString(Mode t) {
   return "unknown";
 }
 
-// inline Mode FromString(const std::string& s) {
-//   for (auto& [mode, name] : kModeMap)
-//     if (s == name) return mode;
-//   return Mode::kModeReflow;
-// };
-
 inline Mode FromString(const std::string& name) {
   auto normalize = [](const std::string& s) {
     std::string result;
@@ -91,6 +85,7 @@ inline Mode FromString(const std::string& name) {
   };
 
   std::string normalized = normalize(name);
+  // std::string normalized =
 
   for (const auto& [id, mode_name] : kModeMap) {
     if (normalized == normalize(mode_name)) {
@@ -110,6 +105,14 @@ inline std::string MakeFormat() {
   return f;
 }
 
+struct SafetyLimits {
+  float min_heat_rate = 0.5f;         // °C/sec minimum when power > 50%
+  float max_heat_rate = 10.0f;        // °C/sec maximum (sensor sanity)
+  int32_t overshoot_limit = 1500;     // 15°C above target = emergency
+  uint32_t stall_timeout_ms = 30000;  // 30s no progress = abort
+  uint32_t sensor_timeout_ms = 5000;  // 5s no temp updates = abort
+};
+
 struct HeaterConfig {
   std::string mode;
   std::string profile;
@@ -126,9 +129,13 @@ inline ConfigEntries config_entries = {
     // ConfigEntry("profile", "Default Heater Profile", "enum=Qwik Leaded|Qwik Lead Free|Custom",
     // std::string("Qwik Leaded"), ""),  // TODO: implement custom profiles
     ConfigEntry("max_temp", "Maximum target temperature the heater will accept", "min=50,max=500", 250, "°C"),
-    ConfigEntry("pid_kp", "Heater PID Proportional constant", "min=0.01,max=2.0,step=0.01", 0.01f, "Kp"),
-    ConfigEntry("pid_ki", "Heater PID Integral constant", "min=0.0001 ,max=0.01,step=0.0001", 0.0f, "Ki"),
-    ConfigEntry("pid_kd", "Heater PID Differential constant", "min=0.0,max=50,step=0.1", 0.0f, "Kd"),
+    ConfigEntry("pid_kp", "[P] Power % per °C error", "min=0.1,max=50,step=0.1", 5.0f, "%/°C"),
+    ConfigEntry("pid_ki", "[I] Power % per °C*sec", "min=0.001,max=2,step=0.01", 0.1f, "%/°C*s"),
+    ConfigEntry("pid_kd", "[D] Power % per °C/sec rate", "min=0,max=20,step=0.1", 1.0f, "%*s/°C"),
+    // ConfigEntry("pid_kp", "Heater PID Proportional constant", "min=0.01,max=2.0,step=0.01", 0.01f, "Kp"),
+    // ConfigEntry("pid_ki", "Heater PID Integral constant", "min=0.0001 ,max=0.01,step=0.0001", 0.0f, "Ki"),
+    // ConfigEntry("pid_kd", "Heater PID Differential constant", "min=0.0,max=50,step=0.1", 0.0f, "Kd"),
+
 };
 
 }  // namespace heater
@@ -140,7 +147,12 @@ class Heater {
   void Loop();
   esp_err_t HandleSubscriptions();
   esp_err_t ApplySettings();
+  esp_err_t GetElement();
+  /// @brief Assert heater is off
   void AssertOff();
+  /// @brief Check for heating anomalies
+  /// @return ESP_OK if safe, error code if shutdown needed
+  esp_err_t CheckSafety();
   esp_err_t LoadProfile(std::string name);
   /// @brief Refresh profile list in config manager
   esp_err_t RefreshProfileConfig();
@@ -164,9 +176,12 @@ class Heater {
   ps_subscriber_t* _subscription;
   std::unique_ptr<ConfigEntries> _config_entries;  // UI configuration entries
   std::shared_ptr<SettingsMap> _config;            // UI settings map
-  std::unique_ptr<BaseElement> _element;
+  // std::unique_ptr<BaseElement> _element;
+  std::shared_ptr<Actuator> _element;
   heater::State _state = heater::State::kStateOff;
   heater::Mode _mode = heater::Mode::kModeReflow;
+  std::unique_ptr<heater::SafetyLimits> _limits;
+  uint32_t _stall_counter = 0;
   // Profiles
   std::shared_ptr<ProfileManager> _profile_mgr;
   std::shared_ptr<Profile> _current_profile;  // Use shared_ptr
@@ -193,6 +208,7 @@ class Heater {
   /// @brief Update profile config entry with current profiles
   void UpdateProfileConfigEntry();
 
+  void CalibratePID();
   void Tune();
   esp_err_t StateToOn();
   esp_err_t StateToOff();

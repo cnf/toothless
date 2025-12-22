@@ -12,6 +12,8 @@
 
 #include "display_commands.hpp"
 #include "display_impl.hpp"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "funlog.h"
 #include "i2c_manager.hpp"
 #include "sdkconfig.h"
@@ -51,8 +53,14 @@ static void* _rotationbuffer = nullptr;  // Persistent 640×180 framebuffer in P
 static uint8_t* _rotated_buf = nullptr;
 static uint8_t* _contiguous_buf = nullptr;
 
-i2c_master_dev_handle_t _dev_handle;
-i2c_master_bus_handle_t _bus_handle;
+static i2c_master_dev_handle_t _dev_handle;
+static i2c_master_bus_handle_t _bus_handle;
+
+// cache
+static volatile int16_t s_touch_x = 0;
+static volatile int16_t s_touch_y = 0;
+static volatile uint8_t s_touch_down = 0;
+static volatile uint8_t s_touch_point_num = 0;
 
 typedef struct {
   uint32_t addr;
@@ -708,27 +716,86 @@ esp_err_t LvgLBufferSetupFull() {
 }
 
 esp_err_t TouchPanelSetup() {
-  LV_LOG_USER("Setting up touch panel");
+  // esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
+  // if (err != ESP_OK) {
+  //   FLOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
+  //   return err;
+  // }
+  esp_lcd_panel_io_i2c_config_t io_config = {.dev_addr = kTouchI2cAddress,
+                                             .control_phase_bytes = 1,
+                                             .dc_bit_offset = 0,
+                                             .lcd_cmd_bits = 8,
+                                             .flags =
+                                                 {
+                                                     .disable_control_phase = 1,
+                                                 },
+                                             .scl_speed_hz = 100 * 1000};
 
-  i2c_device_config_t i2c_dev_conf = {
-      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-      .device_address = kTouchI2cAddress,
-      .scl_speed_hz = I2cManager::kClockSpeedHz,
+  esp_lcd_touch_config_t tp_cfg = {
+      .x_max = kVRes,
+      .y_max = kHRes,
+      .rst_gpio_num = GPIO_NUM_NC,
+      .int_gpio_num = kTouchIntPin,
+      // .int_gpio_num = GPIO_NUM_NC,
+      .levels =
+          {
+              .reset = 0,
+              .interrupt = 0,
+          },
+      .flags =
+          {
+              .swap_xy = 1,
+              .mirror_x = 1,
+              .mirror_y = 0,
+          },
   };
-  esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
+  esp_lcd_panel_io_handle_t _io_handle = nullptr;
+  esp_err_t err = esp_lcd_new_panel_io_i2c(I2cManager::GetInstance()->GetBusHandle(), &io_config, &_io_handle);
   if (err != ESP_OK) {
-    FLOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
+    FLOG_ERROR("Failed to create i2c panel io handle: %s", esp_err_to_name(err));
     return err;
   }
+
+  esp_lcd_touch_handle_t tp;
+  err = esp_lcd_touch_new_i2c_axs15231b(_io_handle, &tp_cfg, &tp);
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to create touch panel handle: %s", esp_err_to_name(err));
+  }
+
   static lv_indev_t* indev;
   indev = lv_indev_create();  // Input device driver (SetupTouchPanel)
   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
   lv_indev_set_display(indev, _display);
-  // lv_indev_set_user_data(indev, tp);
-
+  lv_indev_set_user_data(indev, tp);
   lv_indev_set_read_cb(indev, LvglTouchCallback);
   return ESP_OK;
 }
+
+// esp_err_t TouchPanelSetupOld() {
+//   LV_LOG_USER("Setting up touch panel");
+
+//   i2c_device_config_t i2c_dev_conf = {
+//       .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+//       .device_address = kTouchI2cAddress,
+//       .scl_speed_hz = 100 * 1000,
+//   };
+//   esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
+//   if (err != ESP_OK) {
+//     FLOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
+//     return err;
+//   }
+//   static lv_indev_t* indev;
+//   indev = lv_indev_create();  // Input device driver (SetupTouchPanel)
+//   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+//   lv_indev_set_display(indev, _display);
+//   // lv_indev_set_user_data(indev, tp);
+
+//   // in your init start task:
+//   xTaskCreatePinnedToCore(TouchPollTask, "touchpoll", 4096, nullptr, 5, nullptr, 0);
+
+//   lv_indev_set_read_cb(indev, LvglTouchCallback);
+//   return ESP_OK;
+// }
 
 void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
   width = kHRes;
@@ -870,8 +937,8 @@ esp_err_t SetupQSPI() {
 //     uint32_t src_stride = lv_draw_buf_width_to_stride(src_w, cf);
 
 //     // Rotate directly to _rotationbuffer (contiguously, no stride)
-//     lv_draw_sw_rotate(px_map, _rotationbuffer, src_w, src_h, src_stride, rotated_w * sizeof(lv_color16_t), rotation,
-//     cf);
+//     lv_draw_sw_rotate(px_map, _rotationbuffer, src_w, src_h, src_stride, rotated_w * sizeof(lv_color16_t),
+//     rotation, cf);
 
 //     // Send FULL display using original dimensions (180×640), not rotated area
 //     display_push_colors(0, 0, kHRes, kVRes, (uint16_t*)_rotationbuffer);
@@ -1243,7 +1310,8 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 
 //   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
 //   amoled_push_buffer((uint16_t*)px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
-//   // (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));  // lv_area_get_width(area) * lv_area_get_height(area));
+//   // (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));  // lv_area_get_width(area) *
+//   lv_area_get_height(area));
 
 //   // display_push_colors(rotated_area.x1, rotated_area.y1, lv_area_get_width(&rotated_area),
 //   // lv_area_get_height(&rotated_area), (uint16_t*)px_map);
@@ -1253,25 +1321,71 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
 //   lv_display_flush_ready(disp);
 // }
 
+void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
+  uint8_t touchpad_cnt = 0;
+  esp_lcd_touch_handle_t touch_pad = static_cast<esp_lcd_touch_handle_t>(lv_indev_get_user_data(indev));
+  esp_lcd_touch_read_data(touch_pad);
+  esp_lcd_touch_point_data_t tpdata;
+  esp_lcd_touch_get_data(touch_pad, &tpdata, &touchpad_cnt, 1);
+  if (touchpad_cnt > 0) {
+    data->point.x = tpdata.x;
+    data->point.y = tpdata.y;
+    data->state = LV_INDEV_STATE_PRESSED;
+  } else {
+    data->state = LV_INDEV_STATE_RELEASED;
+  }
+}
+
 bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t* edata, void* user_data) {
-  LV_LOG_USER("LVGL Flush Ready Callback????????????????????????????");
   lv_display_t* disp = (lv_display_t*)user_data;
   lv_display_flush_ready(disp);
   return false;
 };
 
-uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
-  if (!_dev_handle) {
-    return 0;  // Device not initialized
+void TouchPollTask(void*) {
+  for (;;) {
+    int16_t x = 0, y = 0;
+    // uint8_t points = 0;
+    uint8_t ok = TouchGetDataBlocking(&x, &y);  // new helper that does i2c call
+    if (ok) {
+      s_touch_x = x;
+      s_touch_y = y;
+      s_touch_down = 1;
+      // s_touch_point_num = points;
+    } else {
+      s_touch_down = 0;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));  // poll 10ms
+  }
+}
+
+// // change LvglTouchCallback to just read cache:
+// void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
+//   if (s_touch_down) {
+//     data->point.x = s_touch_x;
+//     data->point.y = s_touch_y;
+//     data->state = LV_INDEV_STATE_PRESSED;
+//   } else {
+//     data->state = LV_INDEV_STATE_RELEASED;
+//   }
+// }
+
+uint8_t TouchGetDataBlocking(int16_t* x, int16_t* y) {
+  uint8_t buffer[20] = {0};
+
+  // Send unlock command first
+  uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8, 0x0, 0x0, 0x0};
+  esp_err_t err = I2cManager::GetInstance()->Write(_dev_handle, cmd, sizeof(cmd));
+  if (err != ESP_OK) {
+    LV_LOG_ERROR("Touch unlock failed: %s", esp_err_to_name(err));
+    return 0;
   }
 
-  uint8_t buffer[20] = {0};
-  uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8, 0x0, 0x0, 0x0};
-
-  // Use transmit_receive directly to avoid separate Write+Read calls
-  esp_err_t err = i2c_master_transmit_receive(_dev_handle, cmd, sizeof(cmd), buffer, 20, -1);
+  // Now read the touch data
+  err = I2cManager::GetInstance()->Read(_dev_handle, buffer, 20);
   if (err != ESP_OK) {
-    return 0;  // Silently fail
+    LV_LOG_ERROR("Touch read failed: %s", esp_err_to_name(err));
+    return 0;
   }
 
   uint16_t type = AXS_GET_GESTURE_TYPE(buffer);
@@ -1281,10 +1395,37 @@ uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
   if (!type && (pointX || pointY)) {
     *x = pointY;
     *y = 640 - pointX;
+    LV_LOG_TRACE("Touch: X=%d Y=%d", *x, *y);
     return 1;
   }
   return 0;
 }
+
+// uint8_t TouchGetDataBlocking(int16_t* x, int16_t* y, uint8_t point_num) {
+//   if (!_dev_handle) {
+//     return 0;  // Device not initialized
+//   }
+
+//   uint8_t buffer[20] = {0};
+//   uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8, 0x0, 0x0, 0x0};
+
+//   // Use transmit_receive directly to avoid separate Write+Read calls
+//   esp_err_t err = i2c_master_transmit_receive(_dev_handle, cmd, sizeof(cmd), buffer, 20, 10);
+//   if (err != ESP_OK) {
+//     return 0;  // Silently fail
+//   }
+
+//   uint16_t type = AXS_GET_GESTURE_TYPE(buffer);
+//   uint16_t pointX = AXS_GET_POINT_X(buffer, 0);
+//   uint16_t pointY = AXS_GET_POINT_Y(buffer, 0);
+
+//   if (!type && (pointX || pointY)) {
+//     *x = pointY;
+//     *y = 640 - pointX;
+//     return 1;
+//   }
+//   return 0;
+// }
 
 // uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
 //   uint8_t buffer[20] = {0};
@@ -1346,24 +1487,24 @@ uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
 
 // }
 
-void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
-  // void LvglTouchCallback(esp_lcd_touch_handle_t tp) {
-  int16_t touchpad_x[1] = {0};
-  int16_t touchpad_y[1] = {0};
-  uint8_t touchpad_cnt = 0;
+// void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
+//   // void LvglTouchCallback(esp_lcd_touch_handle_t tp) {
+//   int16_t touchpad_x[1] = {0};
+//   int16_t touchpad_y[1] = {0};
+//   uint8_t touchpad_cnt = 0;
 
-  /* Get coordinates */
-  touchpad_cnt = TouchGetData(touchpad_x, touchpad_y, 1);
+//   /* Get coordinates */
+//   touchpad_cnt = TouchGetData(touchpad_x, touchpad_y, 1);
 
-  if (touchpad_cnt > 0) {
-    data->point.x = touchpad_x[0];
-    data->point.y = touchpad_y[0];
-    data->state = LV_INDEV_STATE_PRESSED;
-  } else {
-    data->state = LV_INDEV_STATE_RELEASED;
-  }
-  LV_LOG_INFO("Touch data: x=%li y=%li state=%d", data->point.x, data->point.y, data->state);
-}
+//   if (touchpad_cnt > 0) {
+//     data->point.x = touchpad_x[0];
+//     data->point.y = touchpad_y[0];
+//     data->state = LV_INDEV_STATE_PRESSED;
+//   } else {
+//     data->state = LV_INDEV_STATE_RELEASED;
+//   }
+//   LV_LOG_INFO("Touch data: x=%li y=%li state=%d", data->point.x, data->point.y, data->state);
+// }
 
 void TurnOn() {
   lv_async_call(

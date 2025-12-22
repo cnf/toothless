@@ -34,6 +34,7 @@ lv_obj_t* SettingsScreen::Create() {
 
   BaseCreate();
   SetSidebar(true);
+  lv_menu_set_mode_header(_labels->menu, LV_MENU_HEADER_TOP_UNFIXED);
 
   return _screen;
 }

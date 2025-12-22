@@ -78,9 +78,10 @@ esp_err_t ProfilesScreen::CreateMenu() {
   lv_obj_add_flag(sectionp, LV_OBJ_FLAG_SCROLLABLE);
 
   // Disable overscroll/bounce
-  lv_obj_set_scroll_dir(sectionp, LV_DIR_VER);               // Only vertical scroll
-  lv_obj_remove_flag(sectionp, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
-  // lv_obj_clear_flag(sectionp, LV_OBJ_FLAG_SCROLL_MOMENTUM);  // No momentum scroll (optional)
+  lv_obj_set_scroll_dir(sectionp, LV_DIR_VER);  // Only vertical scroll
+  // lv_obj_remove_flag(sectionp, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
+  // lv_obj_remove_flag(sectionp, LV_OBJ_FLAG_SCROLL_MOMENTUM);   // No momentum scroll (optional)
+  lv_obj_set_scrollbar_mode(sectionp, LV_SCROLLBAR_MODE_OFF);  // Simpler scrollbar
 
   // Profile list container
   _labels->profile_list_container = ui::CreateColumnContainer(sectionp);
@@ -234,17 +235,19 @@ lv_obj_t* ProfilesScreen::CreateProfileEditPage() {
   lv_textarea_set_max_length(_edit_ctx->profile_name_ta, 32);
 
   // Add keyboard event handler
-  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_FOCUSED, this);
-  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_DEFOCUSED, this);
-  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_READY, this);
+  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_FOCUSED, _screen);
+  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_DEFOCUSED, _screen);
+  lv_obj_add_event_cb(_edit_ctx->profile_name_ta, TextAreaEventHandler, LV_EVENT_READY, _screen);
 
   section = ui::CreateMenuSection(_edit_ctx->profile_page);
   lv_obj_set_flex_grow(section, 1);  // Fill remaining space
   lv_obj_add_flag(section, LV_OBJ_FLAG_SCROLLABLE);
 
   // Disable overscroll/bounce
-  lv_obj_set_scroll_dir(section, LV_DIR_VER);               // Only vertical scroll
-  lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
+  lv_obj_set_scroll_dir(section, LV_DIR_VER);  // Only vertical scroll
+  // lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_MOMENTUM);  // No bounce/elastic
+  // lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_ELASTIC);
+  lv_obj_set_scrollbar_mode(section, LV_SCROLLBAR_MODE_OFF);
 
   // Stages section
   // ui::CreateHeading(section, "Stages");  // Changed from profile_edit_page to section
@@ -339,9 +342,9 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
   lv_textarea_set_max_length(_edit_ctx->stage_name_ta, 32);
 
   // Add keyboard event handler
-  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_FOCUSED, this);
-  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_DEFOCUSED, this);
-  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_READY, this);
+  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_FOCUSED, _screen);
+  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_DEFOCUSED, _screen);
+  lv_obj_add_event_cb(_edit_ctx->stage_name_ta, TextAreaEventHandler, LV_EVENT_READY, _screen);
 
   section = ui::CreateMenuSection(_edit_ctx->stage_page);
   lv_obj_set_width(section, lv_pct(100));
@@ -349,8 +352,10 @@ lv_obj_t* ProfilesScreen::CreateStageEditPage() {
   lv_obj_add_flag(section, LV_OBJ_FLAG_SCROLLABLE);
 
   // Disable overscroll/bounce
-  lv_obj_set_scroll_dir(section, LV_DIR_VER);               // Only vertical scroll
-  lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
+  lv_obj_set_scroll_dir(section, LV_DIR_VER);  // Only vertical scroll
+  // lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
+  // lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  lv_obj_set_scrollbar_mode(section, LV_SCROLLBAR_MODE_OFF);
 
   lv_obj_t* card = ui::CreateCard(section);
   lv_obj_set_width(card, lv_pct(100));
@@ -657,9 +662,8 @@ void ProfilesScreen::StageEditUnitHandler(lv_event_t* e) {
   if (target.empty()) return;
 
   NumpadContext ctx{
-      .parent_screen = obj->GetScreen(),
-      .backdrop = nullptr,                        // backdrop
-      .target_spinbox = obj->_edit_ctx->spinbox,  // spinbox
+      .parent_screen = obj->GetScreen(),  // BUG: _screen,
+                                          // .target_spinbox = obj->_edit_ctx->spinbox,  // spinbox
   };
 
   if (target.compare("from") == 0) {
@@ -751,47 +755,42 @@ void ProfilesScreen::StageDeleteHandler(lv_event_t* e) {
                                 // if (state->backdrop) lv_obj_delete(state->backdrop);
                               }};
   ConfirmationPopup(ctx);
-
-  // FLOG_INFO("Deleting stage %zu", index);
-
-  // screen->_edit_ctx->profile->RemoveStage(index);
-  // screen->PopulateProfileEditPage();
 }
 
 // TODO: centralize this
 
-void ProfilesScreen::PTextAreaEventHandler(lv_event_t* e) {
-  ProfilesScreen* screen = (ProfilesScreen*)lv_event_get_user_data(e);
-  lv_obj_t* ta = (lv_obj_t*)lv_event_get_target(e);
-  lv_event_code_t code = lv_event_get_code(e);
+// void ProfilesScreen::PTextAreaEventHandler(lv_event_t* e) {
+//   ProfilesScreen* screen = (ProfilesScreen*)lv_event_get_user_data(e);
+//   lv_obj_t* ta = (lv_obj_t*)lv_event_get_target(e);
+//   lv_event_code_t code = lv_event_get_code(e);
 
-  if (code == LV_EVENT_FOCUSED) {
-    // Create keyboard if it doesn't exist
-    if (!screen->_labels->keyboard) {
-      screen->_labels->keyboard = lv_keyboard_create(lv_screen_active());
-      lv_obj_set_size(screen->_labels->keyboard, lv_pct(100), lv_pct(60));
+//   if (code == LV_EVENT_FOCUSED) {
+//     // Create keyboard if it doesn't exist
+//     if (!screen->_labels->keyboard) {
+//       screen->_labels->keyboard = lv_keyboard_create(lv_screen_active());
+//       lv_obj_set_size(screen->_labels->keyboard, lv_pct(100), lv_pct(60));
 
-      // Position at bottom using align
-      lv_obj_align(screen->_labels->keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+//       // Position at bottom using align
+//       lv_obj_align(screen->_labels->keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
 
-      // Make it floating (ignores parent layout)
-      lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_FLOATING);
-    }
-    lv_keyboard_set_textarea(screen->_labels->keyboard, ta);
-    lv_obj_remove_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(screen->_labels->keyboard);
-  } else if (code == LV_EVENT_DEFOCUSED) {
-    if (screen->_labels->keyboard) {
-      lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
-    }
-  } else if (code == LV_EVENT_READY) {
-    // User pressed "OK" button on keyboard
-    FLOG_INFO("Keyboard OK pressed, text: %s", lv_textarea_get_text(ta));
-    // Hide keyboard
-    if (screen->_labels->keyboard) {
-      lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-}
+//       // Make it floating (ignores parent layout)
+//       lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_FLOATING);
+//     }
+//     lv_keyboard_set_textarea(screen->_labels->keyboard, ta);
+//     lv_obj_remove_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
+//     lv_obj_move_foreground(screen->_labels->keyboard);
+//   } else if (code == LV_EVENT_DEFOCUSED) {
+//     if (screen->_labels->keyboard) {
+//       lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
+//     }
+//   } else if (code == LV_EVENT_READY) {
+//     // User pressed "OK" button on keyboard
+//     FLOG_INFO("Keyboard OK pressed, text: %s", lv_textarea_get_text(ta));
+//     // Hide keyboard
+//     if (screen->_labels->keyboard) {
+//       lv_obj_add_flag(screen->_labels->keyboard, LV_OBJ_FLAG_HIDDEN);
+//     }
+//   }
+// }
 
 }  // namespace toothless

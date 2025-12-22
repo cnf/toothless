@@ -284,13 +284,29 @@ lv_obj_t* CreateMenuRootEntry(lv_obj_t* parent, lv_obj_t* obj, const char* icon)
 lv_obj_t* StyleMenuSidebar(lv_obj_t* menu) {
   // BUG: what does this even do???
   lv_obj_t* sidebar_header = lv_menu_get_sidebar_header(menu);
+  lv_obj_t* sb_back = lv_menu_get_sidebar_header_back_button(menu);
   if (sidebar_header) {
     lv_obj_add_style(sidebar_header, &themes::screens::menu_header, 0);
+
     // lv_obj_set_style_pad_all(sidebar_header, 0, 0);
     lv_obj_t* header_label = lv_obj_get_child_by_type(sidebar_header, 0, &lv_label_class);
     if (header_label) {
       lv_obj_add_style(header_label, &themes::text::title, 0);
     }
+    // lv_obj_t* sidebar = lv_menu_get_cur_sidebar_page(menu);
+    // if (sidebar) lv_obj_add_style(sidebar, &themes::screens::sidebar, LV_PART_MAIN);
+    // if (sidebar) lv_obj_set_width(sidebar, LV_SIZE_CONTENT);
+    if (!sb_back) return sidebar_header;
+    lv_obj_set_user_data(sidebar_header, sb_back);
+    lv_obj_add_flag(sidebar_header, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(
+        sidebar_header,
+        [](lv_event_t* e) {
+          lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+          lv_obj_t* back_btn = static_cast<lv_obj_t*>(lv_obj_get_user_data(target));
+          lv_obj_send_event(back_btn, LV_EVENT_CLICKED, e);
+        },
+        LV_EVENT_CLICKED, NULL);
   }
 
   return sidebar_header;
@@ -370,8 +386,15 @@ lv_obj_t* CreateUnitLabel(lv_obj_t* parent, const char* unit) {
 lv_obj_t* CreateTextArea(lv_obj_t* parent) {
   lv_obj_t* area = lv_textarea_create(parent);
   lv_obj_add_style(area, &themes::text::textentry, 0);
-  // lv_textarea_set_one_line(area, true);
   return area;
+}
+
+lv_obj_t* CreateTextLine(lv_obj_t* parent) {
+  lv_obj_t* line = CreateTextArea(parent);
+  lv_textarea_set_one_line(line, true);
+  lv_textarea_set_align(line, LV_TEXT_ALIGN_CENTER);
+  lv_obj_set_height(line, LV_SIZE_CONTENT);
+  return line;
 }
 
 lv_obj_t* CreateIconItem(lv_obj_t* parent, const char* txt, const char* icon) {
@@ -455,22 +478,65 @@ lv_obj_t* CreateSmallRoller(lv_obj_t* parent, const char* options, int32_t selec
   return roller;
 }
 
+// static void dropdown_opened_cb(lv_event_t* e) {
+//   lv_obj_t* dd = lv_event_get_target_obj(e);
+//   lv_obj_t* list = lv_dropdown_get_list(dd);
+
+//   if (list) {
+//     // Now we can configure the list
+//     lv_obj_add_style(list, &themes::controls::dropdown_list, 0);
+//     lv_obj_add_style(list, &themes::controls::dropdown_selected, LV_PART_SELECTED);
+//     lv_obj_set_scroll_dir(list, LV_DIR_VER);
+//     lv_obj_set_scroll_snap_y(list, LV_SCROLL_SNAP_NONE);
+//     lv_obj_remove_flag(list, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+//     lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
+
+//     // Critical: Ensure the list allows scrolling
+//     lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
+
+//     // Set a reasonable height to trigger scrolling
+//     // Adjust based on your item count
+//     lv_obj_set_style_max_height(list, lv_pct(50), 0);
+//   }
+// }
+
 lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options, int32_t selected) {
   lv_obj_t* dd = lv_dropdown_create(parent);
   lv_obj_add_style(dd, &themes::controls::dropdown, 0);
-
+  lv_obj_add_style(dd, &themes::controls::dropdown_indicator, LV_PART_INDICATOR);
+  // lv_obj_add_style(dd, &themes::controls::dropdown_selected, LV_PART_SELECTED);
   lv_dropdown_set_options(dd, options);
   lv_dropdown_set_selected(dd, selected);
   lv_dropdown_set_text(dd, name);
+  lv_dropdown_set_dir(dd, LV_DIR_LEFT);
+
+  lv_dropdown_set_selected_highlight(dd, false);  // Optional: disable highlight
+  lv_obj_set_style_text_decor(dd, LV_TEXT_DECOR_NONE, LV_PART_MAIN);
+
+  // lv_obj_add_event_cb(dd, dropdown_opened_cb, LV_EVENT_READY, nullptr);
+
   lv_obj_t* list = lv_dropdown_get_list(dd);
-  lv_obj_add_style(list, &themes::controls::dropdown, 0);
+  lv_obj_add_style(list, &themes::controls::dropdown_list, 0);
   lv_obj_add_style(list, &themes::controls::dropdown_selected, LV_PART_SELECTED);
-  // lv_obj_center(dd);
-  // lv_obj_set_width(dd, LV_SIZE_CONTENT);
-  // lv_obj_set_flex_grow(dd, 1);
-  // lv_obj_set_style_flex_grow(dd, 0, 0);
+  lv_obj_set_scroll_dir(list, LV_DIR_VER);
+  lv_obj_set_scroll_snap_y(list, LV_SCROLL_SNAP_NONE);
+  lv_obj_remove_flag(list, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
 
   return dd;
+}
+
+lv_obj_t* CreateButtonMatrix(lv_obj_t* parent, const char* btn_map[], lv_event_cb_t event_cb, void* user_data) {
+  lv_obj_t* btnm = lv_buttonmatrix_create(parent);
+  lv_obj_add_style(btnm, &themes::controls::keypad, 0);
+  lv_obj_add_style(btnm, &themes::controls::keys, LV_PART_ITEMS);
+  lv_obj_add_style(btnm, &themes::controls::keys_pressed, LV_PART_ITEMS | LV_STATE_PRESSED);
+  lv_obj_set_layout(btnm, LV_LAYOUT_GRID);
+  lv_buttonmatrix_set_map(btnm, btn_map);
+  if (event_cb) {
+    lv_obj_add_event_cb(btnm, event_cb, LV_EVENT_VALUE_CHANGED, user_data);
+  }
+  return btnm;
 }
 
 // ============================================================================
@@ -704,6 +770,7 @@ std::string SnakeToTitle(const std::string& snake_case) {
 }
 
 std::string TitleToSnake(const std::string& title_case) {
+  FLOG_ERROR("TitleToSnake is deprecated, please migrate to helpers::TitleToSnake");
   std::string result;
 
   for (size_t i = 0; i < title_case.length(); i++) {

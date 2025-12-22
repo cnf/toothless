@@ -12,6 +12,7 @@
 #include "sdkconfig.h"
 
 esp_err_t I2cManager::Init() {
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   std::lock_guard<std::mutex> lock(_mutex);
   if (_initialized) {
     return ESP_OK;
@@ -114,15 +115,18 @@ esp_err_t I2cManager::Write(i2c_master_dev_handle_t dev_handle, const uint8_t* d
 }
 
 esp_err_t I2cManager::Scan() {
+  FLOG_INFO("Scanning I2C bus for devices...");
   std::lock_guard<std::mutex> lock(_mutex);
   if (!_initialized) {
+    FLOG_ERROR("I2C bus not initialized, cannot scan");
     return ESP_ERR_INVALID_STATE;
   }
   uint8_t slave = 0x00;
   esp_err_t err;
   _device_addresses.clear();
   for (int i = 0; i <= 127; i++) {
-    err = i2c_master_probe(_bus_handle, slave, -1);
+    printf(".");
+    err = i2c_master_probe(_bus_handle, slave, 10);
     if (err == ESP_OK) {
       FLOG_DEBUG("slave device address found on 0x%X\n", slave);
       _device_addresses.push_back(slave);
@@ -130,6 +134,7 @@ esp_err_t I2cManager::Scan() {
     usleep(10000);  // Small delay to avoid bus overload
     slave = slave + 1;
   }
+  FLOG_INFO("\nI2C scan complete, found %d device(s)", _device_addresses.size());
   return ESP_OK;
 }
 

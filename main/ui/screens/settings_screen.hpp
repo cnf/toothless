@@ -56,7 +56,17 @@ class SettingsScreen : public Screen {
     std::string namespace_name;  //<! Configuration namespace
     std::string key;             //<! Configuration key
     ConfigValueTypes type;       //<! Configuration value type
+    Validator validator;         //<! Validator for the setting
   };
+  // Small struct just for the tap context
+  struct TapEditData {
+    std::string namespace_name;
+    std::string key;
+    std::string format;
+    std::string unit;
+    ConfigValueTypes type;
+  };
+
   std::unique_ptr<SettingsScreenLabels> _labels;
   // std::map<lv_obj_t*, WidgetData*> _widget_map;  // FIXME:: make smart pointer
   std::map<lv_obj_t*, std::shared_ptr<WidgetData>> _widget_map;
@@ -113,7 +123,7 @@ class SettingsScreen : public Screen {
                              bool current_value);  //<! Build boolean setting widget
   lv_obj_t* BuildIntSetting(lv_obj_t* parent, const ConfigEntry& entry,
                             int current_value);  //<! Build integer setting widget
-  lv_obj_t* BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry& entry,
+  lv_obj_t* BuildDoubleSetting(lv_obj_t* parent, const char* ns, const ConfigEntry& entry,
                                double current_value);  //<! Build double setting widget
   lv_obj_t* BuildStringSetting(lv_obj_t* parent, const ConfigEntry& entry,
                                const std::string& current_value);  //<! Build string setting widget
@@ -122,12 +132,15 @@ class SettingsScreen : public Screen {
 
   /// @}
 
+  static void OnValueTapped(lv_event_t* e);
+
   /// @defgroup type_change_handlers Data Type Event Handlers
   /// @brief Event handlers for different data types
   /// @implements @ref lv_event_cb_t
   /// @param e LVGL event object
   /// @{
   static void OnSwitchChanged(lv_event_t* e);
+  static void OnSpinboxChanged(lv_event_t* e);
   static void OnSliderChanged(lv_event_t* e);
   static void OnRollerChanged(lv_event_t* e);
   static void OnDropdownChanged(lv_event_t* e);
@@ -140,6 +153,7 @@ class SettingsScreen : public Screen {
   /// @implements @ref lv_event_cb_t
   /// @param e LVGL event object
   /// @{
+  static void StageEditDoubleHandler(lv_event_t* e);
   static void SidebarHandler(lv_event_t* e);        //<! Handle sidebar toggle events
   static void MenuBackEventHandler(lv_event_t* e);  //<! Handle back button events
   static void BackButtonHandler(lv_event_t* e);     //<! Handle back button events
@@ -157,7 +171,7 @@ class SettingsScreen : public Screen {
   /// @note FIXME: This is duplicated from config_mgr.hpp, should be refactored
   /// @param format Format string
   /// @return Validator struct
-  Validator ParseValidatorFromFormat(const std::string& format);
+  static Validator ParseValidatorFromFormat(const std::string& format);
 };
 
 }  // namespace toothless

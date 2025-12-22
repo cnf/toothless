@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "helpers/chip_info.hpp"
+#include "helpers/string_to_snake.hpp"
 #include "peripherals/peripheral_registry.hpp"
 #include "settings_screen.hpp"
 #include "ui/screens/overlay_manager.hpp"
@@ -62,6 +63,8 @@ esp_err_t SettingsScreen::BaseCreate() {
   BuildSettingsUI(_labels->menu, "heater", "Hearer Settings");
   BuildSettingsUI(_labels->menu, "network", "Network Settings");
   BuildSettingsUI(_labels->menu, "peripheral", "Peripheral Settings");
+  BuildSettingsUI(_labels->menu, "gpio_ssr", "GPIO SSR");  // Add for each GPIO peripheral
+
   // BuildSensorSettingsUI(_labels->menu);
 
   ui::CreateHeading(_labels->root_page, "Info");
@@ -105,7 +108,7 @@ esp_err_t SettingsScreen::SetSidebar(bool mode) {
 
 void SettingsScreen::BuildSettingsUI(lv_obj_t* parent, const char* namespace_name, const char* title) {
   // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
-  FLOG_INFO("Building settings UI for namespace: %s", namespace_name);
+  FLOG_DEBUG("Building settings UI for namespace: %s", namespace_name);
 
   auto values = std::make_shared<SettingsMap>();
   GetSettings(values, namespace_name);
@@ -115,9 +118,9 @@ void SettingsScreen::BuildSettingsUI(lv_obj_t* parent, const char* namespace_nam
 
 void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_name, const ConfigEntries& entries,
                                       const SettingsMap& current_values, std::string title) {
-  for (const auto& entry : entries) {
-    FLOG_INFO("BuildFromEntries sees: key=%s, type=%d, format='%s'", entry.key, entry.type, entry.format.c_str());
-  }
+  // for (const auto& entry : entries) {
+  //   FLOG_DEBUG("BuildFromEntries sees: key=%s, type=%d, format='%s'", entry.key, entry.type, entry.format.c_str());
+  // }
   // Create main container
   if (title.empty()) {
     title = ui::SnakeToTitle(std::string(namespace_name));
@@ -165,7 +168,7 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
       }
       case ConfigValueTypes::kDouble: {
         double val = std::get<double>(it->second);
-        widget = BuildDoubleSetting(col, entry, val);
+        widget = BuildDoubleSetting(col, namespace_name, entry, val);
         break;
       }
       case ConfigValueTypes::kString: {
@@ -191,7 +194,7 @@ void SettingsScreen::BuildFromEntries(lv_obj_t* parent, const char* namespace_na
       lv_obj_add_event_cb(widget, OnWidgetDeleted, LV_EVENT_DELETE, this);
     }
   }
-  lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, ui::SnakeToTitle(namespace_name).c_str(), LV_SYMBOL_LIST);
+  lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, ui::SnakeToTitle(namespace_name).c_str(), NULL);
   lv_menu_set_load_page_event(_labels->menu, cont, sub_page);
 }
 
@@ -211,7 +214,7 @@ void SettingsScreen::BuildSensorSettingsUI(lv_obj_t* parent) {
   // auto values = std::make_shared<SettingsMap>();
   // GetSettings(values, "sensors");
   // BuildFromEntries(_labels->menu, "sensors", sensor::config_entries, *values, "Sensor Settings");
-  auto registry = PeripheralRegistry::GetEnabledInfo();
+  auto registry = PeripheralRegistry::Instance().GetEnabledInfo();
 
   lv_obj_t* page = ui::CreateMenuPage(parent, "Peripherals");
   lv_obj_t* section = ui::CreateMenuSection(page);
@@ -222,12 +225,12 @@ void SettingsScreen::BuildSensorSettingsUI(lv_obj_t* parent) {
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
 
   for (const auto& info : registry) {
-    FLOG_INFO("Enabled Peripheral: %s (%s) on bus %d at address 0x%02X", info.name, info.type,
-              static_cast<int>(info.bus), info.address);
+    FLOG_DEBUG("Enabled Peripheral: %s (%s) on bus %d at address 0x%02X", info.name, info.type,
+               static_cast<int>(info.bus), info.address);
     ui::CreateIconItem(wrapper, std::format("{}", info.name).c_str(), LV_SYMBOL_BULLET);
   }
 
-  lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Peripherals", LV_SYMBOL_LIST);
+  lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Peripherals", NULL);
   lv_menu_set_load_page_event(_labels->menu, cont, page);
 }
 
@@ -250,9 +253,7 @@ lv_obj_t* SettingsScreen::CreateSubFirmwareInfo(lv_obj_t* parent, lv_obj_t* root
   ui::CreateIconItem(wrapper, std::format("Version: {}", desc->version).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("ESP-IDF: {}", desc->idf_ver).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, std::format("LVGL: {}", lvgl_version).c_str(), LV_SYMBOL_BULLET);
-  // ui::CreateIconItem(wrapper, std::format("Build Date: {}", __DATE__).c_str(),
-  //  LV_SYMBOL_BULLET);  // BUG: for some reason, i can not get an actual date here... once compiled it
-  // is always "Jan  1 1980"
+  ui::CreateIconItem(wrapper, std::format("Build Date: {}", __DATE__).c_str(), LV_SYMBOL_BULLET);
   ui::CreateIconItem(wrapper, "https://github.com/cnf/Toothless", LV_SYMBOL_HOME);
 
   lv_obj_t* cont = ui::CreateMenuRootEntry(root, "About", NULL);
@@ -388,13 +389,18 @@ lv_obj_t* SettingsScreen::BuildIntSetting(lv_obj_t* parent, const ConfigEntry& e
   return val_label;
 }
 
-lv_obj_t* SettingsScreen::BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry& entry, double current_value) {
+lv_obj_t* SettingsScreen::BuildDoubleSetting(lv_obj_t* parent, const char* ns, const ConfigEntry& entry,
+                                             double current_value) {
   auto validator = ParseValidatorFromFormat(entry.format);
 
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
   lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
   lv_obj_set_width(wrapper, LV_SIZE_CONTENT);
   lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  // int decimals = validator.decimal_places.value_or(3);
+  // auto fmt = std::format("{{:.{}f}}", decimals);
+  // std::string val_str = std::vformat(fmt, std::make_format_args(current_value));
 
   // lv_obj_t* val_label = ui::CreateValueSmall(parent, current_value, "%.3f");
   lv_obj_t* val_label = ui::CreateBodyText(wrapper, std::format("{:.3f}", current_value).c_str());
@@ -404,16 +410,27 @@ lv_obj_t* SettingsScreen::BuildDoubleSetting(lv_obj_t* parent, const ConfigEntry
     ui::CreateBodyText(wrapper, entry.unit.c_str());
   }
 
-  if (validator.has_min && validator.has_max) {
-    // FIXME: Don't use a slider here, as it only supports integers
-    lv_obj_t* slider = ui::CreateSlider(parent, validator.min_val * 10, validator.max_val * 10, current_value * 10);
-    // lv_obj_set_width(slider, 150);
-    lv_obj_set_height(slider, LV_SIZE_CONTENT);
+  // Store context directly on the label
+  auto* ctx = new TapEditData{ns, entry.key, entry.format, entry.unit, entry.type};
+  lv_obj_set_user_data(val_label, ctx);
+  lv_obj_add_flag(val_label, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(val_label, OnValueTapped, LV_EVENT_CLICKED, this);
+  lv_obj_add_event_cb(
+      val_label, [](lv_event_t* e) { delete (TapEditData*)lv_obj_get_user_data(lv_event_get_target_obj(e)); },
+      LV_EVENT_DELETE, nullptr);
 
-    lv_obj_add_event_cb(slider, OnSliderChanged, LV_EVENT_ALL, this);
-    lv_obj_set_user_data(slider, val_label);
-    return slider;
-  }
+  // if (validator.has_min && validator.has_max) {
+  //   // FIXME: Don't use a slider here, as it only supports integers
+  //   lv_obj_t* slider = ui::CreateSlider(parent, validator.min_val * 10, validator.max_val * 10, current_value * 10);
+  //   // lv_obj_set_width(slider, 150);
+  //   lv_obj_set_height(slider, LV_SIZE_CONTENT);
+
+  //   lv_obj_add_event_cb(slider, OnSliderChanged, LV_EVENT_ALL, this);
+  //   lv_obj_set_user_data(slider, val_label);
+  //   return slider;
+  // }
+  // lv_obj_add_event_cb(wrapper, OnDoubleClicked, LV_EVENT_CLICKED, this);
+
   return val_label;
 }
 
@@ -478,6 +495,32 @@ lv_obj_t* SettingsScreen::BuildStringSetting(lv_obj_t* parent, const ConfigEntry
 // Controlls Event Handlers
 // ============================================================================
 
+void SettingsScreen::OnValueTapped(lv_event_t* e) {
+  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  lv_obj_t* label = lv_event_get_target_obj(e);
+  auto* ctx = (TapEditData*)lv_obj_get_user_data(label);
+  if (!ctx) return;
+
+  auto validator = ParseValidatorFromFormat(ctx->format);
+  double current = std::stod(lv_label_get_text(label));
+  int decimals = ctx->type == ConfigValueTypes::kDouble ? 3 : 0;
+
+  NumpadContext np{.parent_screen = screen->_screen,
+                   .on_confirm =
+                       [label, ctx](std::optional<double> val) {
+                         if (!val) return;
+                         lv_label_set_text(label, std::format("{:.3f}", *val).c_str());
+                         char topic[128];
+                         snprintf(topic, sizeof(topic), "config.%s.%s.set", ctx->namespace_name.c_str(),
+                                  ctx->key.c_str());
+                         PS_PUB_DBL(topic, *val);
+                       },
+                   .initial_value = current,
+                   .decimal_places = decimals};
+
+  NumpadOpen(np);
+}
+
 void SettingsScreen::OnSwitchChanged(lv_event_t* e) {
   SettingsScreen* screen = (SettingsScreen*)lv_event_get_user_data(e);
   if (!screen) return;
@@ -492,6 +535,22 @@ void SettingsScreen::OnSwitchChanged(lv_event_t* e) {
   char topic[128];
   snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
   PS_PUB_BOOL(topic, val);
+}
+
+void SettingsScreen::OnSpinboxChanged(lv_event_t* e) {
+  auto* screen = (SettingsScreen*)lv_event_get_user_data(e);
+  if (!screen) return;
+  lv_obj_t* sb = static_cast<lv_obj_t*>(lv_event_get_target(e));
+
+  auto it = screen->_widget_map.find(sb);
+  if (it == screen->_widget_map.end()) return;
+
+  std::shared_ptr<WidgetData> data = it->second;
+  int32_t val = lv_spinbox_get_value(sb);
+
+  char topic[128];
+  snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
+  PS_PUB_INT(topic, val);
 }
 
 void SettingsScreen::OnSliderChanged(lv_event_t* e) {
@@ -578,7 +637,8 @@ void SettingsScreen::OnDropdownChanged(lv_event_t* e) {
 
   char topic[128];
   snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
-  PS_PUB_STR(topic, ui::TitleToSnake(std::string(option)).c_str());
+  // PS_PUB_STR(topic, ui::TitleToSnake(std::string(option)).c_str());
+  PS_PUB_STR(topic, StringToSnake(std::string(option)).c_str());
 }
 
 void SettingsScreen::OnTextareaChanged(lv_event_t* e) {
@@ -645,7 +705,7 @@ void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {
 }
 
 void SettingsScreen::BackButtonHandler(lv_event_t* e) {
-  FLOG_INFO("Back button pressed nao");
+  FLOG_DEBUG("Back button pressed");
   lv_obj_remove_event_cb((lv_obj_t*)lv_event_get_target(e), SettingsScreen::BackButtonHandler);
   SettingsScreen* obj = (SettingsScreen*)lv_event_get_user_data(e);
   if (!obj) return;

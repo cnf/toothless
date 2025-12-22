@@ -31,9 +31,11 @@ struct ColorPalette {
 
 struct Settings {
   bool borders;
-  uint32_t screen_padding;             ///< Standard screen padding
+  size_t border_width = 2;             ///< Standard border width
+  size_t screen_padding;               ///< Standard screen padding
   size_t element_padding = LV_DPX(8);  ///< Standard element padding
   size_t button_height = 60;           ///< Standard button height
+  bool tiny = false;
 };
 
 /// Available theme IDs
@@ -109,8 +111,8 @@ PS_PUB_STR(topics::heater::mode_set, ModeToString(mode));
 
 // Theme palette definitions
 static const ColorPalette PALETTE_TOOTHLESS = {
-    .primary = lv_color_hex(0xFF6700),        // Orange for heat/temperature
-    .secondary = lv_color_hex(0x0098FF),      // Blue for cooling
+    .primary = lv_color_hex(0xFF6700),        // Primary Color
+    .secondary = lv_color_hex(0x0098FF),      // Secondary / accent color
     .background = lv_color_black(),           // Pure black background [old 0x001122]
     .surface = lv_color_hex(0x001122),        // Slightly lighter surface
     .text = lv_color_hex(0xE0E0E0),           // Light gray text
@@ -132,7 +134,7 @@ static const Settings SETTINGS_DEFAULT = {
 
 static const Settings SETTINGS_TOOTHLESS = {
     .borders = false,
-    .screen_padding = 0  // LV_DPX(5)  // Standard screen padding
+    .screen_padding = 3  // LV_DPX(5)  // Standard screen padding
 };
 
 static const ColorPalette PALETTE_TOOTHLESS_LIGHT = {

@@ -1,0 +1,574 @@
+// cSpell: words lvgl qspi
+#include "display_impl.hpp"
+
+#include <driver/gpio.h>
+#include <driver/spi_master.h>
+#include <esp_check.h>
+#include <esp_lcd_axs15231b.h>
+#include <esp_lcd_panel_ops.h>
+#include <esp_lcd_panel_vendor.h>
+#include <esp_timer.h>
+#include <lvgl.h>
+
+#include "display_commands.hpp"
+#include "funlog.h"
+#include "i2c_manager.hpp"
+#include "sdkconfig.h"
+
+namespace display {
+namespace impl {
+
+static void* _rotationbuffer = nullptr;  // Persistent 640×180 framebuffer in PSRAM
+static uint16_t* trans_buf_1 = nullptr;
+
+static SemaphoreHandle_t _flush_done_semaphore = NULL;
+
+esp_lcd_panel_io_handle_t _io_handle = NULL;
+esp_lcd_panel_handle_t _panel_handle = NULL;
+static bool _first_flush_of_frame = true;
+
+/**
+ * Uncomment these line if use custom initialization commands.
+ * The array should be declared as static const and positioned outside the function.
+ */
+// static const axs15231b_lcd_init_cmd_t lcd_init_cmds[] = {
+//     //  {cmd, { data }, data_size, delay_ms}
+//     {0xFF, (uint8_t[]){0x20, 0x10, 0x10}, 3, 0},
+//     {0x0C, (uint8_t[]){0x11}, 1, 0},
+//     {0x10, (uint8_t[]){0x02}, 1, 0},
+//     {0x11, (uint8_t[]){0x11}, 1, 0},
+// };
+// cmd, data, size, delay
+// static const axs15231b_lcd_init_cmd_t lcd_init_cmds[] = {
+//     {0x28, {0x00}, 0x00, 20},   //<! DISP OFF - Delay 20
+//     {0x10, {0x00}, 0x00, 200},  //<! SLPIN
+//     {0x11, {0x00}, 0x00, 20},   //<! SLPOUT - Delay 200
+//     {0x29, {0x00}, 0x00, 20},   //<! DISP ON
+// };
+static const axs15231b_lcd_init_cmd_t lcd_init_cmds[] = {
+    {0x11, (uint8_t[]){0x00}, 0, 100},
+    {0x29, (uint8_t[]){0x00}, 0, 100},
+};
+typedef struct {
+  uint32_t addr;
+  uint8_t param[20];
+  uint32_t len;
+} lcd_cmd_t;
+
+#define delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS)
+
+static lv_display_t* _display;
+static spi_device_handle_t _spi = NULL;
+
+static uint8_t* _framebuffer = nullptr;  // Persistent 640×180 framebuffer in PSRAM
+
+i2c_master_dev_handle_t _dev_handle;
+i2c_master_bus_handle_t _bus_handle;
+
+esp_err_t DisplayPanelSetup() {
+  FLOG_INFO("Setting up display panel");
+  ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
+  gpio_set_level(kLcdBacklightPin, 1);  // BUG: Remove here
+
+  _flush_done_semaphore = xSemaphoreCreateBinary();
+  assert(_flush_done_semaphore);
+
+  // PanelReset();
+
+  SetupQSPI();
+
+  LV_LOG_INFO("Install panel IO");
+
+  const esp_lcd_panel_io_spi_config_t io_config = {
+      .cs_gpio_num = kLcdCsPin,
+      .dc_gpio_num = -1,
+      .spi_mode = 3,
+      .pclk_hz = kLcdPixelClockHz,
+      .trans_queue_depth = 10,
+      .on_color_trans_done = LvglFlushReadyCallback,
+      // .user_ctx = ,
+      .lcd_cmd_bits = kLcdCmdBits,
+      .lcd_param_bits = kLcdParamBits,
+      .flags =
+          {
+              .quad_mode = true,
+          },
+  };
+  ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &_io_handle));
+  LV_LOG_USER("Install AXS15231B panel driver");
+  axs15231b_vendor_config_t vendor_config = {
+      .init_cmds = lcd_init_cmds,  // Uncomment these line if use custom initialization commands
+      .init_cmds_size = sizeof(lcd_init_cmds) / sizeof(axs15231b_lcd_init_cmd_t),
+      .flags =
+          {
+              .use_qspi_interface = 1,
+          },
+  };
+  const esp_lcd_panel_dev_config_t panel_config = {
+      .reset_gpio_num = kLcdResetPin,
+      .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,  // Implemented by LCD command `36h`
+      .bits_per_pixel = 16,                        // Implemented by LCD command `3Ah` (16/18)
+      .vendor_config = &vendor_config,
+
+  };
+  ESP_ERROR_CHECK(esp_lcd_new_panel_axs15231b(_io_handle, &panel_config, &_panel_handle));
+  esp_lcd_panel_reset(_panel_handle);
+  PanelReset();
+  FLOG_INFO("Initialize panel");
+  esp_lcd_panel_init(_panel_handle);
+  // esp_lcd_panel_disp_on_off(panel_handle, true); // this turns the panel OFF!!!!
+
+  // vTaskDelay(2000 / portTICK_PERIOD_MS);  // give some time for the panel to settle
+
+  lv_init();
+
+  _display = lv_display_create(kHRes, kVRes);
+
+  if (!_display) {
+    LV_LOG_ERROR("Failed to create LVGL display");
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  vTaskDelay(200 / portTICK_PERIOD_MS);  // give some time for the panel to settle
+
+  LV_LOG_USER("Display resolution: %lix%li", kHRes, kVRes);
+
+  lv_display_set_user_data(_display, _panel_handle);
+
+  lv_display_set_flush_cb(_display, LvglFlushCallback);
+
+  // LvgLBufferSetupPartial();
+  LvgLBufferSetupFull();
+
+  LV_LOG_USER("Assign Flush Callback");
+  // set the callback which can copy the rendered image to an area of the display
+  lv_display_set_flush_cb(_display, LvglFlushCallback);
+
+  LV_LOG_USER("Set Color format to RGB565");
+  lv_display_set_color_format(_display, LV_COLOR_FORMAT_RGB565);
+
+  // lv_display_set_rotation(_display, LV_DISPLAY_ROTATION_90);  // FIXME: Uncomment to rotate display
+
+  return ESP_OK;
+};
+
+esp_err_t PanelInit() { return ESP_OK; }
+
+esp_err_t PanelReset() {
+  gpio_set_direction((gpio_num_t)kLcdCsPin, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)kLcdResetPin, GPIO_MODE_OUTPUT);
+  // reset display
+  gpio_set_level(kLcdResetPin, 1);
+  delay(130);
+  gpio_set_level(kLcdResetPin, 0);
+  delay(130);
+  gpio_set_level(kLcdResetPin, 1);
+  delay(300);
+  return ESP_OK;
+};
+
+esp_err_t LvgLBufferSetupFull() {
+  LV_LOG_USER("Assigning DMA Buffers");
+
+#ifndef CONFIG_SPIRAM
+#assert(false);  // Must have PSRAM for LVGL buffers
+#endif
+
+  {
+    // Allocate persistent framebuffer in PSRAM for rotation
+    // _rotationbuffer = (uint8_t*)heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
+    _rotationbuffer = heap_caps_aligned_alloc(32, kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!_rotationbuffer) {
+      LV_LOG_ERROR("Failed to allocate framebuffer in PSRAM");
+      return ESP_ERR_NO_MEM;
+    }
+    LV_LOG_USER("Allocated framebuffer: %p (%zu bytes)", _rotationbuffer, kFramebufferSize);
+  }
+
+  void* buf1 = heap_caps_aligned_alloc(32, kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  assert(buf1);
+  void* buf2 = heap_caps_aligned_alloc(32, kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  assert(buf2);
+
+  trans_buf_1 = (uint16_t*)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
+  assert(trans_buf_1);
+
+  vTaskDelay(10 / portTICK_PERIOD_MS);  // give some time for spi_bus_dma_memory_alloc to settle
+
+  LV_LOG_USER("Allocated DMA buffers: buf1=%p, buf2=%p", buf1, buf2);
+
+  // initialize LVGL draw buffers
+  lv_display_set_buffers(_display, buf1, buf2, kFramebufferSize, LV_DISPLAY_RENDER_MODE_FULL);
+  // lv_display_set_buffers_with_stride(_display, _rotationbuffer, buf1, buf2, LV_DISPLAY_RENDER_MODE_PARTIAL);
+
+  LV_LOG_USER("Draw buffer size: %zu bytes", kDrawBufferSize);
+  // lv_display_set_3rd_draw_buffer() // FIXME: tripple buffers pls!
+  return ESP_OK;
+}
+
+esp_err_t LvgLBufferSetupPartial() {
+  LV_LOG_USER("Assigning DMA Buffers");
+
+#ifndef CONFIG_SPIRAM
+#assert(false);  // Must have PSRAM for LVGL buffers
+#endif
+  void* buf1 = spi_bus_dma_memory_alloc(SPI3_HOST, kDrawBufferSize, 0);
+  // void* buf1 = heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  // void* buf1 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+
+  assert(buf1);
+
+  void* buf2 = spi_bus_dma_memory_alloc(SPI3_HOST, kDrawBufferSize, 0);
+  // void* buf2 = heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  // void* buf2 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+
+  assert(buf2);
+
+  vTaskDelay(10 / portTICK_PERIOD_MS);  // give some time for spi_bus_dma_memory_alloc to settle
+
+  LV_LOG_USER("Allocated DMA buffers: buf1=%p, buf2=%p", buf1, buf2);
+
+  // initialize LVGL draw buffers
+  lv_display_set_buffers(_display, buf1, buf2, kDrawBufferSize, LV_DISPLAY_RENDER_MODE_PARTIAL);
+  // lv_display_set_buffers(_display, buf1, buf2, kFramebufferSize, LV_DISPLAY_RENDER_MODE_FULL);
+
+  // lv_display_set_buffers_with_stride(_display, _framebuffer, buf1, buf2, LV_DISPLAY_RENDER_MODE_PARTIAL);
+
+  LV_LOG_USER("Draw buffer size: %zu bytes (%d lines)", kDrawBufferSize, kLvglDrawBufferLines);
+
+  // Clear buffers to avoid garbage pixels
+  // memset(buf1, 0x00, kDrawBufferSize);
+  // memset(buf2, 0x00, kDrawBufferSize);
+
+  // {
+  //   // Allocate persistent framebuffer in PSRAM for rotation
+  //   _framebuffer = (uint8_t*)heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM);
+  //   if (!_framebuffer) {
+  //     LV_LOG_ERROR("Failed to allocate framebuffer in PSRAM");
+  //     return ESP_ERR_NO_MEM;
+  //   }
+  //   LV_LOG_USER("Allocated framebuffer: %p (%zu bytes)", _framebuffer, kFramebufferSize);
+  // }
+
+  // lv_display_set_3rd_draw_buffer() // FIXME: tripple buffers pls!
+
+  return ESP_OK;
+}
+
+esp_err_t TouchPanelSetup() {
+  // LV_LOG_USER("Setting up touch panel");
+
+  // i2c_device_config_t i2c_dev_conf = {
+  //     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+  //     .device_address = kTouchI2cAddress,
+  //     .scl_speed_hz = I2cManager::kClockSpeedHz,
+  // };
+  // esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
+  // if (err != ESP_OK) {
+  //   FLOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
+  //   return err;
+  // }
+  // static lv_indev_t* indev;
+  // indev = lv_indev_create();  // Input device driver (SetupTouchPanel)
+  // lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+  // lv_indev_set_display(indev, _display);
+  // // lv_indev_set_user_data(indev, tp);
+
+  // lv_indev_set_read_cb(indev, LvglTouchCallback);
+  return ESP_OK;
+}
+
+void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
+  width = kHRes;
+  height = kVRes;
+}
+
+lv_display_t* GetDisplayObjPtr() { return _display; }
+
+esp_err_t SetupQSPI() {
+  spi_bus_config_t buscfg = {
+      .data0_io_num = kLcdData0Pin,
+      .data1_io_num = kLcdData1Pin,
+      .sclk_io_num = kLcdSckPin,
+      .data2_io_num = kLcdData2Pin,
+      .data3_io_num = kLcdData3Pin,
+      .data4_io_num = GPIO_NUM_NC,
+      .data5_io_num = GPIO_NUM_NC,
+      .data6_io_num = GPIO_NUM_NC,
+      .data7_io_num = GPIO_NUM_NC,
+      .max_transfer_sz = kMaxTransferSize,  //(SEND_BUF_SIZE * 16) + 8,
+      .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS,
+  };
+  ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
+  return ESP_OK;
+};
+
+void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+  // FLOG_INFO("Flush......");
+  esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
+  lv_draw_sw_rgb565_swap(px_map, lv_area_get_width(area) * lv_area_get_height(area));
+
+  lv_display_rotation_t rotation = lv_display_get_rotation(disp);
+  lv_area_t rotated_area;
+  uint16_t* map;
+
+  const int flush_coun = (LVGL_SPIRAM_BUFF_LEN / LVGL_DMA_BUFF_LEN);
+  const int offgap = (kVRes / flush_coun);
+  const int dmalen = (LVGL_DMA_BUFF_LEN / 2);
+  int offsetx1 = 0;
+  int offsety1 = 0;
+  int offsetx2 = kHRes;
+  int offsety2 = offgap;
+
+  if (rotation != LV_DISPLAY_ROTATION_0) {
+    lv_color_format_t cf = lv_display_get_color_format(disp);
+    /*Calculate the position of the rotated area*/
+    rotated_area = *area;
+    lv_display_rotate_area(disp, &rotated_area);
+    /*Calculate the source stride (bytes in a line) from the width of the area*/
+    uint32_t src_stride = lv_draw_buf_width_to_stride(lv_area_get_width(area), cf);
+    /*Calculate the stride of the destination (rotated) area too*/
+    uint32_t dest_stride = lv_draw_buf_width_to_stride(lv_area_get_width(&rotated_area), cf);
+    /*Have a buffer to store the rotated area and perform the rotation*/
+
+    int32_t src_w = lv_area_get_width(area);
+    int32_t src_h = lv_area_get_height(area);
+    lv_draw_sw_rotate(px_map, _rotationbuffer, src_w, src_h, src_stride, dest_stride, rotation, cf);
+    /*Use the rotated area and rotated buffer from now on*/
+    area = &rotated_area;
+
+    map = (uint16_t*)_rotationbuffer;
+  } else {
+    map = (uint16_t*)px_map;
+  }
+
+  xSemaphoreGive(_flush_done_semaphore);
+  for (int i = 0; i < flush_coun; i++) {
+    xSemaphoreTake(_flush_done_semaphore, portMAX_DELAY);
+    memcpy(trans_buf_1, map, LVGL_DMA_BUFF_LEN);
+    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2, offsety2, trans_buf_1);
+    offsety1 += offgap;
+    offsety2 += offgap;
+    map += dmalen;
+  }
+  xSemaphoreTake(_flush_done_semaphore, portMAX_DELAY);
+  lv_display_flush_ready(disp);
+}
+
+void OldFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+  // lv_display_rotation_t rotation = lv_display_get_rotation(disp);
+  // lv_area_t rotated_area;
+  esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
+
+  int x_start = area->x1;
+  int x_end = area->x2;
+  int y_start = area->y1;
+  int y_end = area->y2;
+
+  int width = lv_area_get_width(area);
+  int height = lv_area_get_height(area);
+  // lv_draw_sw_rgb565_swap(px_map, width * height);
+
+  // int width = x_end - x_start + 1;   // ADD THE +1!
+  // int height = y_end - y_start + 1;  // ADD THE +1!
+  // lv_draw_sw_rgb565_swap(px_map, width * height);
+
+  // lv_draw_sw_rgb565_swap(px_map, (x_end + 1 - x_start) * (y_end + 1 - y_start));
+  // lv_draw_sw_rgb565_swap(px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
+  // lv_draw_sw_rgb565_swap(px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
+  FLOG_INFO("Draw bitmap: x1=%d y1=%d x2=%d y2=%d", x_start, y_start, x_end, y_end);
+  esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end + 1, y_end + 1, px_map);
+  // draw_bitmap(panel_handle, x_start, y_start, x_end + 1, y_end + 1, px_map);
+  // draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, px_map);
+  // Now send window as: x1, y1, x1+width-1, y1+height-1
+  // This matches what the WORKING code does!
+  // draw_bitmap(panel_handle, x_start, y_start, x_start + width - 1, y_start + height - 1, px_map);
+  // In LvglFlushCallback - DON'T subtract, just pass coordinates as-is!
+  // draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, px_map);
+
+  // if (lv_display_flush_is_last(_display)) {
+  //   _first_flush_of_frame = true;
+  //   FLOG_INFO("LVGL frame rendered");
+  // }
+  // _first_flush_of_frame = false;
+
+  // // LcdPushPixels(x1, y1, x2, y2, px_map);
+
+  // delay(25);
+  FLOG_INFO("Draw bitmap done");
+  lv_display_flush_ready(disp);
+}
+
+bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t* edata, void* user_data) {
+  BaseType_t high_task_awoken = pdFALSE;
+  xSemaphoreGiveFromISR(_flush_done_semaphore, &high_task_awoken);
+  // if (high_task_awoken == pdTRUE) {
+  //   portYIELD_FROM_ISR();
+  // }
+  return false;
+  // LV_LOG_USER("LVGL Flush Ready Callback????????????????????????????");
+  // lv_display_t* disp = (lv_display_t*)user_data;
+  // lv_display_flush_ready(disp);
+  // return false;
+};
+
+uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
+  // uint8_t buffer[20] = {0};
+  // uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8, 0x0, 0x0, 0x0};
+
+  // // Use transmit_receive directly to avoid separate Write+Read calls
+  // esp_err_t err = i2c_master_transmit_receive(_dev_handle, cmd, sizeof(cmd), buffer, 20, -1);
+  // if (err != ESP_OK) {
+  //   return 0;  // Silently fail
+  // }
+
+  // uint16_t type = AXS_GET_GESTURE_TYPE(buffer);
+  // uint16_t pointX = AXS_GET_POINT_X(buffer, 0);
+  // uint16_t pointY = AXS_GET_POINT_Y(buffer, 0);
+
+  // if (!type && (pointX || pointY)) {
+  //   *x = pointY;
+  //   *y = 640 - pointX;
+  //   return 1;
+  // }
+  return 0;
+}
+
+// uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
+//   uint8_t buffer[20] = {0};
+
+//   // Send unlock command first
+//   uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8, 0x0, 0x0, 0x0};
+//   esp_err_t err = I2cManager::GetInstance()->Write(_dev_handle, cmd, sizeof(cmd));
+//   if (err != ESP_OK) {
+//     LV_LOG_ERROR("Touch unlock failed: %s", esp_err_to_name(err));
+//     return 0;
+//   }
+
+//   // Now read the touch data
+//   err = I2cManager::GetInstance()->Read(_dev_handle, buffer, 20);
+//   if (err != ESP_OK) {
+//     LV_LOG_ERROR("Touch read failed: %s", esp_err_to_name(err));
+//     return 0;
+//   }
+
+//   uint16_t type = AXS_GET_GESTURE_TYPE(buffer);
+//   uint16_t pointX = AXS_GET_POINT_X(buffer, 0);
+//   uint16_t pointY = AXS_GET_POINT_Y(buffer, 0);
+
+//   if (!type && (pointX || pointY)) {
+//     *x = pointY;
+//     *y = 640 - pointX;
+//     LV_LOG_USER("Touch: X=%d Y=%d", *x, *y);
+//     return 1;
+//   }
+//   return 0;
+// }
+
+// uint8_t TouchGetData(int16_t* x, int16_t* y, uint8_t point_num) {
+//   uint8_t touched = 0;
+//   uint16_t pointX;
+//   uint16_t pointY;
+//   uint16_t type = 0;
+
+//   uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8};
+//   uint8_t buffer[20] = {0};
+
+//   // I2cManager::GetInstance()->ReadRegister(_dev_handle, 0x00, buffer, 20);
+
+//   if (ESP_OK != i2c_master_transmit_receive(_dev_handle, cmd, sizeof(cmd) / sizeof(*cmd), buffer, 20, -1)) {
+//     return 0;
+//   }
+
+//   type = AXS_GET_GESTURE_TYPE(buffer);
+//   pointX = AXS_GET_POINT_X(buffer, 0);
+//   pointY = AXS_GET_POINT_Y(buffer, 0);
+
+//   if (!type && (pointX || pointY)) {
+//     *x = pointY;
+//     *y = 640 - pointX;
+//     LV_LOG_USER("T:%d X:%d Y:%d", type, *x, *y);
+//     touched = 1;
+//   }
+//   return touched;
+
+// }
+
+void LvglTouchCallback(lv_indev_t* indev, lv_indev_data_t* data) {
+  // void LvglTouchCallback(esp_lcd_touch_handle_t tp) {
+  int16_t touchpad_x[1] = {0};
+  int16_t touchpad_y[1] = {0};
+  uint8_t touchpad_cnt = 0;
+
+  /* Get coordinates */
+  touchpad_cnt = TouchGetData(touchpad_x, touchpad_y, 1);
+
+  if (touchpad_cnt > 0) {
+    data->point.x = touchpad_x[0];
+    data->point.y = touchpad_y[0];
+    data->state = LV_INDEV_STATE_PRESSED;
+  } else {
+    data->state = LV_INDEV_STATE_RELEASED;
+  }
+  LV_LOG_INFO("Touch data: x=%li y=%li state=%d", data->point.x, data->point.y, data->state);
+}
+
+void TurnOn() {
+  lv_async_call([](void*) { ShowBootScreen(); }, nullptr);
+};
+
+void ShowBootScreen() {
+  LV_LOG_USER("Displaying boot screen");
+  // return;
+
+  lv_obj_t* boot_scr = lv_obj_create(NULL);
+  lv_obj_set_style_bg_color(boot_scr, lv_color_hex(0x0000FF), 0);
+  lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
+
+  // Simple test: create a green rectangle
+  lv_obj_t* test_rect = lv_obj_create(boot_scr);
+  lv_obj_set_size(test_rect, 100, 100);
+  lv_obj_set_style_bg_color(test_rect, lv_color_hex(0x00FF00), 0);
+  lv_obj_center(test_rect);
+
+  lv_screen_load(boot_scr);
+  return;
+
+  // lv_obj_t* boot_scr = lv_obj_create(NULL);
+  // lv_obj_set_style_bg_color(boot_scr, lv_color_black(), 0);
+  // // lv_obj_set_style_bg_color(boot_scr, lv_color_hex(0xFF00FF), 0);
+
+  // lv_obj_set_style_bg_opa(boot_scr, LV_OPA_COVER, 0);
+
+  // lv_obj_t* label = lv_label_create(boot_scr);
+  // lv_label_set_text(label, "Toothless");
+  // lv_obj_set_style_text_font(label, &lv_font_montserrat_32, 0);
+  // lv_obj_center(label);
+
+  // lv_obj_t* sub_label = lv_label_create(boot_scr);
+  // lv_label_set_text(sub_label, "Initializing...");
+  // lv_obj_set_style_text_font(sub_label, &lv_font_montserrat_20, 0);
+  // lv_obj_align_to(sub_label, label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+
+  // lv_display_flush_ready(_display);  // trigger LVGL flush
+
+  // lv_screen_load(boot_scr);
+  // Backlight();
+}
+
+void Backlight() {
+  // Give lvgl time to render the first screen before turning on the backlight
+  esp_timer_handle_t backlight_timer = NULL;
+  const esp_timer_create_args_t timer_args = {
+      .callback = BacklightTimerCallback, .arg = NULL, .name = "backlight_timer"};
+  ESP_ERROR_CHECK(esp_timer_create(&timer_args, &backlight_timer));
+  ESP_ERROR_CHECK(esp_timer_start_once(backlight_timer, 100000));
+}
+
+void BacklightTimerCallback(void* arg) {
+  ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
+  gpio_set_level(kLcdBacklightPin, 1);  // TODO: make configurable
+};
+
+}  // namespace impl
+}  // namespace display

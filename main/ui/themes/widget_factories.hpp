@@ -229,6 +229,11 @@ lv_obj_t* CreateUnitLabel(lv_obj_t* parent, const char* unit);
 /// @return Created text area object
 lv_obj_t* CreateTextArea(lv_obj_t* parent);
 
+/// Create a single-line text area for text input
+/// @param parent Parent object
+/// @return Created single-line text area object
+lv_obj_t* CreateTextLine(lv_obj_t* parent);
+
 /// Create an icon item with optional text
 /// @param parent Parent object
 /// @param txt Optional text label
@@ -275,6 +280,14 @@ lv_obj_t* CreateSmallRoller(lv_obj_t* parent, const char* options, int32_t selec
 /// @param selected Initially selected option index
 /// @return Created dropdown object
 lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options, int32_t selected);
+
+/// Create a styled button matrix (on-screen keyboard)
+/// @param parent Parent object
+/// @param btn_map Button map array (NULL-terminated)
+/// @param event_cb Event callback for button presses
+/// @return Created button matrix object
+lv_obj_t* CreateButtonMatrix(lv_obj_t* parent, const char* btn_map[], lv_event_cb_t event_cb,
+                             void* user_data = nullptr);
 
 // ============================================================================
 // CHART FACTORIES

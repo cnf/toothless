@@ -98,8 +98,8 @@ class I2cManager {
   I2cManager& operator=(const I2cManager&) = delete;
 
  public:
-  static constexpr uint32_t kClockSpeedHz = 400000;  //<! Default I2C clock speed
-  static constexpr uint32_t kTimeoutMs = 500;        //<! Default I2C timeout
+  static constexpr uint32_t kClockSpeedHz = 400 * 1000;  //<! Default I2C clock speed
+  static constexpr uint32_t kTimeoutMs = 150;            //<! Default I2C timeout
   /// @brief Get singleton instance. It wil be created on first call.
   /// @return Reference to singleton instance
   /// Get shared instance for main I2C bus

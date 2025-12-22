@@ -1,4 +1,5 @@
 #include "io_manager.hpp"
+
 #include "funlog.h"
 
 IOManager::IOManager() { _port_expander = std::make_unique<MCP23008>(); }

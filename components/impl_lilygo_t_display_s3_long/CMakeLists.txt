@@ -7,7 +7,6 @@ set(PRIVREQ
   esp_driver_spi
   esp_mm
   lvgl
-  # esp_app_format
   io_manager
   FunLog
 )

@@ -17,12 +17,13 @@ extern "C" {
 
 namespace toothless {
 
-const PeripheralInfo DemoTemperature::_info = {kDemoTempName, "temperature", kDemoTempBusType, kDemoTempAddress};
+const PeripheralInfo DemoTemperature::_info = {kDemoTempName, kTemperature, kDemoTempBusType, kDemoTempAddress};
 
 static bool s_registered = []() {
-  PeripheralRegistry::Register({.info = DemoTemperature::GetInfo(), .probe = DemoTemperature::Detect, .create = []() {
-                                  return DemoTemperature::GetInstance();
-                                }});
+  PeripheralRegistry::Register({.info = DemoTemperature::GetInfo(),
+                                .probe = DemoTemperature::Detect,
+                                .create = []() { return DemoTemperature::GetInstance(); },
+                                .type = PeripheralRegistry::Registration::Type::kSensor});
   return true;
 }();
 
@@ -82,6 +83,9 @@ esp_err_t DemoTemperature::Loop() {
 
   _avg.Add(_current_temp);
   PS_PUB_INT(_topic.c_str(), _avg.Get());
+  if (!_alt_topic.empty()) {
+    PS_PUB_INT(_alt_topic.c_str(), _avg.Get());
+  }
   // PS_PUB_INT("sensor.temperature.zone", _avg.Get());
   // PS_PUB_INT("sensor.temperature.", _avg.Get());
   return ESP_OK;

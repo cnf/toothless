@@ -1,13 +1,13 @@
 #pragma once
 
-#include "config.h"
-
-#include "MCP23008.hpp"
 #include <cstdint>
 #include <memory>
 
+#include "MCP23008.hpp"
+#include "config.h"
+
 class IOManager {
-public:
+ public:
   IOManager();
   ~IOManager() = default;
   void Setup();
@@ -20,8 +20,8 @@ public:
     return instance;
   }
 
-private:
+ private:
   std::unique_ptr<MCP23008> _port_expander;
-  IOManager(const IOManager &) = delete;
-  IOManager &operator=(const IOManager &) = delete;
+  IOManager(const IOManager&) = delete;
+  IOManager& operator=(const IOManager&) = delete;
 };

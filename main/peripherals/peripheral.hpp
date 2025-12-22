@@ -3,6 +3,8 @@
 #include <esp_err.h>
 
 #include <cstdint>
+#include <string>
+#include <variant>
 
 namespace toothless {
 
@@ -36,11 +38,29 @@ inline const char* SensorTypeToString(SensorType type) {
   }
 }
 
-enum ActuatorType { kHeater, kCooler, kFan, kOtherActuator };
+enum ActuatorType { kSSR, kHeater, kCooler, kFan, kOtherActuator };
+
+inline const char* ActuatorTypeToString(ActuatorType type) {
+  switch (type) {
+    case kSSR:
+      return "ssr";
+    case kHeater:
+      return "heater";
+    case kCooler:
+      return "cooler";
+    case kFan:
+      return "fan";
+    case kOtherActuator:
+      return "other";
+    default:
+      return "unknown";
+  }
+}
 
 struct PeripheralInfo {
   const char* name;  // "M5 K-Meter"
-  const char* type;  // "temperature"
+  // const char* type;  // "temperature"
+  std::variant<SensorType, ActuatorType> type;
   BusType bus;
   uint8_t address;  // For I2C, 0 for non-I2C
 };
@@ -55,10 +75,13 @@ class Peripheral {
   virtual esp_err_t Loop() = 0;
   virtual const PeripheralInfo& Info() const = 0;
   inline std::string Topic() const { return _topic; }
+  // inline void SetAltTopic(const std::string& topic) { _alt_topic = topic; }
+  // inline void ClearAltTopic() { _alt_topic.clear(); }
 
  protected:
   bool _initialized = false;
   std::string _topic;
+  // std::string _alt_topic;
 };
 
 }  // namespace toothless

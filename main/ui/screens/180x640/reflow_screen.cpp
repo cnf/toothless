@@ -42,7 +42,10 @@ lv_obj_t* ReflowScreen::Create() {
 
   Chart(_labels->left);
   Temperature(_labels->right);
-  CreateMidSection(_labels->right);
+  lv_obj_t* mid = ui::CreateContainer(_labels->right);
+  lv_obj_set_size(mid, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(mid, 1);
+  CreateMidSection(mid);
   _labels->startstop_label = CreateBottomRow(_labels->right);
   lv_label_bind_text(_labels->startstop_label, &_subjects->start_stop, "%s");
 

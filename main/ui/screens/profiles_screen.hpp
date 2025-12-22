@@ -103,7 +103,7 @@ class ProfilesScreen : public Screen {
   static void StageEditUnitHandler(lv_event_t* e);
   static void StageDeleteHandler(lv_event_t* e);
 
-  static void PTextAreaEventHandler(lv_event_t* e);
+  // static void PTextAreaEventHandler(lv_event_t* e);
 };
 
 }  // namespace toothless

@@ -71,17 +71,21 @@ extern lv_style_t scale;        ///< Chart scale style
 
 /// Control styles (sliders, switches, etc.)
 namespace controls {
-extern lv_style_t slider_main;        ///< Slider track
-extern lv_style_t slider_indicator;   ///< Slider filled part
-extern lv_style_t slider_knob;        ///< Slider handle
-extern lv_style_t switch_bg;          ///< Switch background
-extern lv_style_t switch_indicator;   ///< Switch active indicator
-extern lv_style_t switch_knob;        ///< Switch knob/handle
-extern lv_style_t roller;             ///< Roller widget style
-extern lv_style_t roller_selected;    ///< Roller selected item style
-extern lv_style_t dropdown;           ///< Dropdown widget style
-extern lv_style_t dropdown_selected;  ///< Dropdown selected item style
-extern lv_style_t dropdown_button;    ///< Dropdown button style
+extern lv_style_t slider_main;         ///< Slider track
+extern lv_style_t slider_indicator;    ///< Slider filled part
+extern lv_style_t slider_knob;         ///< Slider handle
+extern lv_style_t switch_bg;           ///< Switch background
+extern lv_style_t switch_indicator;    ///< Switch active indicator
+extern lv_style_t switch_knob;         ///< Switch knob/handle
+extern lv_style_t roller;              ///< Roller widget style
+extern lv_style_t roller_selected;     ///< Roller selected item style
+extern lv_style_t dropdown;            ///< Dropdown widget style
+extern lv_style_t dropdown_indicator;  ///< Dropdown button style
+extern lv_style_t dropdown_list;       ///< Dropdown list style
+extern lv_style_t dropdown_selected;   ///< Dropdown selected item style
+extern lv_style_t keypad;              ///< On-screen keyboard style
+extern lv_style_t keys;                ///< On-screen keyboard style
+extern lv_style_t keys_pressed;        ///< On-screen keyboard button style
 }  // namespace controls
 
 /// LED indicator styles

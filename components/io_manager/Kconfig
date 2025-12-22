@@ -26,7 +26,7 @@ menu "IO Manager Configuration"
         config IOM_EXTERNAL_I2C_FREQUENCY
             depends on IOM_EXTERNAL_ENABLE
             int "Internal I2C Frequency (Hz)"
-            default 400000
+            default 100000
     endmenu
 endmenu
 

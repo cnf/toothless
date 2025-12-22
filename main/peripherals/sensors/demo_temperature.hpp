@@ -5,6 +5,7 @@
 
 #include "helpers/rolling_average.hpp"
 #include "peripherals/peripheral.hpp"
+#include "peripherals/sensors/sensor.hpp"
 
 extern "C" {
 #include <pubsub.h>
@@ -16,7 +17,7 @@ inline constexpr const char* kDemoTempName = "Demo Temperature";
 inline constexpr BusType kDemoTempBusType = BusType::kGPIO;
 inline constexpr uint8_t kDemoTempAddress = 0x00;
 
-class DemoTemperature : public Peripheral {
+class DemoTemperature : public Sensor {
  public:
   static bool Detect() { return true; }  // Always available
   esp_err_t Init() override;

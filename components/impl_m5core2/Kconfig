@@ -1,0 +1,25 @@
+menu "Display Impl: M5 Basic"
+    config IMPL_M5CORE2_HRES
+        int "Display Horizontal Resolution"
+        default 320
+        help
+            Horizontal resolution of the M5Stack Dial display.
+
+    config IMPL_M5CORE2_VRES
+        int "Display Vertical Resolution"
+        default 240
+        help
+            Vertical resolution of the M5Stack Dial display.
+endmenu
+
+
+
+config IOM_I2C_SDA_PIN
+    int
+    default 32
+    depends on IMPL_M5CORE2
+
+config IOM_I2C_SCL_PIN
+    int
+    default 33
+    depends on IMPL_M5CORE2

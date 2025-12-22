@@ -39,83 +39,164 @@ lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
 }
 
 void NumpadOpen(const NumpadContext& ctx) {
-  FLOG_INFO("Open Numpad");
   auto& mgr = OverlayManager::Instance();
   if (mgr.IsActive()) return;
 
   auto* state = mgr.Open<NumpadState>(ctx.parent_screen);
   state->on_confirm = ctx.on_confirm;
+  state->decimal_places = ctx.decimal_places;
 
-  // clang-format off
-  static const char *btn_map[] = {
-      "1", "2", "3", "\n",
-      "4", "5", "6", "\n",
-      "7", "8", "9", "\n",
-      LV_SYMBOL_STOP, "0", LV_SYMBOL_BACKSPACE, "\n",
-      LV_SYMBOL_SAVE, LV_SYMBOL_CLOSE, NULL
-  };
-  // clang-format on
+  // Button map includes "." only if decimals allowed
+  static const char* btn_map_int[] = {
+      "1", "2", "3", "\n", "4", "5", "6", "\n", "7", "8", "9", "\n", LV_SYMBOL_BACKSPACE, "0", LV_SYMBOL_OK, NULL};
 
-  state->numpadtextarea = lv_textarea_create(state->backdrop);
+  static const char* btn_map_dbl[] = {"1",  "2",          "3",
+                                      "\n", "4",          "5",
+                                      "6",  "\n",         "7",
+                                      "8",  "9",          "\n",
+                                      ".",  "0",          LV_SYMBOL_BACKSPACE,
+                                      "\n", LV_SYMBOL_OK, LV_SYMBOL_CLOSE,
+                                      NULL};
 
-  lv_obj_remove_style_all(state->numpadtextarea);
-  lv_textarea_set_one_line(state->numpadtextarea, true);
-  lv_textarea_set_align(state->numpadtextarea, LV_TEXT_ALIGN_CENTER);
-  lv_obj_set_flex_align(state->numpadtextarea, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  // lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
-  // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
-  lv_textarea_set_max_length(state->numpadtextarea, 3);
-  lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789");
-  if (ctx.initial_value.has_value()) {
-    lv_textarea_set_text(state->numpadtextarea, std::to_string(ctx.initial_value.value()).c_str());
+  state->numpadtextarea = ui::CreateTextLine(state->backdrop);
+  lv_obj_set_width(state->numpadtextarea, lv_pct(100));
+  lv_obj_set_style_pad_bottom(state->numpadtextarea, 0, 0);
+  lv_obj_set_style_pad_top(state->numpadtextarea, 0, 0);
+
+  if (ctx.decimal_places > 0) {
+    lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789.");
+    lv_textarea_set_max_length(state->numpadtextarea, 12);
   } else {
-    lv_textarea_set_text(state->numpadtextarea, "");
+    lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789");
+    lv_textarea_set_max_length(state->numpadtextarea, 6);
   }
-  lv_textarea_set_text(state->numpadtextarea, "");
-  lv_textarea_set_placeholder_text(state->numpadtextarea, "Enter value");
-  lv_obj_set_size(state->numpadtextarea, lv_pct(100), lv_pct(15));
-  lv_obj_set_style_pad_all(state->numpadtextarea, 0, 0);
 
-  state->numpad = lv_buttonmatrix_create(state->backdrop);
-  lv_obj_set_style_pad_all(state->numpad, 0, 0);
-  lv_obj_set_style_bg_color(state->numpad, lv_color_black(), 0);
-  lv_obj_set_style_border_width(state->numpad, 0, 0);
-  lv_buttonmatrix_set_map(state->numpad, btn_map);
-  lv_obj_add_event_cb(state->numpad, NumpadKeyHandler, LV_EVENT_VALUE_CHANGED, state);
+  if (ctx.initial_value.has_value()) {
+    if (ctx.decimal_places > 0) {
+      auto fmt = std::format("{{:.{}f}}", ctx.decimal_places);
+      lv_textarea_set_placeholder_text(state->numpadtextarea,
+                                       std::vformat(fmt, std::make_format_args(ctx.initial_value.value())).c_str());
+    } else {
+      lv_textarea_set_placeholder_text(state->numpadtextarea,
+                                       std::to_string(static_cast<int>(ctx.initial_value.value())).c_str());
+    }
+  }
 
-  lv_obj_set_size(state->numpad, lv_pct(100), lv_pct(80));
-
-  lv_obj_set_layout(state->numpad, LV_LAYOUT_GRID);
+  state->numpad = ui::CreateButtonMatrix(state->backdrop, ctx.decimal_places > 0 ? btn_map_dbl : btn_map_int,
+                                         NumpadKeyHandler, state);  //= lv_buttonmatrix_create(state->backdrop);
+  // lv_buttonmatrix_set_map(state->numpad, ctx.decimal_places > 0 ? btn_map_dbl : btn_map_int);
+  // lv_obj_add_event_cb(state->numpad, NumpadKeyHandler, LV_EVENT_VALUE_CHANGED, state);
+  lv_obj_set_size(state->numpad, lv_pct(100), LV_SIZE_CONTENT);  // lv_pct(80));
+  lv_obj_set_flex_grow(state->numpad, 1);
 }
 
 void NumpadKeyHandler(lv_event_t* e) {
-  FLOG_INFO("Key Pressed");
-  NumpadState* state = (NumpadState*)lv_event_get_user_data(e);
-
-  lv_event_code_t code = lv_event_get_code(e);
+  auto* state = (NumpadState*)lv_event_get_user_data(e);
   lv_obj_t* obj = lv_event_get_target_obj(e);
+  const char* txt = lv_buttonmatrix_get_button_text(obj, lv_buttonmatrix_get_selected_button(obj));
 
-  if (code == LV_EVENT_VALUE_CHANGED) {
-    uint32_t id = lv_buttonmatrix_get_selected_button(obj);
-    const char* txt = lv_buttonmatrix_get_button_text(obj, id);
-    FLOG_INFO("Key %s pressed", txt);
-    LV_UNUSED(txt);
-    LV_LOG_USER("%s was pressed\n", txt);
-    if (!obj) return;
-    if (lv_strcmp(txt, LV_SYMBOL_SAVE) == 0) {
-      NumPadCleanupHandler(e);
-    } else if (lv_strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) {
-      // Handle backspace
-      lv_textarea_delete_char(state->numpadtextarea);
-    } else if (lv_strcmp(txt, LV_SYMBOL_CLOSE) == 0) {
-      OverlayManager::Instance().Close();
-    } else if (lv_strcmp(txt, LV_SYMBOL_STOP) == 0) {
-    } else {
-      // Append character to textarea
+  if (lv_strcmp(txt, LV_SYMBOL_OK) == 0) {
+    const char* val_txt = lv_textarea_get_text(state->numpadtextarea);
+    std::optional<double> result = std::nullopt;
+    if (val_txt && strlen(val_txt) > 0) {
+      result = std::stod(val_txt);
+    }
+    if (state->on_confirm) state->on_confirm(result);
+    OverlayManager::Instance().Close();
+  } else if (lv_strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) {
+    lv_textarea_delete_char(state->numpadtextarea);
+  } else if (lv_strcmp(txt, LV_SYMBOL_CLOSE) == 0) {
+    OverlayManager::Instance().Close();
+  } else if (lv_strcmp(txt, ".") == 0) {
+    // Only add decimal if none exists
+    const char* cur = lv_textarea_get_text(state->numpadtextarea);
+    if (!strchr(cur, '.')) {
       lv_textarea_add_text(state->numpadtextarea, txt);
     }
+  } else {
+    lv_textarea_add_text(state->numpadtextarea, txt);
   }
 }
+
+// void NumpadOpen(const NumpadContext& ctx) {
+//   FLOG_INFO("Open Numpad");
+//   auto& mgr = OverlayManager::Instance();
+//   if (mgr.IsActive()) return;
+
+//   auto* state = mgr.Open<NumpadState>(ctx.parent_screen);
+//   state->on_confirm = ctx.on_confirm;
+
+//   // clang-format off
+//   static const char *btn_map[] = {
+//       "1", "2", "3", "\n",
+//       "4", "5", "6", "\n",
+//       "7", "8", "9", "\n",
+//       LV_SYMBOL_STOP, "0", LV_SYMBOL_BACKSPACE, "\n",
+//       LV_SYMBOL_SAVE, LV_SYMBOL_CLOSE, NULL
+//   };
+//   // clang-format on
+
+//   state->numpadtextarea = lv_textarea_create(state->backdrop);
+
+//   lv_obj_remove_style_all(state->numpadtextarea);
+//   lv_textarea_set_one_line(state->numpadtextarea, true);
+//   lv_textarea_set_align(state->numpadtextarea, LV_TEXT_ALIGN_CENTER);
+//   lv_obj_set_flex_align(state->numpadtextarea, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER,
+//   LV_FLEX_ALIGN_CENTER);
+//   // lv_obj_set_scrollbar_mode(wrapper, LV_SCROLLBAR_MODE_OFF);
+//   // lv_obj_remove_flag(wrapper, LV_OBJ_FLAG_SCROLLABLE);
+//   lv_textarea_set_max_length(state->numpadtextarea, 3);
+//   lv_textarea_set_accepted_chars(state->numpadtextarea, "0123456789");
+//   if (ctx.initial_value.has_value()) {
+//     lv_textarea_set_text(state->numpadtextarea, std::to_string(ctx.initial_value.value()).c_str());
+//   } else {
+//     lv_textarea_set_text(state->numpadtextarea, "");
+//   }
+//   lv_textarea_set_text(state->numpadtextarea, "");
+//   lv_textarea_set_placeholder_text(state->numpadtextarea, "Enter value");
+//   lv_obj_set_size(state->numpadtextarea, lv_pct(100), lv_pct(15));
+//   lv_obj_set_style_pad_all(state->numpadtextarea, 0, 0);
+
+//   state->numpad = lv_buttonmatrix_create(state->backdrop);
+//   lv_obj_set_style_pad_all(state->numpad, 0, 0);
+//   lv_obj_set_style_bg_color(state->numpad, lv_color_black(), 0);
+//   lv_obj_set_style_border_width(state->numpad, 0, 0);
+//   lv_buttonmatrix_set_map(state->numpad, btn_map);
+//   lv_obj_add_event_cb(state->numpad, NumpadKeyHandler, LV_EVENT_VALUE_CHANGED, state);
+
+//   lv_obj_set_size(state->numpad, lv_pct(100), lv_pct(80));
+
+//   lv_obj_set_layout(state->numpad, LV_LAYOUT_GRID);
+// }
+
+// void NumpadKeyHandler(lv_event_t* e) {
+//   FLOG_INFO("Key Pressed");
+//   NumpadState* state = (NumpadState*)lv_event_get_user_data(e);
+
+//   lv_event_code_t code = lv_event_get_code(e);
+//   lv_obj_t* obj = lv_event_get_target_obj(e);
+
+//   if (code == LV_EVENT_VALUE_CHANGED) {
+//     uint32_t id = lv_buttonmatrix_get_selected_button(obj);
+//     const char* txt = lv_buttonmatrix_get_button_text(obj, id);
+//     FLOG_INFO("Key %s pressed", txt);
+//     LV_UNUSED(txt);
+//     LV_LOG_USER("%s was pressed\n", txt);
+//     if (!obj) return;
+//     if (lv_strcmp(txt, LV_SYMBOL_SAVE) == 0) {
+//       NumPadCleanupHandler(e);
+//     } else if (lv_strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) {
+//       // Handle backspace
+//       lv_textarea_delete_char(state->numpadtextarea);
+//     } else if (lv_strcmp(txt, LV_SYMBOL_CLOSE) == 0) {
+//       OverlayManager::Instance().Close();
+//     } else if (lv_strcmp(txt, LV_SYMBOL_STOP) == 0) {
+//     } else {
+//       // Append character to textarea
+//       lv_textarea_add_text(state->numpadtextarea, txt);
+//     }
+//   }
+// }
 
 void NumPadCleanupHandler(lv_event_t* e) {
   FLOG_INFO("cleanup started");
@@ -278,12 +359,14 @@ void TextAreaFullscreenEventHandler(lv_event_t* e) {
   lv_obj_set_size(wrapper, lv_pct(100), lv_pct(100));
 
   state->holder = ui::CreateTextArea(wrapper);
+  lv_textarea_set_one_line(state->holder, true);
   lv_textarea_set_text(state->holder, lv_textarea_get_text(textarea));
   lv_textarea_set_cursor_pos(state->holder, lv_textarea_get_cursor_pos(textarea));
   lv_obj_set_size(state->holder, lv_pct(100), LV_SIZE_CONTENT);
 
   lv_obj_t* keyboard = lv_keyboard_create(wrapper);
-  lv_obj_set_size(keyboard, lv_pct(100), lv_pct(60));
+  lv_obj_set_size(keyboard, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(keyboard, 1);
   lv_keyboard_set_textarea(keyboard, state->holder);
 
   // On keyboard OK - copy text back and close

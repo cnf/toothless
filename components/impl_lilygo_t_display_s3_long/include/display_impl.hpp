@@ -22,6 +22,9 @@ static constexpr int32_t kHRes = 180;
 static constexpr int32_t kVRes = 640;
 static constexpr size_t kLcdDPI = 195;  //<! display dpi
 
+#define LVGL_DMA_BUFF_LEN (kHRes * 64 * 2)
+#define LVGL_SPIRAM_BUFF_LEN (kHRes * kVRes * 2)
+
 static constexpr gpio_num_t kLcdBacklightPin = GPIO_NUM_1;  //<! lcd backlight pin
 static constexpr gpio_num_t kLcdCsPin = GPIO_NUM_12;        //<! lcd chip select pin
 static constexpr gpio_num_t kLcdResetPin = GPIO_NUM_16;     //<! lcd reset pin
@@ -111,6 +114,10 @@ void ShowBootScreen();
 void Backlight();
 
 void BacklightTimerCallback(void* arg);
+
+static void TouchPollTask(void*);
+
+static uint8_t TouchGetDataBlocking(int16_t* x, int16_t* y);
 
 }  // namespace impl
 }  // namespace display

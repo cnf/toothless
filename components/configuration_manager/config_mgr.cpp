@@ -38,7 +38,6 @@ void ConfigManager::StarterTask(void* /*pv*/) {
   // ConfigManager* mgr = reinterpret_cast<ConfigManager*>(pvParameters);
   auto inst = std::make_shared<ConfigManager>();  // ctor on task stack
   _instance = inst;
-  // std::shared_ptr<ConfigManager> mgr = ConfigManager::GetInstance();
   inst->Setup();
 
   esp_task_wdt_add(NULL);
@@ -74,12 +73,12 @@ void ConfigManager::Start() {
 };
 
 void ConfigManager::Setup() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
 
   {
     // TODO: DEBUG ONLY
     // ESP_ERROR_CHECK(nvs_flash_erase());
-    // DeleteSetting("peripheral", "zone_temp");  // remove old theme setting
+    DeleteSetting("gpio_ssr", "ctrl_pin");  // remove old theme setting
     // DeleteSetting("peripheral", "zone_heater");
     // FLOG_ERROR("Removing old theme setting to reset to default");
   }
@@ -323,7 +322,8 @@ size_t ConfigManager::RegisterSettings(const char* name_space, ConfigEntries* co
     return 0;
   };
   for (auto& element : *config_entries) {
-    FLOG_DEBUG("Registering %s: type=%d, format='%s'", element.key, element.type, element.format.c_str());
+    FLOG_DEBUG("Registering %s: type=%s, format='%s'", element.key, ConfigValueTypeToString(element.type),
+               element.format.c_str());
     if (!element.format.empty()) {
       Validator v = ParseValidator(element.format);
       _validators[MakeValidatorKey(name_space, element.key)] = v;
