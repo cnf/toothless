@@ -79,7 +79,7 @@ class Profile {
 
  private:
   std::string _name;
-  std::array<Stage, kMaxStages> _stages;  // BUG: should be a shared_ptr
+  std::array<Stage, kMaxStages> _stages;
   size_t _stage_count;
 };
 

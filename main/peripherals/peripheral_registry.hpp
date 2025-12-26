@@ -1,11 +1,15 @@
 #pragma once
 
+#include <driver/gpio.h>
+
+#include <expected>
 #include <functional>
 #include <memory>
 #include <vector>
 
 #include "actuators/actuator.hpp"
 #include "config_mgr.hpp"
+#include "esp_err.h"
 #include "peripheral.hpp"
 #include "sensors/sensor.hpp"
 
@@ -78,9 +82,10 @@ class PeripheralRegistry {
   const std::vector<std::shared_ptr<Sensor>>& GetEnabledSensors() const;
   const std::vector<std::shared_ptr<Actuator>>& GetEnabledActuators() const;
 
-  static std::string BuildGpioPinEnum();
+  static std::string MakeGpioFormat();
+  static std::expected<gpio_num_t, esp_err_t> GpioFromString(const std::string& pin_str);
 
-  void RegisterGPIOConfigs();
+  // void RegisterGPIOConfigs();
 
  private:
   ps_subscriber_t* _subscriptions = nullptr;

@@ -57,7 +57,6 @@ set(REQ
 if(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
     set(SCREEN_DIR "180x640")
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
-    # set(SCREEN_DIR "180x640") # TODO: just for developing until proper screen is available
     set(SCREEN_DIR "rectangular") 
 elseif(CONFIG_IMPL_LILYGO_T_HMI)
     set(SCREEN_DIR "rectangular")

@@ -3,29 +3,6 @@
 #include <cctype>
 #include <string>
 
-// // FIXME: this isn't quite right for all cases, but works for most simple ones. should handle TLAs better.
-// inline std::string StringToSnake(const std::string& string_case) {
-//   std::string result;
-
-//   for (size_t i = 0; i < string_case.length(); i++) {
-//     char c = string_case[i];
-
-//     if (c == ' ') {
-//       result += '_';
-//     } else if (std::isupper(c)) {
-//       // Add underscore before uppercase if not first char and prev wasn't underscore
-//       if (i > 0 && result.back() != '_') {
-//         result += '_';
-//       }
-//       result += std::tolower(c);
-//     } else {
-//       result += c;
-//     }
-//   }
-
-//   return result;
-// }
-
 inline std::string StringToSnake(const std::string& string_case) {
   std::string result;
 

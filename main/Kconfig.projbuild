@@ -93,7 +93,7 @@ menu "Toothless"
         bool "Default log verbosity"
         default FLOG_LEVEL_INFO
         help
-            Set the default log verbosity level for the application. # TODO: add help for this option
+            Set the default log verbosity level for the application.
         config FLOG_LEVEL_NONE
             bool "No output"
         config FLOG_LEVEL_ERROR

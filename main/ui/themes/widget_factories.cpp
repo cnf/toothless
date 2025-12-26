@@ -282,7 +282,6 @@ lv_obj_t* CreateMenuRootEntry(lv_obj_t* parent, lv_obj_t* obj, const char* icon)
 // lv_obj_t* CreateMenuSeparator(lv_obj_t* parent) { lv_menu_separator_create(sub_page); }
 
 lv_obj_t* StyleMenuSidebar(lv_obj_t* menu) {
-  // BUG: what does this even do???
   lv_obj_t* sidebar_header = lv_menu_get_sidebar_header(menu);
   lv_obj_t* sb_back = lv_menu_get_sidebar_header_back_button(menu);
   if (sidebar_header) {
@@ -358,7 +357,9 @@ lv_obj_t* CreateValueLarge(lv_obj_t* parent, float value, const char* format) {
   lv_obj_add_style(label, &themes::text::danger, LV_STATE_USER_1);
   lv_obj_add_style(label, &themes::text::warning, LV_STATE_USER_2);
 
-  UpdateValueLabel(label, value, format);
+  // UpdateValueLabel(label, value, format);
+  lv_label_set_text_fmt(label, format, value);
+
   lv_obj_set_width(label, LV_SIZE_CONTENT);
   lv_obj_set_height(label, LV_SIZE_CONTENT);
   return label;
@@ -458,12 +459,10 @@ lv_obj_t* CreateRoller(lv_obj_t* parent, const char* options, int32_t selected) 
   lv_roller_set_visible_row_count(roller, 4);
   lv_obj_set_style_min_height(roller, LV_DPX(80), 0);
   lv_obj_set_style_min_width(roller, LV_DPX(40), 0);
-  // lv_obj_set_width(roller, LV_SIZE_FLEX);
   lv_obj_set_width(roller, LV_SIZE_CONTENT);
 
   lv_roller_set_options(roller, options, LV_ROLLER_MODE_NORMAL);
   lv_roller_set_selected(roller, selected, LV_ANIM_OFF);
-  // lv_obj_center(roller);// TODO: is this needed?
 
   return roller;
 }
@@ -473,8 +472,6 @@ lv_obj_t* CreateSmallRoller(lv_obj_t* parent, const char* options, int32_t selec
   lv_obj_set_style_text_font(roller, &themes::fonts::small, 0);
   lv_roller_set_visible_row_count(roller, 3);
 
-  // lv_obj_set_height(roller, LV_DPX(100));  // lv_display_get_vertical_resolution(NULL) / 8);
-  // lv_obj_set_flex_grow(roller, 1);  // allow it to expand horizontally if needed
   return roller;
 }
 
@@ -718,11 +715,11 @@ void DeleteObject(lv_obj_t* obj) {
   if (obj) lv_obj_delete(obj);
 }
 
-void UpdateValueLabel(lv_obj_t* label, float value, const char* format) {
-  // BUG: this doesn't work, for some reason the label text doesn't update properly
-  if (label == NULL) return;
-  lv_label_set_text_fmt(label, format, value);
-}
+// void UpdateValueLabel(lv_obj_t* label, float value, const char* format) {
+//   // BUG: this doesn't work, for some reason the label text doesn't update properly
+//   if (label == NULL) return;
+//   lv_label_set_text_fmt(label, format, value);
+// }
 
 void SetLEDState(lv_obj_t* led, bool on) {
   if (led == NULL) return;

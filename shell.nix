@@ -8,7 +8,14 @@ let
     # rev = "<commit hash>";
   };
 
-  pkgs = import <nixpkgs> { overlays = [ (import "${nixpkgs-esp-dev}/overlay.nix") ]; };
+  pkgs = import <nixpkgs> { 
+    overlays = [ (import "${nixpkgs-esp-dev}/overlay.nix") ]; 
+    config = {
+      permittedInsecurePackages = [
+        "python3.12-ecdsa-0.19.1"
+      ];
+    };
+  };
 in
 pkgs.mkShell {
   name = "IDF";

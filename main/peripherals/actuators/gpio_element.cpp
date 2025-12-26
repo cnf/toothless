@@ -28,20 +28,17 @@ static bool s_registered = []() {
 esp_err_t GPIOElement::Init() {
   _config = std::make_shared<SettingsMap>();
   _config_entries = std::make_unique<ConfigEntries>();
-  // for (const auto& entry : gpio_config_entries) {
-  //   if (entry.format.find("enum=") != std::string::npos) {
-  //     std::string pin_enum = PeripheralRegistry::BuildGpioPinEnum();
-  //     ConfigEntry enum_entry = entry;
-  //     enum_entry.format = pin_enum;
-  //     _config_entries->push_back(enum_entry);
-  //     continue;
-  //   }
-  //   _config_entries->push_back(entry);
-  // }
   _config_entries->insert(std::end(*_config_entries), std::begin(gpio_config_entries), std::end(gpio_config_entries));
-  RegisterConfig(_config_entries.get(), topics::peripherals::gpio_ssr::name);  // BUG: double registration?
+  RegisterConfig(_config_entries.get(), topics::peripherals::gpio_ssr::name);
   FLOG_DEBUG("Waiting for GPIO Element settings...");
   GetSettings(_config, topics::peripherals::gpio_ssr::name);
+  FLOG_DEBUG("GPIO Element settings loaded");
+  auto gpio_res = PeripheralRegistry::GpioFromString(std::get<std::string>(_config->at("ctrl_pin")));
+  if (!gpio_res) {
+    FLOG_ERROR("Invalid GPIO pin for GPIO Element");
+    return gpio_res.error();
+  }
+  _pin = gpio_res.value();
   // // _pin = (gpio_num_t)std::get<int>(_config->at("ctrl_pin"));
   // if (std::holds_alternative<std::string>(_config->at("ctrl_pin"))) {
   //   std::string pin_str = std::get<std::string>(_config->at("ctrl_pin"));

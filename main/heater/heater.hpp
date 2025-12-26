@@ -126,8 +126,6 @@ inline ConfigEntries config_entries = {
     ConfigEntry("mode", "Default Mode", MakeFormat(), std::string("reflow"), ""),
     // This will be updated dynamically in Init()
     ConfigEntry("profile", "Default Heater Profile", "enum=", std::string("chip_quik_leaded"), ""),
-    // ConfigEntry("profile", "Default Heater Profile", "enum=Qwik Leaded|Qwik Lead Free|Custom",
-    // std::string("Qwik Leaded"), ""),  // TODO: implement custom profiles
     ConfigEntry("max_temp", "Maximum target temperature the heater will accept", "min=50,max=500", 250, "°C"),
     ConfigEntry("pid_kp", "[P] Power % per °C error", "min=0.1,max=50,step=0.1", 5.0f, "%/°C"),
     ConfigEntry("pid_ki", "[I] Power % per °C*sec", "min=0.001,max=2,step=0.01", 0.1f, "%/°C*s"),

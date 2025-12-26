@@ -294,6 +294,7 @@ struct Validator {
   bool validate_int(int value) const {
     if (has_min && value < min_val) return false;
     if (has_max && value > max_val) return false;
+    // TODO: enum for int?
     return true;
   }
 
@@ -360,19 +361,16 @@ class ConfigManager {
  private:
   static inline std::shared_ptr<ConfigManager> _instance = nullptr;
   static TaskHandle_t _core_task_handle;
-  // static inline std::atomic_bool _ready{false};
-  // std::map<char[15], std::vector<ConfigEntry>> _entries;
   ConfigMap _entries;
   std::vector<std::string> _nvs_namespaces;
   ps_subscriber_t* _subscriptions;
   char _register_topic[kMaxTopicLength];
   std::map<std::string, Validator> _validators;  // key: "namespace.key"
-  // std::string _register_topic;
-  // const std::string GetNamespaceFromTopic(const char *topic);
   uint32_t ParseTopic(const char* topic, TopicParts* parts);
-  // TODO: MUTEX
+  // TODO: MUTEX?
   bool InitializeNVS();
   bool AddNamespace(std::string name_space);
+  bool RemoveNamespace(std::string name_space);
   bool ReadNamespaces();
   bool WriteNamespaces();
   std::string MakeValidatorKey(const char* ns, const char* key);
@@ -382,7 +380,6 @@ class ConfigManager {
  public:
   ConfigManager();
   // ~ConfigManager();
-  // std::shared_ptr<TaskContext> GetTask();
   static void Start();
   static void StarterTask(void*);
 
@@ -398,6 +395,7 @@ class ConfigManager {
   size_t WriteSetting(const char* name_space, const char* name, const char* value);
   size_t WriteSetting(const char* name_space, const char* name, const std::string& value);
   size_t WriteSetting(const char* name_space, const char* name, const std::vector<std::string>& value);
+
   size_t AddToSetting(const char* name_space, const char* name, const std::string& value);
   size_t RemoveFromSetting(const char* name_space, const char* name, const std::string& value);
   ConfigEntry GetSetting(std::string name_space, std::string key);
@@ -414,9 +412,34 @@ class ConfigManager {
 
 // void CfgMngrShim(void* pvParameters);
 
+/// @brief Register configuration entries for a given namespace.
+/// @param config_entries Configuration entries to register
+/// @param name Namespace name
 void RegisterConfig(ConfigEntries* config_entries, const char* name);
-// const ConfigEntries* GetConfigEntries(const char* name_space);
-void GetSettings(std::shared_ptr<SettingsMap>& _config, const char* name);
+
+/// @brief Register configuration entries for a given namespace.
+/// @param config_entries Configuration entries to register
+/// @param name Namespace name
+void RegisterConfig(std::shared_ptr<ConfigEntries> config_entries, const char* name);
+
+/// @brief Get settings for a given namespace.
+/// @param config Shared pointer to a @ref SettingsMap to populate
+/// @param name Namespace name
+void GetSettings(std::shared_ptr<SettingsMap>& config, const char* name);
+
+/// @brief Get configuration entries for a given namespace.
+/// @param name_space Namespace name
+/// @return ConfigEntries object containing the entries for the namespace
 ConfigEntries GetConfigEntries(const char* name_space);
+
+/// @brief Serialize a vector of strings into a single string with '.' delimiter.
+/// @param vector Vector of strings to serialize
+/// @param serialized Output string to hold serialized data
+/// @return Size of the serialized string
 size_t Serialize(const std::vector<std::string>& vector, std::string& serialized);
+
+/// @brief Deserialize a serialized string into a vector of strings using '.' delimiter.
+/// @param serialized Input serialized string
+/// @param vector Output vector to hold deserialized strings
+/// @return Number of elements in the deserialized vector
 size_t DeSerialize(const std::string* serialized, std::vector<std::string>& vector);

@@ -13,13 +13,11 @@
 
 #include <algorithm>
 #include <numeric>
-#include <tuple>  // for std::get
+#include <tuple>
 
 #include "funlog.h"
 
 Preferences _prefs;
-
-// static uint32_t rt_counter = 0;
 
 TaskHandle_t ConfigManager::_core_task_handle = NULL;
 
@@ -73,12 +71,12 @@ void ConfigManager::Start() {
 };
 
 void ConfigManager::Setup() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
 
   {
     // TODO: DEBUG ONLY
     // ESP_ERROR_CHECK(nvs_flash_erase());
-    DeleteSetting("gpio_ssr", "ctrl_pin");  // remove old theme setting
+    // DeleteSetting("gpio_ssr", "ctrl_pin");  // remove old theme setting
     // DeleteSetting("peripheral", "zone_heater");
     // FLOG_ERROR("Removing old theme setting to reset to default");
   }
@@ -538,6 +536,11 @@ size_t ConfigManager::WriteSetting(const char* name_space, const char* name, con
   return written;
 }
 
+// size_t ConfigManager::WriteSetting(const char* name_space, const char* name, const std::vector<std::string>& value) {
+//   FLOG_ERROR("WriteSetting for vector<string> not implemented yet");
+//   return 0;
+// }
+
 size_t ConfigManager::WriteSetting(const char* name_space, const char* name, const ConfigVector& value) {
   // std::string vkey = MakeValidatorKey(name_space, name);
   // if (_validators.count(vkey) && !_validators[vkey].validate_string(value)) {
@@ -763,6 +766,20 @@ bool ConfigManager::AddNamespace(std::string name_space) {
   return WriteNamespaces();
 }
 
+bool ConfigManager::RemoveNamespace(std::string name_space) {
+  auto it = std::find(_nvs_namespaces.begin(), _nvs_namespaces.end(), name_space);
+  if (it == _nvs_namespaces.end()) {
+    return true;
+  }
+
+  _prefs.begin(name_space.c_str());
+  _prefs.clear();  // remove all keys in this namespace
+  _prefs.end();
+  _nvs_namespaces.erase(it);
+
+  return WriteNamespaces();
+}
+
 bool ConfigManager::ReadNamespaces() {
   FLOG_DEBUG("Reading NVS Namespaces");
   _prefs.end();
@@ -877,35 +894,6 @@ void RegisterConfig(std::shared_ptr<ConfigEntries> config_entries, const char* n
   PS_CALL_PTR(t_topic, config_entries.get(), 10000);
   // PS_CALL_PTR(t_topic, (void*)(&config_entries), 10000);
 }
-
-// const ConfigEntries* GetConfigEntries(const char* name_space) {
-//   // char topic[kMaxTopicLength];
-//   // char rtopic[32];
-//   // ConfigEntries* result = nullptr;
-
-//   // snprintf(topic, kMaxTopicLength, "config.%s.entries", name_space);
-//   // snprintf(rtopic, sizeof(rtopic), "$r.config.%u", ++rt_counter);
-
-//   // ps_subscriber_t* su = ps_new_subscriber(1, PS_STRLIST(rtopic));
-
-//   // ps_msg_t* req = ps_new_msg(topic, PS_PTR_TYP, &result);
-//   // ps_msg_set_rtopic(req, rtopic);
-//   // ps_publish(req);
-
-//   // // Wait for response
-//   // time_t timer = portability::Millis() + 5000;
-//   // while (portability::Millis() < timer) {
-//   //   ps_msg_t* resp = ps_get(su, 0);
-//   //   if (resp != NULL) {
-//   //     ps_unref_msg(resp);
-//   //     break;
-//   //   }
-//   //   portability::Wait(10);
-//   // }
-
-//   // ps_free_subscriber(su);
-//   // return result;
-// }
 
 void GetSettings(std::shared_ptr<SettingsMap>& config, const char* name) {
   FLOG_DEBUG("Getting settings for %s", name);

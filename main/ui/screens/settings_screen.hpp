@@ -68,7 +68,6 @@ class SettingsScreen : public Screen {
   };
 
   std::unique_ptr<SettingsScreenLabels> _labels;
-  // std::map<lv_obj_t*, WidgetData*> _widget_map;  // FIXME:: make smart pointer
   std::map<lv_obj_t*, std::shared_ptr<WidgetData>> _widget_map;
 
   /// @brief Create the main menu structure

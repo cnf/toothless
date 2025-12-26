@@ -40,7 +40,6 @@ void PeripheralRegistry::Init() {
   for (auto& peripheral : GetRegistry()) {
     FLOG_INFO("Registered peripheral: %s", peripheral.info.name);
   }
-  // RegisterGPIOConfigs();
   ProbeAll();
   RegisterZoneConfig();
   GetSettings(_config, "peripheral");
@@ -328,28 +327,44 @@ const std::vector<std::shared_ptr<Actuator>>& PeripheralRegistry::GetEnabledActu
   return _enabled_actuators;
 }
 
-void PeripheralRegistry::RegisterGPIOConfigs() {
-  for (auto& reg : GetRegistry()) {
-    if (reg.pin_slots.empty()) continue;
+// void PeripheralRegistry::RegisterGPIOConfigs() {
+//   for (auto& reg : GetRegistry()) {
+//     if (reg.pin_slots.empty()) continue;
 
-    ConfigEntries entries;
-    std::string pin_enum = BuildGpioPinEnum();
+//     ConfigEntries entries;
+//     std::string pin_enum = MakeGpioFormat();
 
-    for (auto& slot : reg.pin_slots) {
-      entries.push_back(ConfigEntry(slot.key, slot.description, pin_enum, std::string("None"), std::string("io")));
-    }
+//     for (auto& slot : reg.pin_slots) {
+//       entries.push_back(ConfigEntry(slot.key, slot.description, pin_enum, std::string("None"), std::string("io")));
+//     }
 
-    RegisterConfig(&entries, StringToSnake(reg.info.name).c_str());
-  }
-}
+//     RegisterConfig(&entries, StringToSnake(reg.info.name).c_str());
+//   }
+// }
 
-std::string PeripheralRegistry::BuildGpioPinEnum() {
+std::string PeripheralRegistry::MakeGpioFormat() {
   std::string result = "enum=None|";
   for (size_t i = 0; i < std::size(impl::kGpioFreeList); i++) {
     if (i > 0) result += "|";
     result += "gpio_" + std::to_string(impl::kGpioFreeList[i]);
   }
   return result;
+}
+
+std::expected<gpio_num_t, esp_err_t> PeripheralRegistry::GpioFromString(const std::string& pin_str) {
+  if (pin_str == "None") {
+    return GPIO_NUM_NC;
+  }
+  if (pin_str.rfind("gpio_", 0) == 0) {
+    // no exception handeling is enabled
+    int pin_num = std::stoi(pin_str.substr(5));
+    for (const auto& gpio : impl::kGpioFreeList) {
+      if (static_cast<int>(gpio) == pin_num) {
+        return gpio;
+      }
+    }
+  }
+  return GPIO_NUM_NC;  // Default to not connected
 }
 
 }  // namespace toothless

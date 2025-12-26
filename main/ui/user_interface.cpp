@@ -49,8 +49,6 @@ UserInterface::~UserInterface() {
 }
 
 esp_err_t UserInterface::Start() {
-  // ESP_RETURN_ON_ERROR(Display::Init(), FLOG_SHORT_FILENAME, "Display Initialization failed");
-
   lv_async_call(
       [](void*) {
         // FIXME:: memory leak? how do we clean this up on shutdown?

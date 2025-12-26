@@ -5,13 +5,12 @@
 #include <cstddef>
 #include <cstdint>
 
-// TODO: rolling average
 /*
 Beelsebob — 20:23Saturday, November 1, 2025 at 20:23
 keep a vector of n values initialised to 0 and an average value initialised to 0, each frame, subtract
 vector[f%n]/n from the average, put your new value in vector[f % n] where f is the frame number.   And the. Add
 vector[f%n]/n to the average. Where n is the number of frames you’re averaging over If you want slightly more
-complex code but faster initialisation, initialise all vertor values and the average to your first reading
+complex code but faster initialisation, initialise all vector values and the average to your first reading
 */
 
 namespace toothless {
@@ -20,6 +19,13 @@ template <typename T, size_t N>
 class RollingAverage {
  public:
   void Add(T value) {
+    // if first, fill all with value
+    if (_count == 0) {
+      _samples.fill(value);
+      _sum = value * N;
+      _count = N;
+      return;
+    }
     _sum -= _samples[_index];
     _samples[_index] = value;
     _sum += value;

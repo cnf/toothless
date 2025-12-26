@@ -45,7 +45,7 @@ void SetLogLevels() {
   // esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_ERROR);
   // esp_log_level_set("i2c", ESP_LOG_ERROR);
   // esp_log_level_set("i2c.master", ESP_LOG_NONE);
-  esp_log_level_set("i2c_manager.cpp", ESP_LOG_DEBUG);
+  // esp_log_level_set("i2c_manager.cpp", ESP_LOG_DEBUG);
 
   // esp_log_level_set("nvs", ESP_LOG_NONE);
   // esp_log_level_set("tmc2208", ESP_LOG_ERROR);

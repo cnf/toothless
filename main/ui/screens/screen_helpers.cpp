@@ -439,7 +439,7 @@ lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
   add_btn("Drying");
   add_btn("Reflow");
   add_btn("Cancel");
-  add_btn("Snapshot");
+  // add_btn("Snapshot");
 
   return wrapper;
 }

@@ -13,7 +13,7 @@ extern "C" {
 
 namespace toothless {
 
-inline constexpr const char* kDemoTempName = "Demo Temperature";
+inline constexpr const char* kDemoTempName = "Demo Temp";
 inline constexpr BusType kDemoTempBusType = BusType::kGPIO;
 inline constexpr uint8_t kDemoTempAddress = 0x00;
 

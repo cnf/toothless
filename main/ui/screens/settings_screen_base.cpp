@@ -419,18 +419,6 @@ lv_obj_t* SettingsScreen::BuildDoubleSetting(lv_obj_t* parent, const char* ns, c
       val_label, [](lv_event_t* e) { delete (TapEditData*)lv_obj_get_user_data(lv_event_get_target_obj(e)); },
       LV_EVENT_DELETE, nullptr);
 
-  // if (validator.has_min && validator.has_max) {
-  //   // FIXME: Don't use a slider here, as it only supports integers
-  //   lv_obj_t* slider = ui::CreateSlider(parent, validator.min_val * 10, validator.max_val * 10, current_value * 10);
-  //   // lv_obj_set_width(slider, 150);
-  //   lv_obj_set_height(slider, LV_SIZE_CONTENT);
-
-  //   lv_obj_add_event_cb(slider, OnSliderChanged, LV_EVENT_ALL, this);
-  //   lv_obj_set_user_data(slider, val_label);
-  //   return slider;
-  // }
-  // lv_obj_add_event_cb(wrapper, OnDoubleClicked, LV_EVENT_CLICKED, this);
-
   return val_label;
 }
 
@@ -574,10 +562,8 @@ void SettingsScreen::OnSliderChanged(lv_event_t* e) {
       label = (lv_obj_t*)lv_obj_get_user_data(slider);
       if (label) {
         if (data->type == ConfigValueTypes::kDouble) {
-          // ui::UpdateValueLabel(label, val, "%.1f");
           lv_label_set_text_fmt(label, "%.1f", val * 1.0f);
         } else {
-          // ui::UpdateValueLabel(label, val, "%d");
           lv_label_set_text_fmt(label, "%li", val);
         }
       }

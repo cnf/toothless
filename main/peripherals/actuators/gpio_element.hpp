@@ -8,6 +8,7 @@
 #include "config.h"
 #include "config_mgr.hpp"
 #include "peripherals/actuators/actuator.hpp"
+#include "peripherals/peripheral_registry.hpp"
 
 namespace toothless {
 
@@ -27,7 +28,7 @@ struct GPIOEConfig {
 
 inline ConfigEntries gpio_config_entries = {
     // ConfigEntry("ctrl_pin", "Element Control pin", "enum=", std::string("None"), "GPIO"),
-    ConfigEntry("ctrl_pin", "Element Control pin", PeripheralRegistry::BuildGpioPinEnum(), std::string("None"), "io"),
+    ConfigEntry("ctrl_pin", "Element Control pin", PeripheralRegistry::MakeGpioFormat(), std::string("None"), ""),
     ConfigEntry("src_sink", "Source [T] or Sink [F]", "", false, ""),
 };
 
