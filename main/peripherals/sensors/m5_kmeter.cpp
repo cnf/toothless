@@ -44,19 +44,19 @@ M5KMeter::~M5KMeter() {
 
 bool M5KMeter::Detect() {
   if (I2cManager::GetExternalInstance()->Probe(kMeterDefaultAddr) == ESP_OK) {
-    FLOG_INFO("M5 KMeter detected at address 0x%02X", kMeterDefaultAddr);
+    FLOG_DEBUG("M5 KMeter detected at address 0x%02X", kMeterDefaultAddr);
     return true;
   }
-  FLOG_INFO("M5 KMeter not detected at address 0x%02X", kMeterDefaultAddr);
+  FLOG_DEBUG("M5 KMeter not detected at address 0x%02X", kMeterDefaultAddr);
   return false;
 };
 
 esp_err_t M5KMeter::Init() {
   _topic = std::format("{}.{}.{}.{}", topics::peripherals::sensors::temperature, BusTypeToString(kM5KMeterBusType),
                        std::to_string(kMeterDefaultAddr), StringToSnake(kM5KMeterName));
-  FLOG_INFO("M5 KMeter topic: %s", _topic.c_str());
+  FLOG_DEBUG("M5 KMeter topic: %s", _topic.c_str());
   // Initialization code if needed
-  FLOG_INFO("M5 KMeter initialized");
+  FLOG_DEBUG("M5 KMeter initialized");
   return ESP_OK;
 }
 

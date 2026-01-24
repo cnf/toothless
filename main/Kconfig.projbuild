@@ -3,6 +3,8 @@ menu "Toothless"
         prompt "Select the hardware implementation"
         config IMPL_LILYGO_TDISPLAY_S3_LONG
             bool "Lilygo T-Display S3 Long"
+        config IMPL_WAVESHARE_TOUCH_LCD_4
+            bool "Waveshare Touch LCD 4"
         config IMPL_CYB_4_3_INCH
             bool "Cheap Yellow Board 4.3inch Display"
         config IMPL_LILYGO_T_HMI
@@ -23,97 +25,31 @@ menu "Toothless"
             help
                 Stack size for the LVGL task in bytes.
     endmenu
-    menu "Thermocouple Options"
-        config TL_HAS_THERMOCOUPLE
-            bool "Has a thermocouple sensor"
-            default y
-        choice TL_THERMOCOUPLE_TYPE
-            depends on TL_HAS_THERMOCOUPLE
-            prompt "Thermocouple Type"
-            default TL_TC_TYPE_K
-            config TL_TC_TYPE_K
-                bool "Type K"
-            config TL_TC_TYPE_J
-                bool "Type J"
-            config TL_TC_TYPE_T
-                bool "Type T"
-            config TL_TC_TYPE_N
-                bool "Type N"
-            config TL_TC_TYPE_S
-                bool "Type S"
-            config TL_TC_TYPE_E
-                bool "Type E"
-            config TL_TC_TYPE_B
-                bool "Type B"
-            config TL_TC_TYPE_R
-                bool "Type R"
-        endchoice
-        # config TL_THERMOCOUPLE_TYPE
-        #     int
-        #     default 0 if TL_TC_TYPE_K
-        #     default 1 if TL_TC_TYPE_J
-        #     default 2 if TL_TC_TYPE_T
-        #     default 3 if TL_TC_TYPE_N
-        #     default 4 if TL_TC_TYPE_S
-        #     default 5 if TL_TC_TYPE_E
-        #     default 6 if TL_TC_TYPE_B
-        #     default 7 if TL_TC_TYPE_R
-        # K, J, T, N, S, E, B and R
-        choice TL_THERMOCOUPLE_DRIVER
-            prompt "Thermocouple Sensor"
-            depends on TL_HAS_THERMOCOUPLE
-            default TL_TC_DRIVER_MAX6675
-            config TL_TC_DRIVER_MAX6675
-                bool "MAX6675 Thermocouple Sensor"
-            config TL_TC_DRIVER_MCP960X
-                bool "MCP960X Thermocouple Sensor"
-        endchoice
-        #define MAX6675_CLK_GPIO GPIO_NUM_14
-        #define MAX6675_CS_GPIO GPIO_NUM_27
-        #define MAX6675_MISO_GPIO GPIO_NUM_12
-        comment "The MAX6675 isn't REAL spi, so we bit-bang it. Don't put these on actual SPI pins."
-            depends on TL_HAS_THERMOCOUPLE && TL_TC_DRIVER_MAX6675
-        config TL_TC_CLK_PIN
-            depends on TL_HAS_THERMOCOUPLE && TL_TC_DRIVER_MAX6675
-            int "Thermocouple CLK Pin"
-            # default 14
-            help
-                GPIO pin number for the thermocouple sensor's Clock (CLK).
-        config TL_TC_CS_PIN
-            depends on TL_HAS_THERMOCOUPLE && TL_TC_DRIVER_MAX6675
-            int "Thermocouple CS Pin"
-            # default 27
-            help
-                GPIO pin number for the thermocouple sensor's Chip Select (CS).
-        config TL_TC_MISO_PIN
-            depends on TL_HAS_THERMOCOUPLE && TL_TC_DRIVER_MAX6675
-            int "Thermocouple MISO Pin"
-    endmenu
-    choice FLOG_LEVEL
-        bool "Default log verbosity"
-        default FLOG_LEVEL_INFO
-        help
-            Set the default log verbosity level for the application.
-        config FLOG_LEVEL_NONE
-            bool "No output"
-        config FLOG_LEVEL_ERROR
-            bool "Error"
-        config FLOG_LEVEL_WARN
-            bool "Warning"
-        config FLOG_LEVEL_INFO
-            bool "Info"
-        config FLOG_LEVEL_DEBUG
-            bool "Debug"
-        config FLOG_LEVEL_VERBOSE
-            bool "Verbose"
-    endchoice
-    config FLOG_LEVEL
-        int
-        default 0 if FLOG_LEVEL_NONE
-        default 1 if FLOG_LEVEL_ERROR
-        default 2 if FLOG_LEVEL_WARN
-        default 3 if FLOG_LEVEL_INFO
-        default 4 if FLOG_LEVEL_DEBUG
-        default 5 if FLOG_LEVEL_VERBOSE
+    # choice FLOG_LEVEL
+    #     bool "Default log verbosity"
+    #     default FLOG_LEVEL_INFO
+    #     help
+    #         Set the default log verbosity level for the application.
+    #     config FLOG_LEVEL_NONE
+    #         bool "No output"
+    #     config FLOG_LEVEL_ERROR
+    #         bool "Error"
+    #     config FLOG_LEVEL_WARN
+    #         bool "Warning"
+    #     config FLOG_LEVEL_INFO
+    #         bool "Info"
+    #     config FLOG_LEVEL_DEBUG
+    #         bool "Debug"
+    #     config FLOG_LEVEL_VERBOSE
+    #         bool "Verbose"
+    # endchoice
+    # config FLOG_LEVEL
+    #     int
+    #     default 0 if FLOG_LEVEL_NONE
+    #     default 1 if FLOG_LEVEL_ERROR
+    #     default 2 if FLOG_LEVEL_WARN
+    #     default 3 if FLOG_LEVEL_INFO
+    #     default 4 if FLOG_LEVEL_DEBUG
+    #     default 5 if FLOG_LEVEL_VERBOSE
 
 endmenu

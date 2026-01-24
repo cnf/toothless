@@ -68,6 +68,7 @@ class SettingsScreen : public Screen {
   };
 
   std::unique_ptr<SettingsScreenLabels> _labels;
+  std::shared_ptr<Subjects> _subjects;
   std::map<lv_obj_t*, std::shared_ptr<WidgetData>> _widget_map;
 
   /// @brief Create the main menu structure
@@ -109,6 +110,12 @@ class SettingsScreen : public Screen {
   /// @param root Root LVGL object
   /// @return LVGL object representing the subpage
   lv_obj_t* CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root);
+
+  /// @brief Create Status subpage
+  /// @param parent Parent LVGL object
+  /// @param section Section LVGL object
+  /// @return LVGL object representing the subpage
+  lv_obj_t* CreateSubStatus(lv_obj_t* parent, lv_obj_t* section);
 
   /// @defgroup type_widget_builders
   /// @name Setting Type Widget Builders
@@ -153,7 +160,8 @@ class SettingsScreen : public Screen {
   /// @param e LVGL event object
   /// @{
   static void StageEditDoubleHandler(lv_event_t* e);
-  static void SidebarHandler(lv_event_t* e);        //<! Handle sidebar toggle events
+  static void SidebarHandler(lv_event_t* e);  //<! Handle sidebar toggle events
+  static void SidebarObserverCallback(lv_observer_t* observer, lv_subject_t* subject);
   static void MenuBackEventHandler(lv_event_t* e);  //<! Handle back button events
   static void BackButtonHandler(lv_event_t* e);     //<! Handle back button events
   static void ResetHandler(lv_event_t* e);

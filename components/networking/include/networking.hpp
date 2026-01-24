@@ -11,12 +11,14 @@ struct NetworkingConfig {
   bool enabled = false;
   char ssid[32];
   char password[65];
+  char hostname[32];
 };
 
 inline ConfigEntries config_entries = {
     ConfigEntry("enabled", "Enable WiFi connectivity", "", false, ""),
     ConfigEntry("ssid", "Wifi SSID", "len=1:32", std::string("Toothless"), ""),
     ConfigEntry("password", "Wifi Password", "len=8:64,password=1", std::string("password"), ""),
+    ConfigEntry("hostname", "Device hostname", "len=1:32", std::string("toothless"), ""),
     // ConfigEntry("theme", "UI theme", themes::MakeFormat(), std::string("toothless"), ""),
     // ConfigEntry("brightness", "Screen brightness (0-100)", "min=0,max=100", 80, "%"),
     // ConfigEntry("portrait", "Toggle portrait display mode", "", false, ""),
@@ -41,6 +43,7 @@ struct WiFiConfig {
   std::string password;
   bool auto_reconnect = true;
   uint8_t max_retries = 5;
+  std::string hostname = "toothless";
 };
 
 /// Configuration for OTA updates

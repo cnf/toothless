@@ -305,7 +305,7 @@ static void init_screen_styles() {
   lv_style_init(&screens::menu_header);
   lv_style_set_bg_color(&screens::menu_header, current_palette.background);
   lv_style_set_bg_opa(&screens::menu_header, LV_OPA_COVER);
-  lv_style_set_pad_all(&screens::menu_header, 0);  // LV_DPX(12));
+  lv_style_set_pad_all(&screens::menu_header, current_settings.element_padding);  // LV_DPX(12));
   lv_style_set_height(&screens::menu_header, LV_SIZE_CONTENT);
   // lv_style_set_border_color(&screens::menu_header, current_palette.border);
   // if (current_settings.borders) {

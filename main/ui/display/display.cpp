@@ -24,15 +24,15 @@ static lv_display_t* _display_ptr = nullptr;
 esp_err_t Display::Init() {
   FLOG_INFO("Initializing display...");
 
-  // ESP_RETURN_ON_ERROR(display::impl::Setup(), FLOG_SHORT_FILENAME, "Display hardware setup failed");
+  // ESP_RETURN_ON_ERROR(impl::display::Setup(), FLOG_SHORT_FILENAME, "Display hardware setup failed");
 
-  ESP_RETURN_ON_ERROR(display::impl::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
-  ESP_RETURN_ON_ERROR(display::impl::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
+  ESP_RETURN_ON_ERROR(impl::display::DisplayPanelSetup(), FLOG_SHORT_FILENAME, "Display panel setup failed");
+  ESP_RETURN_ON_ERROR(impl::display::TouchPanelSetup(), FLOG_SHORT_FILENAME, "Touchpanel setup failed");
   ESP_RETURN_ON_ERROR(RegisterCallbacks(), FLOG_SHORT_FILENAME, "Display callback registration failed");
-  _display_ptr = display::impl::GetDisplayObjPtr();
+  _display_ptr = impl::display::GetDisplayObjPtr();
   themes::Init(themes::ThemeId::TOOTHLESS);
 
-  // display::impl::GetDisplayDimensions(_resolution->width, _resolution->height);
+  // impl::display::GetDisplayDimensions(_resolution->width, _resolution->height);
 
   // FLOG_INFO("Display initialized: %ux%u (%s)", _resolution->width, _resolution->height,
   //           _resolution->is_portrait ? "portrait" : "landscape");
@@ -47,7 +47,7 @@ esp_err_t Display::Init() {
                                               0                           //<! Core ID
                                               ),
                       ESP_ERR_INVALID_STATE, FLOG_SHORT_FILENAME, "Failed to create LVGL task");
-  display::impl::TurnOn();
+  impl::display::TurnOn();
   return ESP_OK;
 }
 
@@ -77,6 +77,11 @@ esp_err_t Display::RegisterCallbacks() {
   // ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, _display_ptr));
   // // lv_display_add_event_cb(_display.get(), lvgl_display_event_cb, LV_EVENT_REFR_READY, NULL);
   return ESP_OK;
+}
+
+esp_err_t Display::SetBrightness(uint8_t brightness) {
+  // return impl::display::Backlight();
+  return impl::display::SetBrightness(brightness);
 }
 
 esp_err_t Display::SetupTouchPanel() {

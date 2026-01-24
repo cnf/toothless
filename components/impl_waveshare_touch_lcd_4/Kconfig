@@ -1,0 +1,42 @@
+menu "HW Implementation: Waveshare Touch LCD 4"
+    config IMPL_WAVESHARE_TOUCH_LCD_4_HRES
+        int "Display Horizontal Resolution"
+        default 480
+        help
+            Horizontal resolution of the Waveshare Touch LCD 4.
+
+    config IMPL_WAVESHARE_TOUCH_LCD_4_VRES
+        int "Display Vertical Resolution"
+        default 480
+        help
+            Vertical resolution of the Waveshare Touch LCD 4.
+
+
+endmenu
+
+
+config IOM_I2C_SDA_PIN
+    int
+    default 15
+    depends on IMPL_WAVESHARE_TOUCH_LCD_4
+
+config IOM_I2C_SCL_PIN
+    int
+    default 7
+    depends on IMPL_WAVESHARE_TOUCH_LCD_4
+
+# config IOM_EXTERNAL_ENABLE
+#     bool
+#     default y
+#     depends on IMPL_WAVESHARE_TOUCH_LCD_4
+
+
+# config IOM_EXTERNAL_I2C_SDA_PIN
+#     int
+#     default 15
+#     depends on IOM_EXTERNAL_ENABLE
+
+# config IOM_EXTERNAL_I2C_SCL_PIN
+#     int
+#     default 7
+#     depends on IOM_EXTERNAL_ENABLE

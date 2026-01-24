@@ -1,4 +1,4 @@
-menu "Display Impl: LilyGo T-Display S3 Long"
+menu "HW Implementation: LilyGo T-Display S3 Long"
     config IMPL_M5DIAL_HRES
         int "Display Horizontal Resolution"
         default 240

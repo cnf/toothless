@@ -1,4 +1,4 @@
-menu "Display Impl: M5 Basic"
+menu "HW Implementation: M5 Basic"
     config IMPL_M5CORE2_HRES
         int "Display Horizontal Resolution"
         default 320

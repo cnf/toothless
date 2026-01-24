@@ -15,11 +15,15 @@
 #include "sdkconfig.h"
 // #include "heater/heater.hpp"
 
+// #include <esp_heap_caps.h>
+
 extern "C" {
 #include <pubsub.h>
 }
 
 namespace toothless {
+
+// TODO: implement reprobing / hotplug detection
 
 PeripheralRegistry::PeripheralRegistry() {
   _config = std::make_shared<SettingsMap>();
@@ -71,7 +75,7 @@ void PeripheralRegistry::Enable(const char* name) {
         break;
       }
     }
-    FLOG_INFO("Enabled peripheral: %s", name);
+    FLOG_INFO("[x] %s enabled", name);
   }
 }
 
@@ -113,14 +117,24 @@ void PeripheralRegistry::Loop() {
 void PeripheralRegistry::HandleSubscriptions() {
   ps_msg_t* msg = NULL;
   for ((msg = ps_get(_subscriptions, 0)); msg != NULL; (msg = ps_get(_subscriptions, 0))) {
+    // if (!heap_caps_check_integrity(MALLOC_CAP_DEFAULT, true)) {
+    //   FLOG_ERROR("Heap bad before sub loop");
+    //   abort();
+    // }
     if (ps_has_topic_prefix(msg, "peripheral.config.get")) {
       FLOG_INFO("Peripheral config get message received");
       GetSettings(_config, "peripheral");
       ApplySettings(_config);
       ps_unref_msg(msg);
+      // if (!heap_caps_check_integrity(MALLOC_CAP_DEFAULT, true)) {
+      //   FLOG_ERROR("Heap bad after proc msg %s", msg->topic);
+      //   abort();
+      // }
       continue;
     } else if (ps_has_topic(msg, "peripheral.actuator.zone.get") && PS_IS_PTR(msg)) {
+      FLOG_INFO("PeripheralRegistry: actuator.zone.get message received");
       if (_zone_heater) {
+        FLOG_INFO("Getting heater");
         auto* sp_ptr = static_cast<std::shared_ptr<Actuator>*>(msg->ptr_val);
         *sp_ptr = _zone_heater;  // Dereference and assign
         // auto ptr = helper::Unbox<Actuator>(msg->ptr_val);
@@ -129,11 +143,15 @@ void PeripheralRegistry::HandleSubscriptions() {
           PS_PUB_NIL(msg->rtopic);
         }
       }
+      // if (!heap_caps_check_integrity(MALLOC_CAP_DEFAULT, true)) {
+      //   FLOG_ERROR("Heap bad after proc msg %s", msg->topic);
+      //   abort();
+      // }
     } else {
       // FLOG_WARN("Unknown topic prefix for topic %s", msg->topic);
     }
+    ps_unref_msg(msg);
   }
-  ps_unref_msg(msg);
   return;
 }
 

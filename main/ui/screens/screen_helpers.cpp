@@ -541,6 +541,32 @@ lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_
   return btn;
 }
 
+void CreateWarning(const char* msg) { CreateWarning("Warning", msg); }
+
+void CreateWarning(const char* title, const char* msg) {
+  lv_obj_t* screen = lv_display_get_screen_active(NULL);
+
+  ConfirmationContext ctx{.parent_screen = screen,
+                          .backdrop = nullptr,
+                          // .object = label,
+                          .title = title,
+                          .message = msg,
+                          .confirm_text = "Ok",
+                          // .cancel_text = "Cancel",
+                          .on_confirm =
+                              [](void* obj) {
+                                FLOG_INFO("Warning confirmed");
+                                // PS_PUB_NIL(topics::heater::stop);
+                                // mgr.Close() called by ConfirmationHandler
+                              },
+                          .on_cancel =
+                              [](void* obj) {
+                                FLOG_INFO("Cancelled");
+                                // mgr.Close() called by ConfirmationHandler
+                              }};
+  ConfirmationPopup(ctx);
+}
+
 void ButtonEventHandler(lv_event_t* e) {
   FLOG_INFO("Event Handler Called");
   lv_obj_t* button = (lv_obj_t*)lv_event_get_target(e);

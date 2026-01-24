@@ -45,6 +45,9 @@ class Display {
   /// @brief Get the LVGL display pointer
   static lv_display_t* GetDisplayPtr();
 
+  /// @brief Set display brightness (0-100)
+  static esp_err_t SetBrightness(uint8_t brightness);
+
   // /// @brief Get resolution info for current display
   // static DisplayResolution GetResolution();
 

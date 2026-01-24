@@ -18,6 +18,9 @@ SubjectManager::SubjectManager() {
   lv_subject_init_int(&subjects->probe, -100);
   lv_subject_init_int(&subjects->heater_power, 0);
   lv_subject_init_int(&subjects->heater_state, 0);
+  lv_subject_init_int(&subjects->sidebar, true);
+  lv_subject_set_min_value_int(&subjects->sidebar, 0);
+  lv_subject_set_max_value_int(&subjects->sidebar, 1);
 
   static char profile_buf[64];
   lv_subject_init_string(&subjects->profile, profile_buf, NULL, 64, "No Profile Loaded");

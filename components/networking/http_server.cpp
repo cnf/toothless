@@ -20,7 +20,80 @@ namespace networking {
 // Static instance for callbacks
 HttpServer* HttpServer::_instance = nullptr;
 
-// Simple HTML page for OTA upload
+// Welcome page with navigation
+static const char* kWelcomePage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toothless Control</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #ff6b6b; text-align: center; }
+    .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 30px 0; }
+    .nav-button { background: #16213e; padding: 25px; border-radius: 8px; text-align: center; text-decoration: none; color: #eee; transition: all 0.3s; border: 2px solid transparent; }
+    .nav-button:hover { background: #0f3460; border-color: #4ecdc4; transform: translateY(-2px); }
+    .nav-icon { font-size: 48px; margin-bottom: 10px; }
+    .nav-title { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+    .nav-desc { font-size: 14px; color: #aaa; }
+    .status { margin: 20px 0; padding: 15px; border-radius: 4px; background: #16213e; border-left: 4px solid #4ecdc4; }
+    .status-item { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Toothless Control</h1>
+  <div class="status" id="status">
+    <div class="status-item"><b>Version:</b> <span id="version">Loading...</span></div>
+    <div class="status-item"><b>Free Heap:</b> <span id="heap">Loading...</span></div>
+    <div class="status-item"><b>Partition:</b> <span id="partition">Loading...</span></div>
+  </div>
+  <div class="nav-grid">
+    <a href="/ota" class="nav-button">
+      <div class="nav-icon">📦</div>
+      <div class="nav-title">OTA Update</div>
+      <div class="nav-desc">Upload firmware</div>
+    </a>
+    <a href="/files" class="nav-button">
+      <div class="nav-icon">📁</div>
+      <div class="nav-title">Files</div>
+      <div class="nav-desc">Browse files</div>
+    </a>
+    <a href="/api/status" class="nav-button">
+      <div class="nav-icon">ℹ️</div>
+      <div class="nav-title">Status API</div>
+      <div class="nav-desc">JSON status info</div>
+    </a>
+    <a href="#" onclick="reboot(); return false;" class="nav-button">
+      <div class="nav-icon">🔄</div>
+      <div class="nav-title">Reboot</div>
+      <div class="nav-desc">Restart device</div>
+    </a>
+  </div>
+  <script>
+    fetch('/api/status').then(r => r.json()).then(d => {
+      document.getElementById('version').textContent = d.version;
+      document.getElementById('heap').textContent = d.free_heap + ' bytes';
+      document.getElementById('partition').textContent = d.partition;
+    }).catch(e => {
+      document.getElementById('version').textContent = 'Error';
+      document.getElementById('heap').textContent = 'Error';
+      document.getElementById('partition').textContent = 'Error';
+    });
+    function reboot() {
+      if (confirm('Reboot device?')) {
+        fetch('/api/reboot', {method: 'POST'}).then(() => {
+          alert('Rebooting...');
+          setTimeout(() => window.location.reload(), 5000);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
+)rawliteral";
+
+// OTA upload page
 static const char* kOTAUploadPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -173,8 +246,11 @@ void HttpServer::SetOTACompleteCallback(OTACompleteCallback callback) { _ota_com
 uint16_t HttpServer::GetPort() const { return _config.port; }
 
 bool HttpServer::RegisterHandlers() {
-  // Root handler - serves OTA upload page
+  // Root handler - serves welcome page
   httpd_uri_t root = {.uri = "/", .method = HTTP_GET, .handler = RootHandler, .user_ctx = nullptr};
+
+  // OTA page handler
+  httpd_uri_t ota_page = {.uri = "/ota", .method = HTTP_GET, .handler = OTAPageHandler, .user_ctx = nullptr};
 
   // Status API
   httpd_uri_t status = {.uri = "/api/status", .method = HTTP_GET, .handler = StatusHandler, .user_ctx = nullptr};
@@ -197,6 +273,9 @@ bool HttpServer::RegisterHandlers() {
   err = httpd_register_uri_handler(_server, &root);
   if (err != ESP_OK) return false;
 
+  err = httpd_register_uri_handler(_server, &ota_page);
+  if (err != ESP_OK) return false;
+
   err = httpd_register_uri_handler(_server, &status);
   if (err != ESP_OK) return false;
 
@@ -210,6 +289,12 @@ bool HttpServer::RegisterHandlers() {
 }
 
 esp_err_t HttpServer::RootHandler(httpd_req_t* req) {
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_send(req, kWelcomePage, strlen(kWelcomePage));
+  return ESP_OK;
+}
+
+esp_err_t HttpServer::OTAPageHandler(httpd_req_t* req) {
   httpd_resp_set_type(req, "text/html");
   httpd_resp_send(req, kOTAUploadPage, strlen(kOTAUploadPage));
   return ESP_OK;

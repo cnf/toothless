@@ -227,6 +227,11 @@ lv_obj_t* CreateMenuPage(lv_obj_t* parent, const char* title) {
 lv_obj_t* CreateMenuSection(lv_obj_t* parent) {
   lv_obj_t* section = lv_menu_section_create(parent);
   lv_obj_add_style(section, &themes::screens::menu_section, 0);
+  lv_obj_set_scroll_dir(section, LV_DIR_VER);
+  lv_obj_set_scroll_snap_y(section, LV_SCROLL_SNAP_NONE);
+  lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  lv_obj_remove_flag(section, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
+  lv_obj_set_scrollbar_mode(section, LV_SCROLLBAR_MODE_AUTO);
   return section;
 }
 
@@ -518,6 +523,7 @@ lv_obj_t* CreateDropdown(lv_obj_t* parent, const char* name, const char* options
   lv_obj_set_scroll_dir(list, LV_DIR_VER);
   lv_obj_set_scroll_snap_y(list, LV_SCROLL_SNAP_NONE);
   lv_obj_remove_flag(list, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  // lv_obj_remove_flag(sectionp, LV_OBJ_FLAG_SCROLL_ELASTIC);  // No bounce/elastic
   lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
 
   return dd;
@@ -767,7 +773,7 @@ std::string SnakeToTitle(const std::string& snake_case) {
 }
 
 std::string TitleToSnake(const std::string& title_case) {
-  FLOG_ERROR("TitleToSnake is deprecated, please migrate to helpers::TitleToSnake");
+  FLOG_ERROR("TitleToSnake is deprecated, please migrate to helpers::StringToSnake");
   std::string result;
 
   for (size_t i = 0; i < title_case.length(); i++) {

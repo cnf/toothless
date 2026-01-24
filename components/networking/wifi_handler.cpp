@@ -1,6 +1,7 @@
 #include "wifi_handler.hpp"
 
 #include <esp_netif.h>
+#include <mdns.h>
 
 #include <cstring>
 
@@ -92,6 +93,8 @@ void WiFiHandler::Deinit() {
 
   esp_event_loop_delete_default();
 
+  mdns_free();
+
   delete _config;
   _config = nullptr;
   _initialized = false;
@@ -142,6 +145,51 @@ void WiFiHandler::Disconnect() {
   PublishState(WiFiState::kDisconnected);
 }
 
+void WiFiHandler::SetHostname(const std::string& hostname) {
+  if (!_initialized) {
+    FLOG_ERROR("WiFi not initialized");
+    return;
+  }
+
+  esp_err_t err = esp_netif_set_hostname(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), hostname.c_str());
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to set hostname: %s", esp_err_to_name(err));
+  }
+}
+
+void WiFiHandler::EnableMDNS() {
+  FLOG_INFO("Enabling mDNS");
+  if (!_initialized) {
+    FLOG_ERROR("WiFi not initialized");
+    return;
+  }
+
+  // Initialize mDNS
+  esp_err_t err = mdns_init();
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to init mDNS: %s", esp_err_to_name(err));
+    return;
+  }
+
+  // Set hostname
+  std::string hostname = _config ? _config->hostname : "toothless";
+  err = mdns_hostname_set(hostname.c_str());
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to set mDNS hostname: %s", esp_err_to_name(err));
+    return;
+  }
+
+  mdns_instance_name_set("Toothless Device");
+
+  err = mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+  if (err != ESP_OK) {
+    FLOG_ERROR("Failed to add mDNS service: %s", esp_err_to_name(err));
+    return;
+  }
+
+  FLOG_INFO("mDNS enabled with hostname: %s.local", hostname.c_str());
+}
+
 WiFiState WiFiHandler::GetState() const { return _state; }
 
 void WiFiHandler::SetStateCallback(StateCallback callback) { _state_callback = std::move(callback); }
@@ -187,6 +235,7 @@ void WiFiHandler::HandleWiFiEvent(int32_t event_id, void* event_data) {
     case WIFI_EVENT_STA_DISCONNECTED: {
       auto* event = static_cast<wifi_event_sta_disconnected_t*>(event_data);
       FLOG_WARN("Disconnected from AP, reason: %d", event->reason);
+      mdns_free();
 
       if (_config && _config->auto_reconnect && _retry_count < _config->max_retries) {
         _retry_count++;
@@ -200,6 +249,7 @@ void WiFiHandler::HandleWiFiEvent(int32_t event_id, void* event_data) {
 
     case WIFI_EVENT_STA_CONNECTED:
       FLOG_INFO("Connected to AP");
+      EnableMDNS();
       break;
 
     default:

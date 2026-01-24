@@ -1,17 +1,17 @@
 // cSpell: words lvgl qspi
+#include "display_impl.hpp"
+
 #include <driver/gpio.h>
+#include <driver/ledc.h>
 #include <driver/spi_master.h>
+#include <esp_cache.h>
 #include <esp_check.h>
 #include <esp_lcd_axs15231b.h>
-// #include <esp_lcd_panel_ops.h>
-// #include <esp_lcd_panel_vendor.h>
-#include <esp_cache.h>
 #include <esp_task_wdt.h>
 #include <esp_timer.h>
 #include <lvgl.h>
 
 #include "display_commands.hpp"
-#include "display_impl.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "funlog.h"
@@ -716,6 +716,12 @@ esp_err_t LvgLBufferSetupFull() {
 }
 
 esp_err_t TouchPanelSetup() {
+  LV_LOG_USER("Setting up touch panel");
+  esp_err_t err = I2cManager::GetInstance()->Probe(kTouchI2cAddress);
+  if (err != ESP_OK) {
+    FLOG_ERROR("Touch panel not found at address 0x%02X: %s", kTouchI2cAddress, esp_err_to_name(err));
+    return err;
+  };
   // esp_err_t err = I2cManager::GetInstance()->AddDevice(&i2c_dev_conf, &_dev_handle);
   // if (err != ESP_OK) {
   //   FLOG_ERROR("Failed to add touch device: %s", esp_err_to_name(err));
@@ -750,7 +756,7 @@ esp_err_t TouchPanelSetup() {
           },
   };
   esp_lcd_panel_io_handle_t _io_handle = nullptr;
-  esp_err_t err = esp_lcd_new_panel_io_i2c(I2cManager::GetInstance()->GetBusHandle(), &io_config, &_io_handle);
+  err = esp_lcd_new_panel_io_i2c(I2cManager::GetInstance()->GetBusHandle(), &io_config, &_io_handle);
   if (err != ESP_OK) {
     FLOG_ERROR("Failed to create i2c panel io handle: %s", esp_err_to_name(err));
     return err;
@@ -1511,7 +1517,9 @@ void TurnOn() {
       [](void*) {
         // TestPanelGeometry();
         ShowBootScreen();
-        Backlight();
+        // Backlight();
+        BacklightSetup();
+        SetBrightness(500);
       },
       nullptr);
 };
@@ -1782,6 +1790,38 @@ void BacklightTimerCallback(void* arg) {
   ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
   gpio_set_level(kLcdBacklightPin, 1);  // TODO: make configurable
 };
+
+esp_err_t BacklightSetup() {
+  // Set up LEDC for backlight PWM control
+  ledc_timer_config_t ledc_timer = {
+      .speed_mode = LEDC_LOW_SPEED_MODE,
+      .timer_num = LEDC_TIMER_0,
+      .duty_resolution = LEDC_TIMER_10_BIT,
+      .freq_hz = 5000,
+      .clk_cfg = LEDC_AUTO_CLK,
+  };
+  ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+  ledc_channel_config_t ledc_channel = {
+      .speed_mode = LEDC_LOW_SPEED_MODE,
+      .channel = LEDC_CHANNEL_0,
+      .timer_sel = LEDC_TIMER_0,
+      .intr_type = LEDC_INTR_DISABLE,
+      .gpio_num = (gpio_num_t)kLcdBacklightPin,
+      .duty = 1023,  // Start with backlight on
+      .hpoint = 0,
+  };
+  ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+}
+
+esp_err_t SetBrightness(uint8_t brightness) {
+  // brightness: 0-100
+  if (brightness > 100) brightness = 100;
+  uint32_t duty = (brightness * 1023) / 100;  // Scale to 0-1023
+  ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
+  ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+  return ESP_OK;
+}
 
 }  // namespace impl
 }  // namespace display

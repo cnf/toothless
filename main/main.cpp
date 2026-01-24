@@ -42,13 +42,16 @@ void SetLogLevels() {
 
   esp_log_level_set("wifi", ESP_LOG_ERROR);
   esp_log_level_set("wifi_init", ESP_LOG_WARN);
-  // esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_ERROR);
+  esp_log_level_set("net80211", ESP_LOG_WARN);
+  esp_log_level_set("esp_netif_handlers", ESP_LOG_WARN);
+  esp_log_level_set("pp", ESP_LOG_WARN);
+  esp_log_level_set("phy_init", ESP_LOG_WARN);
+  esp_log_level_set("lcd_panel.io.i2c", ESP_LOG_ERROR);
   // esp_log_level_set("i2c", ESP_LOG_ERROR);
   // esp_log_level_set("i2c.master", ESP_LOG_NONE);
-  // esp_log_level_set("i2c_manager.cpp", ESP_LOG_DEBUG);
+  // esp_log_level_set("config_mgr.cpp", ESP_LOG_DEBUG);
 
   // esp_log_level_set("nvs", ESP_LOG_NONE);
-  // esp_log_level_set("tmc2208", ESP_LOG_ERROR);
   // esp_log_level_set("efuse", ESP_LOG_ERROR);
   // esp_log_level_set("gpio", ESP_LOG_ERROR);
 }
@@ -56,13 +59,12 @@ void SetLogLevels() {
 using namespace toothless;
 
 extern "C" void app_main(void) {
-  FLOG_INFO("================= Starting Toothless =================");
   SetLogLevels();
-  usleep(1000 * 100);
+  FLOG_INFO("================= Starting Toothless =================");
 
   FLOG_INFO("Initializing pubsub msg bus");
   ps_init();
-  usleep(1000 * 100);
+  usleep(100 * 1000);
 
   FLOG_INFO("Initializing configuration manager");
   ConfigManager::Start();
@@ -70,12 +72,18 @@ extern "C" void app_main(void) {
 #if defined(CONFIG_IOM_I2C_SDA_PIN) && defined(CONFIG_IOM_I2C_SCL_PIN)
   FLOG_INFO("Initializing I2C");
   I2cManager::GetInstance()->Init();
+  // I2cManager::GetInstance()->Scan();
 #if defined(CONFIG_IOM_EXTERNAL_ENABLE)
   I2cManager::GetExternalInstance()->Init();
+  // I2cManager::GetExternalInstance()->Scan();
 #endif
 #endif
 
+  FLOG_INFO("Initializing display");
   Display::Init();
+
+  FLOG_INFO("Initializing User Interface");
+  UserInterface::Start();
 
   // Dispatcher
   main_dispatcher.schedulingPolicy = TaskDispatcher::TIMING;
@@ -85,6 +93,10 @@ extern "C" void app_main(void) {
   static networking::NetworkManager network_mgr;
   network_mgr.Init();
   main_dispatcher.callEvery(500, &networking::NetworkManager::Loop, &network_mgr);
+
+  while (esp_timer_get_time() < 4 * 1000 * 1000) {
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
 
   FLOG_INFO("Initializing peripherals");
   auto& registry = PeripheralRegistry::Instance();
@@ -98,8 +110,8 @@ extern "C" void app_main(void) {
   heater.Init();
   prio_dispatcher.callEvery(200, &Heater::Loop, &heater);
 
-  FLOG_INFO("Initializing User Interface");
-  UserInterface::Start();
+  // FLOG_INFO("Initializing User Interface");
+  // UserInterface::Start();
 
   xTaskCreatePinnedToCore(
       [](void* arg) {

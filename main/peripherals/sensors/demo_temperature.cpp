@@ -33,7 +33,7 @@ esp_err_t DemoTemperature::Init() {
 
   _initialized = true;
   _last_update = esp_timer_get_time();
-  FLOG_INFO("Demo Temperature initialized, topic: %s", _topic.c_str());
+  FLOG_DEBUG("Demo Temperature initialized, topic: %s", _topic.c_str());
   _sub = ps_new_subscriber(10, PS_STRLIST(topics::heater::target, topics::heater::state));
 
   return ESP_OK;

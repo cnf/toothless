@@ -77,6 +77,7 @@ class UserInterface {
   std::unique_ptr<Screen> _current_screen;  // current screen instance
   bool _switching_screen_state = false;     // switchin state flag
   ChartHistory _chart_history;              // we are owner, no shared_ptr
+  std::shared_ptr<Subjects> _subjects;      // UI subjects
 
   esp_err_t HandleSubscriptions();
   esp_err_t ApplySettings();

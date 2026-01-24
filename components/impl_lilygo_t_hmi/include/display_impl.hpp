@@ -46,6 +46,11 @@ static constexpr size_t kDisplayBufferBytes = kDisplayBufferPixels * kBytesPerPi
 
 esp_err_t DisplayPanelSetup();
 esp_err_t TouchPanelSetup();
+inline esp_err_t BacklightSetup() {
+  Backligjht();
+  return ESP_OK;
+};
+inline esp_err_t SetBrightness(uint8_t brightness) { return ESP_OK; };
 void GetDisplayDimensions(uint16_t& width, uint16_t& height);
 lv_display_t* GetDisplayObjPtr();
 

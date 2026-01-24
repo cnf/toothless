@@ -35,6 +35,13 @@ class WiFiHandler {
   /// @brief Disconnect from current AP
   void Disconnect();
 
+  /// @brief Set the hostname for the device
+  /// @param hostname
+  void SetHostname(const std::string& hostname);
+
+  /// @brief Enable mDNS with the current hostname
+  void EnableMDNS();
+
   /// @brief Get current connection state
   WiFiState GetState() const;
 

@@ -30,6 +30,6 @@ menu "IO Manager Configuration"
     endmenu
 endmenu
 
-config IOM_I2C_SDA_PIN_OVERRIDE
-    depends on IMPL_I2C_SDA_PIN
-    bool
+# config IOM_I2C_SDA_PIN_OVERRIDE
+#     depends on IMPL_I2C_SDA_PIN
+#     bool

@@ -33,7 +33,7 @@ esp_err_t M5I2CElement::Init() {
       .scl_speed_hz = 100 * 1000,
   };
   ESP_ERROR_CHECK_WITHOUT_ABORT(_i2c_mgr->AddDevice(&device_config, &_dev_handle));
-  FLOG_INFO("M5 AC SSR Element initialized, version: %d", Version());
+  FLOG_DEBUG("M5 AC SSR Element initialized, version: %d", Version());
 
   return PowerOff();
 };
@@ -53,10 +53,10 @@ bool M5I2CElement::Detect() {
   // BUG: this isn't reliable, figure out a better way to detect
   esp_err_t err = I2cManager::GetInstance()->Probe(kACSSRDefaultAddress);
   if (err == ESP_OK) {
-    FLOG_INFO("[x] M5 AC SSR Element detected at address 0x%02X", kACSSRDefaultAddress);
+    FLOG_DEBUG("M5 AC SSR Element detected at address 0x%02X", kACSSRDefaultAddress);
     return true;
   } else {
-    FLOG_INFO("[ ] M5 AC SSR Element not detected at address 0x%02X: %s", kACSSRDefaultAddress, esp_err_to_name(err));
+    FLOG_DEBUG("M5 AC SSR Element not detected at address 0x%02X: %s", kACSSRDefaultAddress, esp_err_to_name(err));
   }
   return false;
 }

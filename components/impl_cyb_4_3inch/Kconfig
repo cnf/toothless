@@ -1,4 +1,4 @@
-menu "Display Impl: CYB 4.3inch"
+menu "HW Implementation: CYB 4.3inch"
     config IMPL_CYB_4_3_INCH_HRES
         int "Display Horizontal Resolution"
         default 800

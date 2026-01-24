@@ -40,7 +40,7 @@ esp_err_t I2cManager::Init() {
           },
   };
 
-  FLOG_INFO("Initializing I2C on SCL pin %d, SDA pin %d", pin_scl, pin_sda);
+  FLOG_DEBUG("Initializing I2C on SCL pin %d, SDA pin %d", pin_scl, pin_sda);
 
   esp_err_t err = i2c_new_master_bus(&bus_config, &_bus_handle);
 
@@ -58,7 +58,7 @@ esp_err_t I2cManager::Cleanup() {
   if (!_initialized) {
     return ESP_OK;
   }
-  FLOG_INFO("Cleaning up I2C manager");
+  FLOG_DEBUG("Cleaning up I2C manager");
 
   i2c_del_master_bus(_bus_handle);
   _initialized = false;
@@ -128,13 +128,18 @@ esp_err_t I2cManager::Scan() {
     printf(".");
     err = i2c_master_probe(_bus_handle, slave, 10);
     if (err == ESP_OK) {
-      FLOG_DEBUG("slave device address found on 0x%X\n", slave);
+      // FLOG_DEBUG("slave device address found on 0x%X\n", slave);
       _device_addresses.push_back(slave);
     }
     usleep(10000);  // Small delay to avoid bus overload
     slave = slave + 1;
   }
-  FLOG_INFO("\nI2C scan complete, found %d device(s)", _device_addresses.size());
+  printf("\n");
+  FLOG_INFO("I2C scan complete, found %d device(s):", _device_addresses.size());
+  // FLOG_INFO("Found device addresses:");
+  for (const auto& addr : _device_addresses) {
+    FLOG_INFO(" - 0x%X", addr);
+  }
   return ESP_OK;
 }
 

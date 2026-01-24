@@ -13,6 +13,7 @@
 #include "ui/screens/profiles_screen.hpp"
 #include "ui/screens/reflow_screen.hpp"
 #include "ui/screens/settings_screen.hpp"
+#include "ui/subjects.hpp"
 #include "ui/themes/style_registry.hpp"
 
 namespace toothless {
@@ -24,6 +25,7 @@ UserInterface::UserInterface() {
   _current_screen = nullptr;
   _switching_screen_state = false;
   _config = std::make_shared<SettingsMap>();
+  _subjects = SubjectManager::Instance().subjects;
 
   // TODO: make topic strings configurations
   // _chart_history = ChartHistory();
@@ -70,31 +72,20 @@ esp_err_t UserInterface::Init() {
 
   SubjectManager::Instance().Init();
 
-  _subscription = ps_new_subscriber(10, PS_STRLIST(topics::ui::name, topics::heater::mode));
+  _subscription = ps_new_subscriber(10, PS_STRLIST(topics::ui::name, topics::heater::mode, kTopicStatus));
 
   _display = Display::GetDisplayPtr();
   FLOG_DEBUG("Display ptr: %p, lv_display_get_default: %p, free heap: %u", _display, lv_display_get_default(),
              esp_get_free_heap_size());
 
-  themes::SwitchTheme(themes::FromString(std::get<std::string>(_config->at("theme"))));
+  ApplySettings();
 
-  // lv_timer_t* ui_timer = lv_timer_create([this](void*) { this->Loop(); }, 100, this);
-  // lv_timer_t* t =
   lv_timer_create(
       +[](lv_timer_t* timer) {
         UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
         ui->Loop();
       },
       50, this);
-
-  // lv_timer_t* ui_timer =
-  // lv_timer_create(
-  //     +[](lv_timer_t* timer) {
-  //       UserInterface* ui = static_cast<UserInterface*>(lv_timer_get_user_data(timer));
-  //       ui->SwitchTo(ui->_current_screen_state);
-  //       lv_timer_del(timer);  // or lv_timer_set_repeat_count(timer, 1);
-  //     },
-  //     200 /*ms*/, this);
 
 #if defined(CONFIG_LV_USE_SYSMON)
   /* Create generic monitor */
@@ -258,6 +249,18 @@ esp_err_t UserInterface::HandleSubscriptions() {
       FLOG_DEBUG("Applying settings");
       new_settings = true;
       len++;
+    } else if (ps_has_topic(msg, kTopicStatus)) {
+      if (PS_IS_ERR(msg)) {
+        ps_err_t err_msg = msg->err_val;
+        // std::string status_text = std::string(err_msg.desc);
+        FLOG_ERROR("%s: %s", esp_err_to_name(err_msg.id), err_msg.desc);
+        CreateWarning(std::string(esp_err_to_name(err_msg.id)).c_str(), err_msg.desc);
+      } else if (PS_IS_STR(msg)) {
+        // FLOG_ERROR("Status: %s", msg->str_val);
+        CreateWarning("Warning", msg->str_val);
+      } else {
+        FLOG_ERROR("Error receiving status message: %d", msg->err_val);
+      }
     } else {
       FLOG_ERROR("Unhandled topic: %s", msg->topic);
     }
@@ -272,6 +275,8 @@ esp_err_t UserInterface::HandleSubscriptions() {
 esp_err_t UserInterface::ApplySettings() {
   FLOG_INFO("Applying UI settings");
   themes::SwitchTheme(themes::FromString(std::get<std::string>(_config->at("theme"))));
+  lv_subject_set_int(&_subjects->sidebar, std::get<bool>(_config->at("sidebar")) ? 1 : 0);
+  Display::SetBrightness(static_cast<uint8_t>(std::get<int>(_config->at("brightness"))));
 
   return ESP_OK;
 }

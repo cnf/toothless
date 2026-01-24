@@ -23,7 +23,10 @@ extern "C" {
 
 namespace toothless {
 
-SettingsScreen::SettingsScreen() { _labels = std::make_unique<SettingsScreenLabels>(); }
+SettingsScreen::SettingsScreen() {
+  _labels = std::make_unique<SettingsScreenLabels>();
+  _subjects = SubjectManager::Instance().subjects;
+}
 
 SettingsScreen::~SettingsScreen() {
   // FIXME: make widget_map a smart pointer
@@ -37,6 +40,14 @@ esp_err_t SettingsScreen::BaseCreate() {
   FLOG_DEBUG("Creating Settings Menu");
   _labels->menu = ui::CreateMenu(_screen, "Settings");
   // lv_obj_set_flex_grow(_labels->menu, 1);
+
+  // {
+  //   auto values = std::make_shared<SettingsMap>();
+  //   GetSettings(values, "ui");
+  //   // ConfigEntries config = GetConfigEntries("network");
+  //   _labels->sidebar = std::get<bool>(values->at("sidebar"));
+  // }
+
   {
     // Back button
     lv_menu_set_mode_root_back_button(_labels->menu, LV_MENU_ROOT_BACK_BUTTON_ENABLED);
@@ -60,29 +71,27 @@ esp_err_t SettingsScreen::BaseCreate() {
   //   BuildFromEntries(_labels->menu, "heater", heater::config_entries, *values, "Heater Settings");
   // }
   BuildSettingsUI(_labels->menu, "ui", "User Interface");
-  BuildSettingsUI(_labels->menu, "heater", "Hearer Settings");
+  BuildSettingsUI(_labels->menu, "heater", "Heater Settings");
   BuildSettingsUI(_labels->menu, "network", "Network Settings");
   BuildSettingsUI(_labels->menu, "peripheral", "Peripheral Settings");
   BuildSettingsUI(_labels->menu, "gpio_ssr", "GPIO SSR");  // Add for each GPIO peripheral
 
-  // BuildSensorSettingsUI(_labels->menu);
-
   ui::CreateHeading(_labels->root_page, "Info");
-  // lv_obj_t* cont = ui::CreateMenuRootEntry(_labels->section, "Info", LV_SYMBOL_LIST);
 
   _labels->section = ui::CreateMenuRootSection(_labels->root_page);
 
   CreateSubFirmwareInfo(_labels->menu, _labels->section);
   CreateSubSystemInfo(_labels->menu, _labels->section);
-  lv_obj_t* sidebar_switch = ui::CreateSwitch(_labels->section, _labels->sidebar);
+
+  CreateSubStatus(_labels->menu, _labels->section);
+
+  lv_obj_t* sidebar_switch = ui::CreateSwitch(_labels->section, lv_subject_get_int(&_subjects->sidebar));
   ui::CreateMenuRootEntry(_labels->section, sidebar_switch, LV_SYMBOL_SETTINGS);
   lv_obj_add_event_cb(sidebar_switch, SidebarHandler, LV_EVENT_VALUE_CHANGED, this);
-
-  // SetSidebar(_labels->sidebar);
+  lv_obj_bind_state_if_not_eq(sidebar_switch, &_subjects->sidebar, LV_STATE_CHECKED, 0);
+  lv_observer_t* observer = lv_subject_add_observer(&_subjects->sidebar, SidebarObserverCallback, this);
 
   lv_menu_set_page(_labels->menu, _labels->root_page);
-
-  // ui::StyleMenuSidebar(_labels->menu);
 
   FLOG_DEBUG("Menu Created");
   return ESP_OK;
@@ -298,6 +307,13 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
   }
 #endif
 
+  ui::CreateHeading(wrapper, "Network Info");
+  ps_msg_t* msg = PS_CALL_NIL("network.ip.get", 500);
+  if (msg && PS_IS_STR(msg)) {
+    ui::CreateIconItem(wrapper, std::format("IP Address: {}", msg->str_val).c_str(), LV_SYMBOL_BULLET);
+  }
+  ps_unref_msg(msg);
+
   ui::CreateHeading(wrapper, "Memory Info");
   ui::CreateTitle(wrapper, "Internal");
 
@@ -352,6 +368,53 @@ lv_obj_t* SettingsScreen::CreateSubSystemInfo(lv_obj_t* parent, lv_obj_t* root) 
 
   lv_obj_t* cont = ui::CreateMenuRootEntry(root, "System", NULL);
 
+  lv_menu_set_load_page_event(parent, cont, page);
+
+  return page;
+}
+
+lv_obj_t* SettingsScreen::CreateSubStatus(lv_obj_t* parent, lv_obj_t* section) {
+  lv_obj_t* page = ui::CreateMenuPage(parent, "Status");
+  lv_obj_t* status_section = ui::CreateMenuSection(page);
+  lv_obj_t* wrapper = ui::CreateColumnContainer(status_section);
+  lv_obj_set_flex_flow(wrapper, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(wrapper, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_width(wrapper, lv_pct(100));
+  lv_obj_set_height(wrapper, LV_SIZE_CONTENT);
+
+  // ui::CreateIconItem(wrapper, "System is operational.", LV_SYMBOL_OK);
+
+  lv_obj_t* cont = ui::CreateMenuRootEntry(section, "Status", NULL);
+
+  ps_subscriber_t* sub =
+      ps_new_subscriber(10, PS_STRLIST(kTopicStatus, kTopicStatusError, kTopicStatusWarning, kTopicStatusInfo));
+
+  ps_msg_t* msg = NULL;
+  size_t count = 0;
+  for ((msg = ps_get(sub, 0)); msg != NULL; (msg = ps_get(sub, 0))) {
+    FLOG_INFO("Msg on %s", msg->topic);
+    if (PS_IS_ERR(msg)) {
+      ps_err_t err_msg = msg->err_val;
+      // lv_obj_t* card = ui::CreateCard(wrapper);
+      ui::CreateIconItem(wrapper, std::format("{} - {}", esp_err_to_name(err_msg.id), err_msg.desc).c_str(),
+                         LV_SYMBOL_WARNING);
+    } else if (PS_IS_STR(msg)) {
+      // lv_obj_t* card = ui::CreateCard(wrapper);
+      ui::CreateIconItem(wrapper, std::format("Status: {}", msg->str_val).c_str(), LV_SYMBOL_WARNING);
+    } else {
+      FLOG_ERROR("Error receiving status message: %d", msg->err_val);
+      continue;
+    }
+    ps_unref_msg(msg);
+    count++;
+  };
+  ps_unsubscribe_all(sub);
+  ps_free_subscriber(sub);
+
+  if (count == 0) {
+    // lv_obj_t* card = ui::CreateCard(wrapper);
+    ui::CreateIconItem(wrapper, "System is operational.", LV_SYMBOL_OK);
+  }
   lv_menu_set_load_page_event(parent, cont, page);
 
   return page;
@@ -432,14 +495,14 @@ lv_obj_t* SettingsScreen::BuildEnumSetting(lv_obj_t* parent, const ConfigEntry& 
   int selected_idx = 0;
 
   // Normalize current value for comparison
-  std::string normalized_current = ui::TitleToSnake(current_value);
+  std::string normalized_current = config_utils::NormalizeString(current_value);  // ???
 
   for (size_t i = 0; i < enum_vals.size(); ++i) {
     if (i > 0) opts += "\n";
     opts += ui::SnakeToTitle(enum_vals[i]);
 
     // Compare normalized values
-    std::string normalized_option = ui::TitleToSnake(enum_vals[i]);
+    std::string normalized_option = config_utils::NormalizeString(enum_vals[i]);  // ???
     if (normalized_option == normalized_current) {
       selected_idx = i;
     }
@@ -617,14 +680,14 @@ void SettingsScreen::OnDropdownChanged(lv_event_t* e) {
 
   char option[64];
   lv_dropdown_get_selected_str(dropdown, option, sizeof(option));
-  // option = ui::TitleToSnake(std::string(option)).c_str();
+  // option = helpers::StringToSnake(std::string(option)).c_str();
 
   // const char* option = lv_dropdown_get_selected_str(dropdown);
 
   char topic[128];
   snprintf(topic, sizeof(topic), "config.%s.%s.set", data->namespace_name.c_str(), data->key.c_str());
-  // PS_PUB_STR(topic, ui::TitleToSnake(std::string(option)).c_str());
-  PS_PUB_STR(topic, StringToSnake(std::string(option)).c_str());
+  // PS_PUB_STR(topic, helpers::StringToSnake(std::string(option)).c_str());
+  PS_PUB_STR(topic, config_utils::NormalizeString(std::string(option)).c_str());
 }
 
 void SettingsScreen::OnTextareaChanged(lv_event_t* e) {
@@ -673,6 +736,14 @@ void SettingsScreen::SidebarHandler(lv_event_t* e) {
       screen->SetSidebar(false);
     }
   }
+}
+
+void SettingsScreen::SidebarObserverCallback(lv_observer_t* observer, lv_subject_t* subject) {
+  SettingsScreen* screen = (SettingsScreen*)lv_observer_get_user_data(observer);
+  if (!screen) return;
+
+  bool mode = lv_subject_get_int(subject);
+  screen->SetSidebar(mode);
 }
 
 void SettingsScreen::MenuBackEventHandler(lv_event_t* e) {

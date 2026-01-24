@@ -24,7 +24,7 @@ NetworkManager::NetworkManager()
 NetworkManager::~NetworkManager() { Shutdown(); }
 
 void NetworkManager::Init() {
-  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
   // Placeholder for any pre-startup initialization if needed
   // Set up Config
   _config = std::make_shared<SettingsMap>();
@@ -36,7 +36,7 @@ void NetworkManager::Init() {
   FLOG_DEBUG("Waiting for settings...");
   GetSettings(_config, "network");
 
-  _subscription = ps_new_subscriber(10, PS_STRLIST("network.config"));
+  _subscription = ps_new_subscriber(10, PS_STRLIST("network"));
 
   ApplySettings();
 }
@@ -51,6 +51,14 @@ void NetworkManager::Loop() {
     } else if (ps_has_topic_suffix(msg, kTopicConfigSet) && PS_IS_NIL(msg)) {
       FLOG_DEBUG("config set?");
       // GetSettings(_config, "network");
+    } else if (ps_has_topic_suffix(msg, "ip.get") && PS_IS_NIL(msg)) {
+      if (!msg->rtopic) {
+        ps_unref_msg(msg);
+        continue;
+      }
+      std::string ip = _wifi->GetIPAddress();
+      FLOG_DEBUG("Publishing IP address: %s", ip.c_str());
+      PS_PUB_STR(msg->rtopic, ip.c_str());
     }
   };
   ps_unref_msg(msg);
@@ -121,6 +129,7 @@ bool NetworkManager::Connect() {
   WiFiConfig config;
   config.ssid = std::get<std::string>(_config->at("ssid"));
   config.password = std::get<std::string>(_config->at("password"));
+  config.hostname = std::get<std::string>(_config->at("hostname"));
   // config.auto_reconnect = _config->get_bool("wifi.auto_reconnect", true);
   // config.max_retries = static_cast<uint8_t>(_config->get_int("wifi.max_retries", 5));
   return _wifi->Connect(config);
@@ -207,6 +216,7 @@ esp_err_t NetworkManager::ApplySettings() {
     }
   }
   Connect();
+  _wifi->SetHostname(std::get<std::string>(_config->at("hostname")));
   StartHttpServer();
 
   return ESP_OK;

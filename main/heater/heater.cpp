@@ -61,11 +61,21 @@ bool Heater::Init() {
 }
 
 void Heater::Loop() {
+  static uint64_t last_update = esp_timer_get_time();
   PS_PUB_NIL("watchdog.heater");  // FIXME: flesh out watchdog mechanisms
   HandleSubscriptions();
   UpdateTimer();
   if (!_element) {
-    FLOG_ERROR("No heater element configured");
+    if (last_update + 10 * 1000 * 1000 > esp_timer_get_time()) {
+      return;
+    }
+    FLOG_WARN("Heater element missing, attempting to reacquire");
+    GetElement();
+    last_update = esp_timer_get_time();
+    if (!_element) {
+      FLOG_ERROR("No heater element configured");
+      return;
+    }
     return;
   }
 
@@ -187,7 +197,9 @@ esp_err_t Heater::ApplySettings() {
 }
 
 esp_err_t Heater::GetElement() {
-  ps_msg_t* msg = PS_CALL_PTR("peripheral.actuator.zone.get", &_element, 1000);
+  FLOG_DEBUG("Getting heater element from Peripheral Registry");
+  // TODO: make this safer
+  ps_msg_t* msg = PS_CALL_PTR("peripheral.actuator.zone.get", &_element, 2000);
   if (msg != NULL && PS_IS_NIL(msg)) {
     ps_unref_msg(msg);
     if (_element) {
@@ -216,6 +228,7 @@ esp_err_t Heater::CheckSafety() {
   if (_target.has_value() && _temperature > _target.value() + _limits->overshoot_limit) {
     FLOG_ERROR("THERMAL RUNAWAY: %d > target+%d", _temperature / 100,
                (_target.value() + _limits->overshoot_limit) / 100);
+    PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_INVALID_STATE, "Thermal runaway detected", PS_FL_STICKY);
     return ESP_ERR_INVALID_STATE;
   }
 
@@ -225,10 +238,12 @@ esp_err_t Heater::CheckSafety() {
   float rate_deg_per_sec = (_rate_of_change * 1000.0f) / (100.0f * _time_slice);
 
   // 3. Stall detection: power high but no heating
+  // TODO: use pid? make configurable? a big oven heats a lot slower than a hotplate
   if (_power_setting > 50 && rate_deg_per_sec < _limits->min_heat_rate) {
     _stall_counter++;
     if (_stall_counter > _limits->stall_timeout_ms / _time_slice) {
       FLOG_ERROR("HEATING STALL: element or sensor fault");
+      PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT, "Heating stall detected", PS_FL_STICKY);
       return ESP_ERR_TIMEOUT;
     }
   } else {
@@ -238,12 +253,18 @@ esp_err_t Heater::CheckSafety() {
   // 4. Sensor sanity: impossible rate of change
   if (std::abs(rate_deg_per_sec) > _limits->max_heat_rate) {
     FLOG_ERROR("SENSOR FAULT: rate %.1f°C/s impossible", rate_deg_per_sec);
+    PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_INVALID_RESPONSE,
+                  std::format("Temperature sensor fault: rate {:.1f}°C/s impossible", rate_deg_per_sec).c_str(),
+                  PS_FL_STICKY);
     return ESP_ERR_INVALID_RESPONSE;
   }
 
   // 5. Sensor timeout: if no temp updates in sensor_timeout_ms
   if (_last_temp_update + _limits->sensor_timeout_ms * 1000 < esp_timer_get_time()) {
     FLOG_ERROR("NO TEMPERATURE UPDATES");
+    PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT,
+                  std::format("No temperature updates received for {}s", _limits->sensor_timeout_ms / 1000).c_str(),
+                  PS_FL_STICKY);
     return ESP_ERR_TIMEOUT;
   }
 
@@ -371,13 +392,17 @@ esp_err_t Heater::ClearTimer() {
 esp_err_t Heater::SetTarget(int32_t target) {
   if (target > 99900 || target < -9900) {
     FLOG_ERROR("Target temperature %d out of range (-99 to 999)", target);
-    PS_PUB_ERR_FL(kTopicStatusError, ESP_ERR_INVALID_ARG,
-                  std::format("Heater target temperature {} out of range", target).c_str(), PS_FL_STICKY);
+    // PS_PUB_ERR_FL(kTopicStatusError, ESP_ERR_INVALID_ARG,
+    // std::format("Heater target temperature {} out of range", target).c_str(), PS_FL_STICKY);
     PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_INVALID_ARG,
                   std::format("Heater target temperature {} out of range", target).c_str(), PS_FL_STICKY);
     return ESP_ERR_INVALID_ARG;
   }
   if (target > _maximum_temperature) {
+    PS_PUB_STR(kTopicStatusWarning,
+               std::format("Requested target temperature of {}C exceeds maximum of {}, capping to maximum",
+                           target / 100, _maximum_temperature / 100)
+                   .c_str());
     _target = _maximum_temperature;
   } else {
     _target = target;
@@ -401,10 +426,20 @@ esp_err_t Heater::HeaterOn(float power) {
   return HeaterOn(static_cast<uint8_t>(power));
 }
 
-esp_err_t Heater::HeaterOn(uint8_t power) { return _element->On(power); }
+esp_err_t Heater::HeaterOn(uint8_t power) {
+  if (!_element) {
+    FLOG_WARN("Heater element missing, cannot turn on");
+    return ESP_ERR_INVALID_STATE;
+  }
+  return _element->On(power);
+}
 
 esp_err_t Heater::HeaterOff() {
   FLOG_DEBUG("HeaterOff called");
+  if (!_element) {
+    FLOG_WARN("Heater element missing, cannot turn off");
+    return ESP_ERR_INVALID_STATE;
+  }
   return _element->Off();
 }
 
@@ -557,6 +592,14 @@ esp_err_t Heater::StateToOn() {
   _stall_counter = 0;
   if (_state == heater::kStateOff) {
     _start_time_ms = esp_timer_get_time() / 1000;
+  }
+  // TODO: centralize safety checks before allowing ON state
+  if (!_element) {
+    FLOG_ERROR("No heater element configured, cannot turn on");
+    PS_PUB_ERR_FL(kTopicStatusError, ESP_ERR_INVALID_STATE, "No heater element configured, cannot turn on",
+                  PS_FL_STICKY);
+    StateToOff();
+    return ESP_ERR_INVALID_STATE;
   }
 
   switch (_mode) {

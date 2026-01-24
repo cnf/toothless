@@ -6,7 +6,8 @@
 #include <optional>
 #include <string>
 
-#include "impl_config.hpp"
+// #include "impl_config.hpp"
+#include "implementation.hpp"
 // #include "ui/display/display.hpp"
 
 namespace toothless {
@@ -170,6 +171,10 @@ lv_obj_t* CreateModeButton(lv_obj_t* container);
 lv_obj_t* CreateSettingsButton(lv_obj_t* container);
 
 lv_obj_t* CreateCBButton(lv_obj_t* parent, const char* txt, bool grow, lv_event_cb_t callback, void* user_data);
+
+void CreateWarning(const char* msg);
+
+void CreateWarning(const char* title, const char* msg);
 
 void ButtonEventHandler(lv_event_t* e);
 

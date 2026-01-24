@@ -1,4 +1,4 @@
-menu "Display Impl: LilyGo T-HMI"
+menu "HW Implementation: LilyGo T-HMI"
     config IMPL_LILYGO_T_HMI_HRES
         int "Display Horizontal Resolution"
         default 320

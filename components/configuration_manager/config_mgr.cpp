@@ -50,7 +50,7 @@ void ConfigManager::StarterTask(void* /*pv*/) {
 }
 
 void ConfigManager::Start() {
-  FLOG_INFO("Starting Config Manager");
+  FLOG_DEBUG("Starting Config Manager");
   xTaskCreatePinnedToCore(StarterTask,                        // Task function
                           "Config Manager",                   // name of task
                           8192,                               // Stack size of task, in bytes
@@ -61,7 +61,7 @@ void ConfigManager::Start() {
 
   ps_msg_t* msg = PS_CALL_BOOL("task.cfg_mngr.ready", true, 10000);
   if (msg != NULL && PS_IS_BOOL(msg) && msg->bool_val) {
-    FLOG_INFO("Config Manager is ready");
+    FLOG_DEBUG("Config Manager is ready");
     ps_unref_msg(msg);
     return;
   }
@@ -127,7 +127,7 @@ void ConfigManager::Setup() {
     }
     mod_list += i;
   }
-  FLOG_INFO("Found modules %s", mod_list.c_str());
+  FLOG_DEBUG("Found modules %s", mod_list.c_str());
   {
     ps_msg_t* msg;
     while (true) {
@@ -418,7 +418,7 @@ size_t ConfigManager::DeleteSetting(const char* name_space, const char* name) {
   _prefs.begin(name_space);
   _prefs.remove(name);
   _prefs.end();
-  FLOG_INFO("Deleted `%s` in module `%s`", name, name_space);
+  FLOG_DEBUG("Deleted `%s` in module `%s`", name, name_space);
   return 0;  // TODO: check if delete was successful
 }
 
@@ -740,7 +740,7 @@ uint32_t ConfigManager::ParseTopic(const char* topic, TopicParts* parts) {
 }
 
 bool ConfigManager::InitializeNVS() {
-  FLOG_INFO("Initializing Non-Volatile Storage");
+  FLOG_DEBUG("Initializing Non-Volatile Storage");
   _prefs.end();
   // FLOG_DEBUG("Erasing NVS Flash");
   // ESP_ERROR_CHECK(nvs_flash_erase()); // TODO: do we need to erase?

@@ -58,6 +58,7 @@ class HttpServer {
  private:
   /// HTTP request handlers
   static esp_err_t RootHandler(httpd_req_t* req);
+  static esp_err_t OTAPageHandler(httpd_req_t* req);
   static esp_err_t StatusHandler(httpd_req_t* req);
   static esp_err_t OTAUploadHandler(httpd_req_t* req);
   static esp_err_t RebootHandler(httpd_req_t* req);

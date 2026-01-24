@@ -97,6 +97,10 @@ void GetDisplayDimensions(uint16_t& width, uint16_t& height);
 lv_display_t* GetDisplayObjPtr();
 esp_lcd_panel_io_handle_t GetPanelIOHandle();
 
+esp_err_t BacklightSetup();
+
+esp_err_t SetBrightness(uint8_t brightness);
+
 esp_err_t SetupQSPI();
 
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map);

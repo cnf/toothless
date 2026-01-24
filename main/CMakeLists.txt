@@ -37,6 +37,7 @@ set(PRIVREQ
   espcoredump
 
   impl_lilygo_t_display_s3_long
+  impl_waveshare_touch_lcd_4
   impl_cyb_4_3inch
   impl_lilygo_t_hmi
   impl_m5dial
@@ -56,6 +57,8 @@ set(REQ
 
 if(CONFIG_IMPL_LILYGO_TDISPLAY_S3_LONG)
     set(SCREEN_DIR "180x640")
+elseif(CONFIG_IMPL_WAVESHARE_TOUCH_LCD_4)
+    set(SCREEN_DIR "rectangular")
 elseif(CONFIG_IMPL_CYB_4_3_INCH)
     set(SCREEN_DIR "rectangular") 
 elseif(CONFIG_IMPL_LILYGO_T_HMI)

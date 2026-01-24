@@ -23,7 +23,7 @@ esp_err_t Max6675Setup(int8_t clock, int8_t chip_select, int8_t data) {
   ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)_max6675_clock, GPIO_MODE_OUTPUT));
   ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)_max6675_data, GPIO_MODE_INPUT));
   ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)_max6675_chip_select, 1));
-  FLOG_INFO("CS: %d, CLK: %d, DATA: %d", _max6675_chip_select, _max6675_clock, _max6675_data);
+  FLOG_DEBUG("CS: %d, CLK: %d, DATA: %d", _max6675_chip_select, _max6675_clock, _max6675_data);
   return ESP_OK;
 }
 

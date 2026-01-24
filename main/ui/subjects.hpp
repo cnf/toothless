@@ -21,6 +21,7 @@ struct Subjects {
   lv_subject_t show_stage;
   lv_subject_t timer_string;
   lv_subject_t timer_remaining;
+  lv_subject_t sidebar;
 };
 
 namespace toothless {
