@@ -17,8 +17,8 @@
 #include "i2c_manager.hpp"
 #include "sdkconfig.h"
 
-namespace display {
 namespace impl {
+namespace display {
 
 spi_host_device_t _spi_host;
 lv_display_t* _display;
@@ -211,6 +211,11 @@ esp_err_t TouchPanelSetup() {
   return ESP_OK;
 }
 
+esp_err_t BacklightSetup() {
+  Backlight();
+  return ESP_OK;
+}
+
 void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
   // if (PORTRAIT) {
   //   width = IMPL_LILYGO_TDISPLAY_S3_LONG_VRES;
@@ -366,5 +371,5 @@ void BacklightTimerCallback(void* arg) {
   //   vSemaphoreDelete(refresh_finish);
 }
 
-}  // namespace impl
 }  // namespace display
+}  // namespace impl

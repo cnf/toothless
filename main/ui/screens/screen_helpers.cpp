@@ -38,6 +38,31 @@ lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points) {
   return chart;
 }
 
+void StatusBar(lv_obj_t* parent) {
+  lv_obj_t* status_bar = ui::CreateRowContainer(parent);
+  lv_obj_set_content_width(status_bar, LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_all(status_bar, 5, 0);
+  lv_obj_set_style_pad_gap(status_bar, 10, 0);
+  lv_obj_set_flex_align(status_bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END);
+  lv_obj_set_flex_grow(status_bar, 1);
+
+  ui::CreateIconItem(status_bar, NULL, LV_SYMBOL_WARNING);
+  ui::CreateIconItem(status_bar, NULL, LV_SYMBOL_BELL);
+  ui::CreateIconItem(status_bar, NULL, LV_SYMBOL_WIFI);
+
+  // // Left side
+  // lv_obj_t* left_side = ui::CreateRowContainer(status_bar);
+  // lv_obj_set_height(left_side, LV_SIZE_CONTENT);
+  // lv_obj_set_width(left_side, LV_SIZE_CONTENT);
+  // lv_obj_set_flex_align(left_side, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  // // Right side
+  // lv_obj_t* right_side = ui::CreateRowContainer(status_bar);
+  // lv_obj_set_height(right_side, LV_SIZE_CONTENT);
+  // lv_obj_set_width(right_side, LV_SIZE_CONTENT);
+  // lv_obj_set_flex_align(right_side, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+}
+
 void NumpadOpen(const NumpadContext& ctx) {
   auto& mgr = OverlayManager::Instance();
   if (mgr.IsActive()) return;
@@ -438,6 +463,7 @@ lv_obj_t* CreateModeSwitcher(lv_obj_t* screen) {
   add_btn("Select Profile");
   add_btn("Drying");
   add_btn("Reflow");
+  add_btn("PID Tune");
   add_btn("Cancel");
   // add_btn("Snapshot");
 
@@ -460,6 +486,9 @@ void ModeSwitcherHandler(lv_event_t* e) {
   } else if (lv_strcmp(text, "Snapshot") == 0) {
     FLOG_INFO("Taking Screenshot");
     TakeSnapshot();
+  } else if (lv_strcmp(text, "PID Tune") == 0) {
+    FLOG_INFO("Starting PID Tune");
+    PS_PUB_INT(topics::heater::mode_set, heater::Mode::kModeTune);
   }
   OverlayManager::Instance().Close();
 }

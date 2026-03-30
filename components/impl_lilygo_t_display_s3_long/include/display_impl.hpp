@@ -7,8 +7,8 @@
 
 #include <memory>
 
-namespace display {
 namespace impl {
+namespace display {
 
 #define AXS_GET_POINT_NUM(buf) buf[1]
 #define AXS_GET_GESTURE_TYPE(buf) buf[0]
@@ -123,5 +123,5 @@ static void TouchPollTask(void*);
 
 static uint8_t TouchGetDataBlocking(int16_t* x, int16_t* y);
 
-}  // namespace impl
 }  // namespace display
+}  // namespace impl

@@ -42,13 +42,7 @@ namespace topics::ui {
 const char name[10] = "ui";
 }  // namespace topics::ui
 
-enum ScreenList {
-  kErrorScreen,
-  kSettingsScreen,
-  kDryerScreen,
-  kReflowScreen,
-  kProfilesScreen,
-};
+enum ScreenList { kErrorScreen, kSettingsScreen, kDryerScreen, kReflowScreen, kProfilesScreen, kAutotuneScreen };
 
 class UserInterface {
  public:

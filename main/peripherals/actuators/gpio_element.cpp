@@ -4,6 +4,7 @@
 #include <esp_err.h>
 
 #include "funlog.h"
+#include "implementation.hpp"
 #include "peripherals/peripheral.hpp"
 #include "peripherals/peripheral_registry.hpp"
 
@@ -24,6 +25,14 @@ static bool s_registered = []() {
 
   return true;
 }();
+
+bool GPIOElement::Detect() {
+  // Can't drive GPIO if no GPIOs are available
+  if (sizeof(impl::kGpioFreeList) / sizeof(impl::kGpioFreeList[0]) == 0 || impl::kGpioFreeList[0] == GPIO_NUM_NC) {
+    return false;
+  }
+  return true;
+}
 
 esp_err_t GPIOElement::Init() {
   _config = std::make_shared<SettingsMap>();

@@ -16,6 +16,11 @@ set(REQ
   configuration_manager
 )
 
-idf_component_register(SRCS ${SRC} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PRIV_REQUIRES ${PRIVREQ})
+set(EMBED_FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/favicon.ico"
+)
+
+
+idf_component_register(SRCS ${SRC} INCLUDE_DIRS ${INCL} REQUIRES ${REQ} PRIV_REQUIRES ${PRIVREQ} EMBED_FILES ${EMBED_FILES})
 
 message(STATUS "[x] Network Manager Component Registered.")

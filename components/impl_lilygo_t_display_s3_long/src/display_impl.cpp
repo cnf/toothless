@@ -40,8 +40,8 @@
 #include "soc/soc_caps.h"
 #include "sys/lock.h"
 
-namespace display {
 namespace impl {
+namespace display {
 
 #define delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS)
 
@@ -503,7 +503,7 @@ static void amoled_set_window(uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye
     amoled_write_cmd(t[i].addr, t[i].param, t[i].len);
   }
   // Small delay to let panel process window commands
-  esp_rom_delay_us(10);  // FIXME: useless, remove
+  // esp_rom_delay_us(10);  // FIXME: useless, remove
 }
 
 // void display_push_colors(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t* data) {
@@ -1152,6 +1152,7 @@ esp_err_t SetupQSPI() {
 
 /*Rotate a partially rendered area to another buffer and send it*/
 void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+  FLOG_INFO("flush callback");
   lv_display_rotation_t rotation = lv_display_get_rotation(disp);
   lv_area_t rotated_area;
   if (rotation != LV_DISPLAY_ROTATION_0) {
@@ -1174,6 +1175,7 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_ma
   LV_LOG_INFO("widht=%ld, height=%ld, ", (area->x2 + 1 - area->x1), (area->y2 + 1 - area->y1));
   amoled_set_window(area->x1, area->y1, area->x2, area->y2);
   amoled_push_buffer((uint16_t*)px_map, (area->x2 + 1 - area->x1) * (area->y2 + 1 - area->y1));
+
   lv_display_flush_ready(disp);
 }
 
@@ -1792,29 +1794,29 @@ void BacklightTimerCallback(void* arg) {
 };
 
 esp_err_t BacklightSetup() {
+  Backlight();
+  return ESP_OK;
   // Set up LEDC for backlight PWM control
-  ledc_timer_config_t ledc_timer = {
-      .speed_mode = LEDC_LOW_SPEED_MODE,
-      .timer_num = LEDC_TIMER_0,
-      .duty_resolution = LEDC_TIMER_10_BIT,
-      .freq_hz = 5000,
-      .clk_cfg = LEDC_AUTO_CLK,
-  };
+  ledc_timer_config_t ledc_timer = {.speed_mode = LEDC_LOW_SPEED_MODE,
+                                    .duty_resolution = LEDC_TIMER_10_BIT,
+                                    .timer_num = LEDC_TIMER_0,
+                                    .freq_hz = 5000,
+                                    .clk_cfg = LEDC_AUTO_CLK};
   ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
 
-  ledc_channel_config_t ledc_channel = {
-      .speed_mode = LEDC_LOW_SPEED_MODE,
-      .channel = LEDC_CHANNEL_0,
-      .timer_sel = LEDC_TIMER_0,
-      .intr_type = LEDC_INTR_DISABLE,
-      .gpio_num = (gpio_num_t)kLcdBacklightPin,
-      .duty = 1023,  // Start with backlight on
-      .hpoint = 0,
-  };
+  ledc_channel_config_t ledc_channel = {.gpio_num = (gpio_num_t)kLcdBacklightPin,
+                                        .speed_mode = LEDC_LOW_SPEED_MODE,
+                                        .channel = LEDC_CHANNEL_0,
+                                        .intr_type = LEDC_INTR_DISABLE,
+                                        .timer_sel = LEDC_TIMER_0,
+                                        .duty = 1023,  // Start with backlight on
+                                        .hpoint = 0};
   ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+  return ESP_OK;
 }
 
 esp_err_t SetBrightness(uint8_t brightness) {
+  return ESP_OK;
   // brightness: 0-100
   if (brightness > 100) brightness = 100;
   uint32_t duty = (brightness * 1023) / 100;  // Scale to 0-1023
@@ -1823,5 +1825,5 @@ esp_err_t SetBrightness(uint8_t brightness) {
   return ESP_OK;
 }
 
-}  // namespace impl
 }  // namespace display
+}  // namespace impl

@@ -1,23 +1,25 @@
 #include <esp_timer.h>
 
+#include "autotune_screen.hpp"
 #include "heater/heater.hpp"
-#include "reflow_screen.hpp"
+#include "ui/chart_history.hpp"
 #include "ui/themes/widget_factories.hpp"
 
 namespace toothless {
-
-ReflowScreen::ReflowScreen() {
-  _labels = std::make_unique<ReflowScreenLabels>();
-  _subjects = SubjectManager::Instance().subjects;
+//
+AutotuneScreen::AutotuneScreen() {
   _screen = ui::CreateScreen();
-}
+  _labels = std::make_unique<AutotuneScreenLabels>();
+  _subjects = SubjectManager::Instance().subjects;
+  _chart = std::make_unique<ChartInfo>();
+};
 
-ReflowScreen::ReflowScreen(ChartHistory* chart_hist) : ReflowScreen() {
+AutotuneScreen::AutotuneScreen(ChartHistory* chart_hist) : AutotuneScreen() {
   _chart = std::make_unique<ChartInfo>();
   _chart->history = chart_hist;
 }
 
-ReflowScreen::~ReflowScreen() {
+AutotuneScreen::~AutotuneScreen() {
   if (_update_timer) {
     lv_timer_set_repeat_count(_update_timer, 0);
     lv_timer_delete(_update_timer);
@@ -29,7 +31,23 @@ ReflowScreen::~ReflowScreen() {
   _chart->history->UnRegister();
 }
 
-esp_err_t ReflowScreen::Chart(lv_obj_t* parent) {
+void AutotuneScreen::UIUpdateTimerCB(lv_timer_t* timer) {
+  AutotuneScreen* screen = (AutotuneScreen*)lv_timer_get_user_data(timer);
+  if (screen) {
+    screen->UpdateChart();
+  }
+}
+
+esp_err_t AutotuneScreen::Title(lv_obj_t* parent) {
+  lv_obj_t* title = ui::CreateTitle(parent, "Autotune");
+  if (!title) {
+    FLOG_ERROR("Failed to create title label");
+    return ESP_ERR_NO_MEM;
+  }
+  return ESP_OK;
+}
+
+esp_err_t AutotuneScreen::Chart(lv_obj_t* parent) {
   lv_obj_t* wrapper = ui::CreateRowContainer(parent);
 
   lv_obj_set_size(wrapper, lv_pct(100), 0);
@@ -66,7 +84,7 @@ esp_err_t ReflowScreen::Chart(lv_obj_t* parent) {
   return ESP_OK;
 }
 
-void ReflowScreen::UpdateChart() {
+void AutotuneScreen::UpdateChart() {
   uint32_t starter = esp_timer_get_time();
   static uint32_t last_scale_update = esp_timer_get_time() / 1000;
   static uint32_t last_max;
@@ -110,7 +128,7 @@ void ReflowScreen::UpdateChart() {
   FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
-esp_err_t ReflowScreen::Temperature(lv_obj_t* parent) {
+esp_err_t AutotuneScreen::Temperature(lv_obj_t* parent) {
   lv_obj_t* temp_container = ui::CreateRowContainer(parent);
   lv_obj_set_size(temp_container, lv_pct(100), LV_SIZE_CONTENT);  // 60);
 
@@ -121,53 +139,9 @@ esp_err_t ReflowScreen::Temperature(lv_obj_t* parent) {
       ui::CreateLabeledIntUnit(temp_container, "Current", "°C", &_subjects->temperature, "%d", true);
   lv_obj_bind_state_if_not_eq(_labels->temp_current, &_subjects->heater_power, LV_STATE_USER_1, 0);
 
-  _labels->temp_target = ui::CreateLabeledIntUnit(temp_container, "Target", "°C", &_subjects->target, "%d", true);
+  _labels->temp_target = ui::CreateLabeledIntUnit(temp_container, "Tune Target", "°C", &_subjects->target, "%d", true);
   _labels->temp_probe = ui::CreateLabeledIntUnit(temp_container, "Probe", "°C", &_subjects->probe, "%d", true);
   // StatusBar(temp_container);
-
-  return ESP_OK;
-}
-
-esp_err_t ReflowScreen::MidSection(lv_obj_t* parent) {
-  // auto subjects
-  lv_obj_t* mid = ui::CreateRowContainer(parent);
-  lv_obj_set_height(mid, LV_SIZE_CONTENT);
-  lv_obj_set_width(mid, lv_pct(100));
-  lv_obj_set_flex_grow(mid, 1);
-  lv_obj_set_flex_flow(mid, LV_FLEX_FLOW_ROW_WRAP);
-  lv_obj_set_flex_align(mid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  // lv_obj_set_style_pad_gap(mid, 5, 0);  // Gap between blocks
-
-  // lv_obj_set_style_flex_cross_place(mid, LV_FLEX_ALIGN_CENTER, 0);
-  // lv_obj_set_style_flex_main_place(mid, LV_FLEX_ALIGN_CENTER, 0);
-
-  // lv_obj_set_style_border_width(mid, 1, 0);
-  // lv_obj_set_style_border_color(mid, lv_color_hex(0x990099), 0);
-
-  {
-    lv_obj_t* profile = ui::CreateContainer(mid);
-    // lv_obj_set_style_border_width(profile, 1, 0);
-    // lv_obj_set_style_border_color(profile, lv_color_hex(0x990000), 0);
-
-    lv_obj_set_size(profile, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-
-    lv_obj_t* profile_label = ui::CreateBodyText(profile, "No Profile Loaded");
-    lv_obj_set_size(profile_label, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_label_bind_text(profile_label, &_subjects->profile, "%s");
-    lv_obj_add_flag(profile, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_bind_flag_if_eq(profile, &_subjects->show_profile, LV_OBJ_FLAG_HIDDEN, 0);
-
-    // lv_obj_set_style_border_width(profile_label, 1, 0);
-    // lv_obj_set_style_border_color(profile_label, lv_color_hex(0x009999), 0);
-  }
-  {
-    lv_obj_t* stage = ui::CreateContainer(mid);
-    ui::CreateSmallText(stage, LV_SYMBOL_RIGHT);
-    lv_obj_t* stage_label = ui::CreateBodyText(stage, "-");
-    lv_label_bind_text(stage_label, &_subjects->stage, "%s");
-    lv_obj_add_flag(stage, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_bind_flag_if_eq(stage, &_subjects->show_stage, LV_OBJ_FLAG_HIDDEN, 0);
-  }
 
   return ESP_OK;
 }

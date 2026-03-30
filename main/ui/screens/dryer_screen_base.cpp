@@ -2,6 +2,7 @@
 
 #include "dryer_screen.hpp"
 #include "heater/heater.hpp"
+#include "ui/screens/screen_helpers.hpp"
 #include "ui/themes/widget_factories.hpp"
 
 namespace toothless {
@@ -29,6 +30,7 @@ void DryerScreen::CreateTemperature(lv_obj_t* parent) {
 
   lv_obj_t* unit = ui::CreateUnitLabel(wrapper, "°C");
   lv_obj_set_align(unit, LV_ALIGN_TOP_LEFT);
+  // StatusBar(wrapper);
 }
 
 void DryerScreen::CreateTimerTargetRow(lv_obj_t* parent) {

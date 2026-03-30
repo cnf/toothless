@@ -20,6 +20,9 @@ namespace networking {
 // Static instance for callbacks
 HttpServer* HttpServer::_instance = nullptr;
 
+// extern const uint8_t favicon_ico_start[] asm("_binary_favicon_ico_start");
+// extern const uint8_t favicon_ico_end[] asm("_binary_favicon_ico_end");
+
 // Welcome page with navigation
 static const char* kWelcomePage = R"rawliteral(
 <!DOCTYPE html>
@@ -27,6 +30,7 @@ static const char* kWelcomePage = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="/favicon.ico">
   <title>Toothless Control</title>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
@@ -100,6 +104,7 @@ static const char* kOTAUploadPage = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="/favicon.ico">
   <title>Toothless OTA Update</title>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
@@ -249,6 +254,9 @@ bool HttpServer::RegisterHandlers() {
   // Root handler - serves welcome page
   httpd_uri_t root = {.uri = "/", .method = HTTP_GET, .handler = RootHandler, .user_ctx = nullptr};
 
+  // Favicon handler - serves embedded favicon
+  httpd_uri_t favicon = {.uri = "/favicon.ico", .method = HTTP_GET, .handler = FaviconHandler, .user_ctx = nullptr};
+
   // OTA page handler
   httpd_uri_t ota_page = {.uri = "/ota", .method = HTTP_GET, .handler = OTAPageHandler, .user_ctx = nullptr};
 
@@ -273,6 +281,9 @@ bool HttpServer::RegisterHandlers() {
   err = httpd_register_uri_handler(_server, &root);
   if (err != ESP_OK) return false;
 
+  err = httpd_register_uri_handler(_server, &favicon);
+  if (err != ESP_OK) return false;
+
   err = httpd_register_uri_handler(_server, &ota_page);
   if (err != ESP_OK) return false;
 
@@ -291,6 +302,18 @@ bool HttpServer::RegisterHandlers() {
 esp_err_t HttpServer::RootHandler(httpd_req_t* req) {
   httpd_resp_set_type(req, "text/html");
   httpd_resp_send(req, kWelcomePage, strlen(kWelcomePage));
+  return ESP_OK;
+}
+
+/* Handler to respond with an icon file embedded in flash.
+ * Browsers expect to GET website icon at URI /favicon.ico.
+ * This can be overridden by uploading file with same name */
+esp_err_t HttpServer::FaviconHandler(httpd_req_t* req) {
+  extern const unsigned char favicon_ico_start[] asm("_binary_favicon_ico_start");
+  extern const unsigned char favicon_ico_end[] asm("_binary_favicon_ico_end");
+  const size_t favicon_ico_size = (favicon_ico_end - favicon_ico_start);
+  httpd_resp_set_type(req, "image/x-icon");
+  httpd_resp_send(req, (const char*)favicon_ico_start, favicon_ico_size);
   return ESP_OK;
 }
 

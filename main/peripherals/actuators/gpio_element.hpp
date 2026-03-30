@@ -34,7 +34,7 @@ inline ConfigEntries gpio_config_entries = {
 
 class GPIOElement : public Actuator {
  public:
-  static bool Detect() { return true; }  // Always available
+  static bool Detect();  // { return true; }  // Always available
   esp_err_t Init() override;
   esp_err_t Loop() override;
   const PeripheralInfo& Info() const override;

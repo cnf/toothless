@@ -9,6 +9,7 @@
 #include "heater/heater.hpp"
 #include "ui/chart_history.hpp"
 #include "ui/display/display.hpp"
+#include "ui/screens/autotune_screen.hpp"
 #include "ui/screens/dryer_screen.hpp"
 #include "ui/screens/profiles_screen.hpp"
 #include "ui/screens/reflow_screen.hpp"
@@ -151,6 +152,10 @@ esp_err_t UserInterface::SwitchTo(ScreenList screen) {
       FLOG_DEBUG("Switching to PROFILES Screen");
       new_screen = std::make_unique<ProfilesScreen>();
       break;
+    case ScreenList::kAutotuneScreen:
+      FLOG_DEBUG("Switching to AUTOTUNE Screen");
+      new_screen = std::make_unique<AutotuneScreen>(&_chart_history);
+      break;
     default:
       FLOG_ERROR("ScreenState %d not implemented", screen);
       _switching_screen_state = false;  // ← Also reset flag
@@ -206,6 +211,9 @@ esp_err_t UserInterface::HandleSubscriptions() {
         case heater::Mode::kModeDrying:
           SwitchTo(ScreenList::kDryerScreen);
           break;
+        case heater::Mode::kModeTune:
+          SwitchTo(ScreenList::kAutotuneScreen);
+          break;
         default:
           SwitchTo(ScreenList::kDryerScreen);
           break;
@@ -230,6 +238,10 @@ esp_err_t UserInterface::HandleSubscriptions() {
           case heater::Mode::kModeDrying:
             FLOG_DEBUG("DRYING mode");
             SwitchTo(ScreenList::kDryerScreen);
+            break;
+          case heater::Mode::kModeTune:
+            FLOG_DEBUG("TUNE mode");
+            SwitchTo(ScreenList::kAutotuneScreen);
             break;
           case heater::Mode::kModeHeating:
           case heater::Mode::kModeCooldown:

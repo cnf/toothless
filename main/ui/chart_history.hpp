@@ -17,6 +17,8 @@ extern "C" {
 
 namespace toothless {
 
+class ChartHistory;  // Forward declaration
+
 static constexpr size_t kMaxPoints = 600;
 static constexpr size_t kYLabelCount = 6;
 // #define Y_LABEL_COUNT 6
@@ -30,6 +32,15 @@ struct Series {
   lv_chart_series_t* chart_series = nullptr;
   std::array<float, kMaxPoints> data = {std::numeric_limits<float>::quiet_NaN()};
   bool persist = false;
+};
+
+struct ChartInfo {
+  lv_obj_t* chart;
+  uint32_t scale;
+  AxisLabels y_axis_labels;
+  std::array<const char*, kYLabelCount + 1> label_pointers;
+  ChartHistory* history;  // UI owns it
+  std::map<std::string, lv_chart_series_t*> series_map;
 };
 
 /// @brief ChartHistory manages a ring buffer of historical data for multiple series,

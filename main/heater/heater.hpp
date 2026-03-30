@@ -56,14 +56,12 @@ static const char* error = GetErrorTopic();
 
 namespace heater {
 
-enum class Mode { kModeHeating, kModeCooldown, kModeReflow, kModeDrying };
+enum class Mode { kModeHeating, kModeCooldown, kModeReflow, kModeDrying, kModeTune };
 enum State { kStateOff, kStateOn, kStatePause };
 
 static constexpr std::pair<Mode, const char*> kModeMap[] = {
-    {Mode::kModeReflow, "reflow"},
-    {Mode::kModeDrying, "drying"},
-    {Mode::kModeHeating, "heating"},
-    {Mode::kModeCooldown, "cooldown"},
+    {Mode::kModeReflow, "reflow"},     {Mode::kModeDrying, "drying"}, {Mode::kModeHeating, "heating"},
+    {Mode::kModeCooldown, "cooldown"}, {Mode::kModeTune, "tune"},
 };
 
 inline std::string ToString(Mode t) {
@@ -106,11 +104,32 @@ inline std::string MakeFormat() {
 }
 
 struct SafetyLimits {
-  float min_heat_rate = 0.5f;         // °C/sec minimum when power > 50%
-  float max_heat_rate = 10.0f;        // °C/sec maximum (sensor sanity)
-  int32_t overshoot_limit = 1500;     // 15°C above target = emergency
-  uint32_t stall_timeout_ms = 30000;  // 30s no progress = abort
-  uint32_t sensor_timeout_ms = 5000;  // 5s no temp updates = abort
+  float min_heat_rate = 0.5f;               // °C/sec minimum when power > 50%
+  float max_heat_rate = 10.0f;              // °C/sec maximum (sensor sanity)
+  int32_t overshoot_limit = 1500;           // 15°C above target = emergency
+  uint32_t sensor_timeout_ms = 5000;        // 5s no temp updates = abort
+  uint32_t stall_timeout_ms = 30000;        // 30s no progress = abort
+  uint32_t stall_warmup_period_ms = 60000;  // No stall check for first 60s
+  float stall_min_temp_threshold = 50.0f;   // Only check above 50°C
+  bool stall_scale_with_temp = true;        // Use dynamic rate scaling
+};
+
+struct AutotuneData {
+  enum State { kIdle, kRunning, kComplete, kFailed };
+
+  State state = kIdle;
+  float test_power = 100.0f;    // % power for test
+  int32_t test_target = 15000;  // 150°C test temp (centidegrees)
+
+  uint32_t start_time_ms = 0;
+  std::vector<float> peak_temps;     // Track oscillation peaks
+  std::vector<uint32_t> peak_times;  // Time between peaks
+  float ultimate_gain = 0.0f;        // Ku
+  float ultimate_period = 0.0f;      // Pu (seconds)
+
+  bool last_was_above = false;
+  int32_t last_crossing_temp = 0;
+  uint32_t last_crossing_time = 0;
 };
 
 struct HeaterConfig {
@@ -174,6 +193,7 @@ class Heater {
   ps_subscriber_t* _subscription;
   std::unique_ptr<ConfigEntries> _config_entries;  // UI configuration entries
   std::shared_ptr<SettingsMap> _config;            // UI settings map
+  std::unique_ptr<heater::AutotuneData> _autotune;
   // std::unique_ptr<BaseElement> _element;
   std::shared_ptr<Actuator> _element;
   heater::State _state = heater::State::kStateOff;
@@ -208,6 +228,11 @@ class Heater {
 
   void CalibratePID();
   void Tune();
+
+  esp_err_t StartAutotune(int32_t target_temp = 15000);
+  void AutotuneStep();
+  esp_err_t CompleteAutotune();
+
   esp_err_t StateToOn();
   esp_err_t StateToOff();
   esp_err_t StateToPause();

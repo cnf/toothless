@@ -19,8 +19,9 @@ Heater::Heater() {
   _config = std::make_shared<SettingsMap>();
   _config_entries = std::make_unique<ConfigEntries>();
   _subscription =
-      ps_new_subscriber(10, PS_STRLIST("sensor.temperature", topics::heater::name, topics::profile::changed));
+      ps_new_subscriber(50, PS_STRLIST("sensor.temperature", topics::heater::name, topics::profile::changed));
   _limits = std::make_unique<heater::SafetyLimits>();
+  _autotune = std::make_unique<heater::AutotuneData>();
 }
 
 Heater::~Heater() {
@@ -34,7 +35,7 @@ Heater::~Heater() {
 }
 
 bool Heater::Init() {
-  // esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
+  esp_log_level_set(FLOG_SHORT_FILENAME, ESP_LOG_DEBUG);
 
   _config_entries->insert(std::end(*_config_entries), std::begin(config_entries), std::end(config_entries));
 
@@ -86,6 +87,8 @@ void Heater::Loop() {
     case heater::Mode::kModeDrying:
       LoopDryer();
       break;
+    case heater::Mode::kModeTune:
+      break;
     case heater::Mode::kModeHeating:
       break;
     case heater::Mode::kModeCooldown:
@@ -96,7 +99,20 @@ void Heater::Loop() {
       return;
   }
 
-  Tune();
+  if (_state != heater::kStateOn && _element && !_element->IsOn()) {
+    // AssertOff();
+    return;
+  }
+  switch (_mode) {
+    case heater::Mode::kModeTune:
+      AutotuneStep();
+      break;
+    default:
+      Tune();
+      break;
+  }
+
+  // Tune();
   if (CheckSafety() != ESP_OK) {
     AssertOff();
     PS_PUB_ERR_FL(topics::heater::error, ESP_FAIL, "Safety shutdown", PS_FL_STICKY);
@@ -215,13 +231,17 @@ esp_err_t Heater::GetElement() {
 
 void Heater::AssertOff() {
   FLOG_ERROR("Heater ASSERT OFF called!");
+  ESP_ERROR_CHECK(SetState(heater::kStateOff));
   ESP_ERROR_CHECK(HeaterOff());
   if (_element && _element->IsOn()) {
     FLOG_ERROR("Heater element failed to turn off!");
+    PS_PUB_ERR_FL(topics::heater::error, ESP_FAIL, "Heater element failed to turn off!", PS_FL_STICKY);
   }
   _power_setting = 0;
   _target = std::nullopt;
 }
+
+// esp_err_t Heater::CheckThermalStall() { return ESP_OK; }
 
 esp_err_t Heater::CheckSafety() {
   // 1. Thermal runaway: temp way above target (temps in centidegrees)
@@ -239,16 +259,46 @@ esp_err_t Heater::CheckSafety() {
 
   // 3. Stall detection: power high but no heating
   // TODO: use pid? make configurable? a big oven heats a lot slower than a hotplate
-  if (_power_setting > 50 && rate_deg_per_sec < _limits->min_heat_rate) {
-    _stall_counter++;
-    if (_stall_counter > _limits->stall_timeout_ms / _time_slice) {
-      FLOG_ERROR("HEATING STALL: element or sensor fault");
-      PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT, "Heating stall detected", PS_FL_STICKY);
-      return ESP_ERR_TIMEOUT;
-    }
-  } else {
+  uint64_t time_since_start = (esp_timer_get_time() / 1000) - _start_time_ms;
+  // Skip during warmup period
+  if (time_since_start < _limits->stall_warmup_period_ms) {
     _stall_counter = 0;
+    // return ESP_OK;  // (for this check only, continue other checks)
+  } else if (_temperature < _limits->stall_min_temp_threshold * 100) {
+    // Skip if below temperature threshold (thermal mass effect)
+    _stall_counter = 0;
+    // Don't return, let other checks run
+  } else {
+    float expected_rate = _limits->min_heat_rate;
+
+    // Scale expected rate: cold systems heat slower
+    if (_limits->stall_scale_with_temp && _temperature < 15000) {  // Below 150°C
+      float temp_factor = _temperature / 15000.0f;                 // 0.0 to 1.0
+      expected_rate *= std::max(0.3f, temp_factor);                // Min 30% of normal rate
+    }
+
+    if (_power_setting > 50 && rate_deg_per_sec < expected_rate) {
+      _stall_counter++;
+      if (_stall_counter > _limits->stall_timeout_ms / _time_slice) {
+        FLOG_ERROR("HEATING STALL: element or sensor fault (rate: %.2f°C/s, expected: >%.2f°C/s)", rate_deg_per_sec,
+                   expected_rate);
+        PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT, "Heating stall detected", PS_FL_STICKY);
+        return ESP_ERR_TIMEOUT;
+      }
+    } else {
+      _stall_counter = 0;
+    }
   }
+  // if (_power_setting > 50 && rate_deg_per_sec < _limits->min_heat_rate) {
+  //   _stall_counter++;
+  //   if (_stall_counter > _limits->stall_timeout_ms / _time_slice) {
+  //     FLOG_ERROR("HEATING STALL: element or sensor fault");
+  //     PS_PUB_ERR_FL(topics::heater::error, ESP_ERR_TIMEOUT, "Heating stall detected", PS_FL_STICKY);
+  //     return ESP_ERR_TIMEOUT;
+  //   }
+  // } else {
+  //   _stall_counter = 0;
+  // }
 
   // 4. Sensor sanity: impossible rate of change
   if (std::abs(rate_deg_per_sec) > _limits->max_heat_rate) {
@@ -348,6 +398,11 @@ esp_err_t Heater::SetMode(heater::Mode new_mode) {
     case heater::Mode::kModeReflow:
       _mode = heater::Mode::kModeReflow;
       // FLOG_DEBUG("Heater mode: REFLOW");
+      break;
+    case heater::Mode::kModeTune:
+      _mode = heater::Mode::kModeTune;
+      // StartAutotune();
+      FLOG_DEBUG("Heater mode: TUNE");
       break;
     case heater::Mode::kModeCooldown:
       _mode = heater::Mode::kModeCooldown;
@@ -560,6 +615,13 @@ void Heater::UpdateProfileConfigEntry() {
 //   _previous_temperature = _temperature;
 // }
 
+// void Heater::CalibratePID(float kp, float ki, float kd) {
+//   _kp = kp;
+//   _ki = ki;
+//   _kd = kd;
+//   FLOG_INFO("Calibrated PID: Kp=%.3f Ki=%.5f Kd=%.3f", _kp, _ki, _kd);
+// }
+
 void Heater::Tune() {
   if (_state != heater::kStateOn) return;
   if (!_target.has_value()) return;
@@ -588,7 +650,115 @@ void Heater::Tune() {
              _power_setting);
 }
 
+esp_err_t Heater::StartAutotune(int32_t target_temp) {
+  if (_state != heater::kStateOff) {
+    FLOG_ERROR("Must be OFF to start autotune");
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  _autotune = std::make_unique<AutotuneData>();
+  _autotune->state = AutotuneData::kRunning;
+  _autotune->test_target = target_temp;
+  _autotune->start_time_ms = esp_timer_get_time() / 1000;
+
+  SetTarget(target_temp);
+  // SetState(heater::kStateOn);
+
+  FLOG_INFO("Autotune started: target=%d°C", target_temp / 100);
+  PS_PUB_STR("heater.autotune.status", "running");  // FIXME: not the right topic
+  return ESP_OK;
+}
+
+void Heater::AutotuneStep() {
+  FLOG_INFO("Autotune step");
+  if (!_autotune || _autotune->state != AutotuneData::kRunning) return;
+  FLOG_INFO("Autotune running: temp=%d°C", _temperature / 100);
+
+  // Simple relay control: bang-bang at target
+  bool above_target = _temperature > _autotune->test_target;
+
+  if (above_target) {
+    _power_setting = 0.0f;  // Off when above
+  } else {
+    _power_setting = _autotune->test_power;  // On when below
+  }
+
+  // Detect zero-crossings to measure period
+  uint32_t now = esp_timer_get_time() / 1000;
+  if (above_target != _autotune->last_was_above) {
+    if (_autotune->last_crossing_time > 0) {
+      uint32_t period_ms = now - _autotune->last_crossing_time;
+      _autotune->peak_times.push_back(period_ms);
+
+      float temp_degC = _temperature / 100.0f;
+      _autotune->peak_temps.push_back(temp_degC);
+
+      FLOG_DEBUG("Autotune crossing: %.1f°C, period=%dms", temp_degC, period_ms);
+    }
+    _autotune->last_crossing_time = now;
+    _autotune->last_was_above = above_target;
+  }
+
+  // Need at least 4 crossings (2 full cycles) for reliable data
+  if (_autotune->peak_times.size() >= 4) {
+    CompleteAutotune();
+  }
+
+  FLOG_INFO("Autotune power setting: %.1f%%, and state %s", _power_setting, _state == heater::kStateOn ? "on" : "off");
+  // // TODO: does this go here?
+  // if (_power_setting > 0 && _state == heater::kStateOn) {
+  //   HeaterOn(_power_setting);
+  // } else {
+  //   if (_element->IsOn()) HeaterOff();
+  // }
+
+  // Timeout after 10 minutes
+  if (now - _autotune->start_time_ms > 600000) {
+    FLOG_ERROR("Autotune timeout");
+    _autotune->state = AutotuneData::kFailed;
+    AssertOff();
+  }
+}
+
+esp_err_t Heater::CompleteAutotune() {
+  // Calculate average period (skip first, often irregular)
+  float sum_period = 0.0f;
+  for (size_t i = 1; i < _autotune->peak_times.size(); i++) {
+    sum_period += _autotune->peak_times[i];
+  }
+  _autotune->ultimate_period = (sum_period / (_autotune->peak_times.size() - 1)) / 1000.0f;  // seconds
+
+  // Calculate amplitude of oscillation
+  float max_temp = *std::max_element(_autotune->peak_temps.begin(), _autotune->peak_temps.end());
+  float min_temp = *std::min_element(_autotune->peak_temps.begin(), _autotune->peak_temps.end());
+  float amplitude = (max_temp - min_temp) / 2.0f;
+
+  // Ultimate gain: Ku = 4d / (πa), where d=relay amplitude, a=oscillation amplitude
+  float d = _autotune->test_power;  // % power
+  _autotune->ultimate_gain = (4.0f * d) / (M_PI * amplitude);
+
+  // Ziegler-Nichols "some overshoot" tuning rules:
+  _kp = 0.33f * _autotune->ultimate_gain;
+  _ki = 0.66f * _autotune->ultimate_gain / _autotune->ultimate_period;
+  _kd = 0.11f * _autotune->ultimate_gain * _autotune->ultimate_period;
+
+  FLOG_INFO("Autotune complete: Ku=%.2f, Pu=%.1fs → Kp=%.2f, Ki=%.3f, Kd=%.2f", _autotune->ultimate_gain,
+            _autotune->ultimate_period, _kp, _ki, _kd);
+
+  // // Save to config
+  PS_PUB_DBL("config.heater.pid_kp.set", _kp);
+  PS_PUB_DBL("config.heater.pid_ki.set", _ki);
+  PS_PUB_DBL("config.heater.pid_kd.set", _kd);
+
+  _autotune->state = AutotuneData::kComplete;
+  AssertOff();
+  PS_PUB_STR("heater.autotune.status", "complete");
+
+  return ESP_OK;
+}
+
 esp_err_t Heater::StateToOn() {
+  FLOG_DEBUG("StateToOn called");
   _stall_counter = 0;
   if (_state == heater::kStateOff) {
     _start_time_ms = esp_timer_get_time() / 1000;
@@ -618,6 +788,9 @@ esp_err_t Heater::StateToOn() {
       }
       _start_time_ms = esp_timer_get_time() / 1000;
       break;
+    case heater::Mode::kModeTune:
+      StartAutotune();
+      break;
     default:
       return ESP_ERR_NOT_SUPPORTED;
       break;
@@ -629,6 +802,7 @@ esp_err_t Heater::StateToOn() {
 }
 
 esp_err_t Heater::StateToOff() {
+  FLOG_DEBUG("StateToOff called");
   HeaterOff();
   switch (_mode) {
     case heater::Mode::kModeDrying:
@@ -641,6 +815,10 @@ esp_err_t Heater::StateToOff() {
       ClearTarget();
       _start_time_ms = 0;
       PS_PUB_NIL(topics::heater::profile_stage);
+      _state = heater::kStateOff;
+      break;
+    case heater::Mode::kModeTune:
+      ClearTarget();
       _state = heater::kStateOff;
       break;
     default:

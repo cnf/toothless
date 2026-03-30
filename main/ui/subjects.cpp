@@ -43,7 +43,7 @@ SubjectManager::~SubjectManager() {
 }
 
 void SubjectManager::Init() {
-  _subscription = ps_new_subscriber(10, PS_STRLIST("sensor.temperature", topics::heater::name));
+  _subscription = ps_new_subscriber(25, PS_STRLIST("sensor.temperature", topics::heater::name));
 }
 
 void SubjectManager::Loop() {
@@ -74,8 +74,10 @@ void SubjectManager::Loop() {
     } else if (ps_has_topic(msg, topics::heater::state) && PS_IS_INT(msg)) {
       lv_subject_set_int(&subjects->heater_state, msg->int_val);
       if (msg->int_val == heater::kStateOff) {
+        FLOG_INFO("Heater state: OFF");
         lv_subject_copy_string(&subjects->start_stop, "Start");
       } else {
+        FLOG_INFO("Heater state: ON");
         lv_subject_copy_string(&subjects->start_stop, "Stop");
       }
     } else if (ps_has_topic(msg, topics::heater::profile_stage)) {

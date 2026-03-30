@@ -101,7 +101,7 @@ extern "C" void app_main(void) {
   FLOG_INFO("Initializing peripherals");
   auto& registry = PeripheralRegistry::Instance();
   registry.Init();
-  main_dispatcher.callEvery(50, &PeripheralRegistry::Loop, &registry);
+  prio_dispatcher.callEvery(50, &PeripheralRegistry::Loop, &registry);
 
   // TopicRouter::StartTask();
 

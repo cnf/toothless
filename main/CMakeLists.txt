@@ -11,6 +11,7 @@ file(GLOB_RECURSE SRC
   "ui/themes/*.cpp"
   "ui/screens/screen_helpers.cpp"
   "ui/screens/settings_screen_base.cpp"
+  "ui/screens/autotune_screen_base.cpp"
   "ui/screens/dryer_screen_base.cpp"
   "ui/screens/reflow_screen_base.cpp"
   "ui/screens/profiles_screen.cpp"

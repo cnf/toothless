@@ -8,7 +8,7 @@
 
 namespace toothless {
 
-enum class BusType { kI2C, kSPI, kGPIO };
+enum class BusType { kI2C, kSPI, kGPIO, kModBus };
 
 inline const char* BusTypeToString(BusType bus) {
   switch (bus) {
@@ -18,12 +18,14 @@ inline const char* BusTypeToString(BusType bus) {
       return "spi";
     case BusType::kGPIO:
       return "gpio";
+    case BusType::kModBus:
+      return "modbus";
     default:
       return "Unknown";
   }
 }
 
-enum SensorType { kTemperature, kHumidity, kOtherSensor };
+enum SensorType { kTemperature, kHumidity, kCurrent, kVolt, kOtherSensor };
 
 inline const char* SensorTypeToString(SensorType type) {
   switch (type) {
@@ -31,6 +33,10 @@ inline const char* SensorTypeToString(SensorType type) {
       return "temperature";
     case kHumidity:
       return "humidity";
+    case kCurrent:
+      return "current";
+    case kVolt:
+      return "volt";
     case kOtherSensor:
       return "other";
     default:
@@ -62,7 +68,7 @@ struct PeripheralInfo {
   // const char* type;  // "temperature"
   std::variant<SensorType, ActuatorType> type;
   BusType bus;
-  uint8_t address;  // For I2C, 0 for non-I2C
+  uint8_t address;  // For I2C, ModBus, etc.
 };
 
 inline constexpr size_t kTemperatureAverageSamples = 10;

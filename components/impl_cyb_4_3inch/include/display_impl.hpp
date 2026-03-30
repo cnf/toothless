@@ -11,8 +11,8 @@
 
 #define DISPLAY_BL_ON_LEVEL 1
 
-namespace display {
 namespace impl {
+namespace display {
 
 static constexpr size_t kLcdHRes = CONFIG_IMPL_CYB_4_3_INCH_HRES;  //<! horizontal resolution
 static constexpr size_t kLcdVRes = CONFIG_IMPL_CYB_4_3_INCH_VRES;  //<! vertical resolution
@@ -68,10 +68,7 @@ static constexpr size_t kDrawBufferSize = CONFIG_IMPL_CYB_4_3_INCH_HRES * kLvglD
 
 esp_err_t DisplayPanelSetup();
 esp_err_t TouchPanelSetup();
-inline esp_err_t BacklightSetup() {
-  Backlight();
-  return ESP_OK;
-};
+esp_err_t BacklightSetup();
 inline esp_err_t SetBrightness(uint8_t brightness) { return ESP_OK; };
 void GetDisplayDimensions(uint16_t& width, uint16_t& height);
 lv_display_t* GetDisplayObjPtr();
@@ -95,5 +92,5 @@ void Backlight();
 
 void BacklightTimerCallback(void* arg);
 
-}  // namespace impl
 }  // namespace display
+}  // namespace impl

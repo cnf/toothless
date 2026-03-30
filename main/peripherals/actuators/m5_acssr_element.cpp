@@ -9,8 +9,6 @@
 
 extern "C" {
 #include <pubsub.h>
-
-#include "m5_acssr_element.hpp"
 }
 
 namespace toothless {

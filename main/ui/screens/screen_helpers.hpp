@@ -134,6 +134,8 @@ struct ModeSwitcherState {
 
 lv_obj_t* MainChart(lv_obj_t* parent, size_t max_points);
 
+void StatusBar(lv_obj_t* parent);
+
 void NumpadOpen(const NumpadContext& context);
 
 void NumpadKeyHandler(lv_event_t* e);

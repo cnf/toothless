@@ -32,14 +32,14 @@ struct ReflowScreenLabels : public ScreenLabels {
 //   lv_subject_t show_stage;
 // };
 
-struct ChartInfo {
-  lv_obj_t* chart;
-  uint32_t scale;
-  AxisLabels y_axis_labels;
-  std::array<const char*, kYLabelCount + 1> label_pointers;
-  ChartHistory* history;  // UI owns it
-  std::map<std::string, lv_chart_series_t*> series_map;
-};
+// struct ChartInfo {
+//   lv_obj_t* chart;
+//   uint32_t scale;
+//   AxisLabels y_axis_labels;
+//   std::array<const char*, kYLabelCount + 1> label_pointers;
+//   ChartHistory* history;  // UI owns it
+//   std::map<std::string, lv_chart_series_t*> series_map;
+// };
 
 class ReflowScreen : public Screen {
  public:

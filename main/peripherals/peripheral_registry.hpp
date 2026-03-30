@@ -51,8 +51,8 @@ class PeripheralRegistry {
     PeripheralInfo info;
     ProbeFunc probe;
     FactoryFunc create;
-    enum class Type { kSensor, kActuator } type;  // Add this
-    std::vector<PinSlot> pin_slots;               // Empty for non-GPIO peripherals
+    enum class Type { kSensor, kActuator } type;
+    std::vector<PinSlot> pin_slots;  // Empty for non-GPIO peripherals
   };
   static PeripheralRegistry& Instance() {
     static PeripheralRegistry instance;
