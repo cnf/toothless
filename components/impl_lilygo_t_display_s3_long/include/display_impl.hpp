@@ -58,12 +58,12 @@ static constexpr size_t kFramebufferSize = 640 * 180 * sizeof(lv_color16_t);
 /// 22 is similar to 20
 /// 32 is similar to 16
 /// 40 draws a screen full of random noise and then has SOME partial renders show up,garbled.
-// static constexpr uint8_t kLvglDrawBufferLines = 20;  //<! number of display lines in each draw buffer
-// static constexpr size_t kMainResolutionSize = 640;   //<! main resolution size (width in pixels) used by calculations
+static constexpr uint8_t kLvglDrawBufferLines = 20;  //<! number of display lines in each draw buffer
+static constexpr size_t kMainResolutionSize = 640;   //<! main resolution size (width in pixels) used by calculations
 
 // for portrait mode
-static constexpr uint8_t kLvglDrawBufferLines = 80;  //<! number of display lines in each draw buffer
-static constexpr size_t kMainResolutionSize = 180;   //<! main resolution size (width in pixels) used by
+// static constexpr uint8_t kLvglDrawBufferLines = 80;  //<! number of display lines in each draw buffer
+// static constexpr size_t kMainResolutionSize = 180;   //<! main resolution size (width in pixels) used by
 // calculationss
 
 /// @brief Send buffer size used for SPI transfers, in pixels
