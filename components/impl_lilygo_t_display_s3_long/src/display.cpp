@@ -1,10 +1,28 @@
-// cSpell: words qspi lvgl
+// cSpell: words qspi lvgl caset raset
 //
-// Raw SPI implementation matching LilyGo's proven QSPI protocol:
-//   - SPI_MODE0, command_bits=8, address_bits=24, half-duplex
-//   - Manual CS via GPIO
-//   - QIO flag only on pixel data phase
-//   - Minimal init: HW reset → DISPOFF → SLPIN → SLPOUT → DISPON
+// AXS15231B QSPI display driver for LilyGo T-Display S3 Long (180×640).
+//
+// ## Hardware constraints & workarounds
+//
+// 1. **QSPI-only interface** — The Espressif esp_lcd SPI panel driver does not
+//    support QSPI (quad-data write with single-line cmd/addr), so we drive SPI2
+//    directly using spi_device_polling_transmit with SPI_TRANS_MODE_QIO.
+//
+// 2. **MADCTL ignored** — The AXS15231B ignores the MADCTL (0x36) register in
+//    QSPI mode, so hardware rotation is not available. We create the LVGL
+//    display as 640×180 (landscape) and software-transpose to 180×640 (native
+//    portrait) in the flush callback.
+//
+// 3. **Full-refresh required** — Partial RASET windows that don't span the full
+//    column range (0–639) cause garbled output. LilyGo's own reference code
+//    uses full_refresh=1 for this reason. We use LV_DISPLAY_RENDER_MODE_FULL.
+//
+// 4. **PSRAM→SPI DMA** — The ESP32-S3 SPI DMA cannot read directly from PSRAM.
+//    A small internal-RAM bounce buffer (_transpose_buf) is used to copy chunks
+//    from the PSRAM framebuffer to SPI.
+//
+// 5. **Byte-swap** — The panel expects big-endian RGB565; LVGL stores
+//    little-endian. Bytes are swapped inline during the transpose step.
 //
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -18,7 +36,7 @@
 #include "funlog.h"
 #include "sdkconfig.h"
 
-static const char* TAG = "display_long";
+static const char* TAG = FLOG_SHORT_FILENAME;
 
 namespace impl {
 namespace display {
@@ -28,10 +46,8 @@ namespace display {
 // ---------------------------------------------------------------------------
 static spi_device_handle_t _spi = nullptr;
 static lv_display_t* _display = nullptr;
-static esp_lcd_panel_io_handle_t _io_handle = nullptr;  ///< unused, kept for header compat
 
 /// DMA bounce buffer for PSRAM→SPI transfers during flush.
-/// Sized to kSendBufSize pixels (12800) = 25600 bytes.
 static uint16_t* _transpose_buf = nullptr;
 
 // ---------------------------------------------------------------------------
@@ -179,29 +195,27 @@ esp_err_t PanelReset() {
   return ESP_OK;
 }
 
-esp_err_t LvgLBufferSetupPartial() {
-  LV_LOG_USER("Init LVGL");
+/// Init LVGL with a full-screen framebuffer in PSRAM.
+/// Both public entry points (Partial/Full) forward here — partial mode
+/// is not viable on this panel (see file header).
+static esp_err_t LvglSetup() {
+  LV_LOG_USER("Init LVGL (full-refresh, 640x180 landscape)");
   lv_init();
 
-  /// LVGL sees 640×180 landscape; flush transposes to 180×640 portrait panel.
-  /// Using RENDER_MODE_FULL — the AXS15231B in QSPI mode requires full-screen updates.
   _display = lv_display_create(kVRes, kHRes);
   if (!_display) {
     LV_LOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_NO_MEM;
   }
   lv_display_set_dpi(_display, kLcdDPI);
-  LV_LOG_USER("Display: %lix%li @ %u DPI (landscape, full refresh)", kVRes, kHRes, (unsigned)kLcdDPI);
 
-  /// DMA bounce buffer for SPI transfers (PSRAM→internal→SPI)
+  /// DMA bounce buffer — internal RAM for PSRAM→SPI transfer
   _transpose_buf = static_cast<uint16_t*>(heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
   assert(_transpose_buf);
-  LV_LOG_USER("Bounce buffer: %u bytes @ %p (DMA internal)", (unsigned)kDrawBufferSize, _transpose_buf);
 
-  /// Full-screen LVGL buffer in PSRAM (full_refresh needs entire framebuffer)
+  /// Full-screen LVGL framebuffer in PSRAM
   void* buf1 = heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM);
   assert(buf1);
-  LV_LOG_USER("LVGL framebuffer: %u bytes @ %p (PSRAM)", (unsigned)kFramebufferSize, buf1);
 
   lv_display_set_buffers(_display, buf1, nullptr, kFramebufferSize, LV_DISPLAY_RENDER_MODE_FULL);
   lv_display_set_flush_cb(_display, LvglFlushCallback);
@@ -209,14 +223,13 @@ esp_err_t LvgLBufferSetupPartial() {
   return ESP_OK;
 }
 
-esp_err_t LvgLBufferSetupFull() { return LvgLBufferSetupPartial(); }
+esp_err_t LvgLBufferSetupPartial() { return LvglSetup(); }
+esp_err_t LvgLBufferSetupFull() { return LvglSetup(); }
 
 esp_err_t DisplayPanelSetup() {
-  // ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
-  // gpio_set_level(kLcdBacklightPin, 1);  // leave this here for now, for debugging, so i can see what is going on
   ESP_RETURN_ON_ERROR(SetupQSPI(), TAG, "QSPI bus init failed");
   ESP_RETURN_ON_ERROR(PanelInit(), TAG, "Panel init failed");
-  ESP_RETURN_ON_ERROR(LvgLBufferSetupPartial(), TAG, "LVGL buffer setup failed");
+  ESP_RETURN_ON_ERROR(LvglSetup(), TAG, "LVGL setup failed");
   TurnOn();
   return ESP_OK;
 }
@@ -274,11 +287,8 @@ void LvglFlushCallback(lv_display_t* disp, const lv_area_t* /*area*/, uint8_t* p
   lv_display_flush_ready(disp);
 }
 
-bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t* edata, void* user_data) {
-  lv_display_t* disp = static_cast<lv_display_t*>(user_data);
-  lv_display_flush_ready(disp);
-  return false;
-}
+/// Unused — required by shared header. Flush is synchronous on this panel.
+bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t, esp_lcd_panel_io_event_data_t*, void*) { return false; }
 
 void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
   width = kHRes;
@@ -287,7 +297,7 @@ void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
 
 lv_display_t* GetDisplayObjPtr() { return _display; }
 
-esp_lcd_panel_io_handle_t GetPanelIOHandle() { return _io_handle; }
+esp_lcd_panel_io_handle_t GetPanelIOHandle() { return nullptr; }  ///< No esp_lcd panel IO used
 
 void TurnOn() {
   lv_async_call(
@@ -317,20 +327,8 @@ void ShowBootScreen() {
   lv_screen_load(scr);
 }
 
-// void Backlight() {
-//   esp_timer_handle_t timer = nullptr;
-//   const esp_timer_create_args_t args = {.callback = BacklightTimerCallback, .arg = nullptr, .name = "bl_timer"};
-//   ESP_ERROR_CHECK(esp_timer_create(&args, &timer));
-//   ESP_ERROR_CHECK(esp_timer_start_once(timer, 100000));
-// }
-
-// void BacklightTimerCallback(void* arg) {
-//   gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT);
-//   gpio_set_level(kLcdBacklightPin, 1);
-// }
-
+/// Debug helper — draws colored bands directly to panel, bypassing LVGL.
 void TestPanelGeometry() {
-  /// Draw colored bands to verify panel geometry — bypasses LVGL
   constexpr size_t kBandH = 32;
   auto* buf = static_cast<uint16_t*>(heap_caps_malloc(kHRes * kBandH * 2, MALLOC_CAP_DMA));
   if (!buf) return;

@@ -12,7 +12,6 @@
 #include "funlog.h"
 #include "i2c_manager.hpp"
 
-// static const char* TAG = "touch_long";
 static const char* TAG = FLOG_SHORT_FILENAME;
 
 namespace impl {
