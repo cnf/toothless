@@ -138,7 +138,7 @@ class I2cManager {
 
   /// @brief Check if I2C bus is initialized
   /// @return true if initialized, false otherwise
-  bool IsInitialized() const;
+  bool IsInitialized() const { return _initialized; }
 
   /// @brief Get the I2C Master bus handle
   /// @return I2C Master bus handle

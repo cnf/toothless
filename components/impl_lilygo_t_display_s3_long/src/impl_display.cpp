@@ -1,13 +1,13 @@
 #include <driver/ledc.h>
 
 #include "display_impl.hpp"
+#include "funlog.h"
 
 namespace impl {
 namespace display {
 
 esp_err_t BacklightSetup() {
-  Backlight();
-  return ESP_OK;
+  FLOG_INFO("Setting up backlight control...");
   // Set up LEDC for backlight PWM control
   ledc_timer_config_t ledc_timer = {.speed_mode = LEDC_LOW_SPEED_MODE,
                                     .duty_resolution = LEDC_TIMER_10_BIT,
@@ -28,7 +28,7 @@ esp_err_t BacklightSetup() {
 }
 
 esp_err_t SetBrightness(uint8_t brightness) {
-  return ESP_OK;
+  // return ESP_OK;
   // brightness: 0-100
   if (brightness > 100) brightness = 100;
   uint32_t duty = (brightness * 1023) / 100;  // Scale to 0-1023

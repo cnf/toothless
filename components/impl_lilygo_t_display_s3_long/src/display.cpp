@@ -14,8 +14,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include <cstring>
-
 #include "display_impl.hpp"
 #include "funlog.h"
 #include "sdkconfig.h"
@@ -32,11 +30,8 @@ static spi_device_handle_t _spi = nullptr;
 static lv_display_t* _display = nullptr;
 static esp_lcd_panel_io_handle_t _io_handle = nullptr;  ///< unused, kept for header compat
 
-/// Max pixels per DMA chunk (matches LilyGo SEND_BUF_SIZE = 14400 pixels)
-static constexpr size_t kSpiChunkPixels = 14400;
-
-/// Transpose buffer — allocated once, used by flush to rotate landscape→portrait
-/// Max flush area: full display width (640) × kLvglDrawBufferLines (20) = 12800 pixels
+/// DMA bounce buffer for PSRAM→SPI transfers during flush.
+/// Sized to kSendBufSize pixels (12800) = 25600 bytes.
 static uint16_t* _transpose_buf = nullptr;
 
 // ---------------------------------------------------------------------------
@@ -77,7 +72,7 @@ static void LcdPushPixels(const uint16_t* data, size_t pixel_count) {
 
   CsLow();
   while (pixel_count > 0) {
-    size_t chunk = (pixel_count > kSpiChunkPixels) ? kSpiChunkPixels : pixel_count;
+    size_t chunk = (pixel_count > kSendBufSize) ? kSendBufSize : pixel_count;
 
     spi_transaction_ext_t t{};
     if (first) {
@@ -142,7 +137,7 @@ esp_err_t SetupQSPI() {
       .sclk_io_num = kLcdSckPin,
       .data2_io_num = kLcdData2Pin,
       .data3_io_num = kLcdData3Pin,
-      .max_transfer_sz = (kSpiChunkPixels * 2) + 8,
+      .max_transfer_sz = (kSendBufSize * 2) + 8,
       .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS,
   };
   ESP_RETURN_ON_ERROR(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO), TAG, "SPI bus init failed");
@@ -188,34 +183,27 @@ esp_err_t LvgLBufferSetupPartial() {
   LV_LOG_USER("Init LVGL");
   lv_init();
 
-  /// LVGL sees 640×180 landscape; flush transposes to 180×640 portrait panel
+  /// LVGL sees 640×180 landscape; flush transposes to 180×640 portrait panel.
+  /// Using RENDER_MODE_FULL — the AXS15231B in QSPI mode requires full-screen updates.
   _display = lv_display_create(kVRes, kHRes);
   if (!_display) {
     LV_LOG_ERROR("Failed to create LVGL display");
     return ESP_ERR_NO_MEM;
   }
   lv_display_set_dpi(_display, kLcdDPI);
-  LV_LOG_USER("Display: %lix%li @ %u DPI (landscape, flush rotates)", kVRes, kHRes, (unsigned)kLcdDPI);
+  LV_LOG_USER("Display: %lix%li @ %u DPI (landscape, full refresh)", kVRes, kHRes, (unsigned)kLcdDPI);
 
-  /// Transpose buffer: same size as draw buffer, must be DMA-capable for SPI
+  /// DMA bounce buffer for SPI transfers (PSRAM→internal→SPI)
   _transpose_buf = static_cast<uint16_t*>(heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
   assert(_transpose_buf);
-  LV_LOG_USER("Transpose buffer: %u bytes @ %p (DMA)", (unsigned)kDrawBufferSize, _transpose_buf);
+  LV_LOG_USER("Bounce buffer: %u bytes @ %p (DMA internal)", (unsigned)kDrawBufferSize, _transpose_buf);
 
-  void* buf1 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-  if (!buf1) {
-    LV_LOG_WARN("DMA alloc failed for buf1, trying PSRAM");
-    buf1 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
-  }
-  void* buf2 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-  if (!buf2) {
-    LV_LOG_WARN("DMA alloc failed for buf2, trying PSRAM");
-    buf2 = heap_caps_malloc(kDrawBufferSize, MALLOC_CAP_SPIRAM);
-  }
-  assert(buf1 && buf2);
-  LV_LOG_USER("Buffers: %u bytes each (buf1=%p buf2=%p)", (unsigned)kDrawBufferSize, buf1, buf2);
+  /// Full-screen LVGL buffer in PSRAM (full_refresh needs entire framebuffer)
+  void* buf1 = heap_caps_malloc(kFramebufferSize, MALLOC_CAP_SPIRAM);
+  assert(buf1);
+  LV_LOG_USER("LVGL framebuffer: %u bytes @ %p (PSRAM)", (unsigned)kFramebufferSize, buf1);
 
-  lv_display_set_buffers(_display, buf1, buf2, kDrawBufferSize, LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_buffers(_display, buf1, nullptr, kFramebufferSize, LV_DISPLAY_RENDER_MODE_FULL);
   lv_display_set_flush_cb(_display, LvglFlushCallback);
 
   return ESP_OK;
@@ -224,62 +212,64 @@ esp_err_t LvgLBufferSetupPartial() {
 esp_err_t LvgLBufferSetupFull() { return LvgLBufferSetupPartial(); }
 
 esp_err_t DisplayPanelSetup() {
-  ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
-  gpio_set_level(kLcdBacklightPin, 1);  // leave this here for now, for debugging, so i can see what is going on
+  // ESP_ERROR_CHECK(gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT));
+  // gpio_set_level(kLcdBacklightPin, 1);  // leave this here for now, for debugging, so i can see what is going on
   ESP_RETURN_ON_ERROR(SetupQSPI(), TAG, "QSPI bus init failed");
   ESP_RETURN_ON_ERROR(PanelInit(), TAG, "Panel init failed");
   ESP_RETURN_ON_ERROR(LvgLBufferSetupPartial(), TAG, "LVGL buffer setup failed");
+  TurnOn();
   return ESP_OK;
 }
 
-esp_err_t TouchPanelSetup() {
-  LV_LOG_USER("Touch: not yet implemented");
-  return ESP_OK;
-}
-
-void LvglFlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-  /// LVGL works in landscape: x=[0..639], y=[0..179]
-  /// Panel is portrait:       col=[0..179], row=[0..639]
-  /// Mapping (90° CW): panel_col = ly, panel_row = (kVRes-1) - lx
-  const uint16_t lx1 = area->x1;
-  const uint16_t ly1 = area->y1;
-  const uint16_t lx2 = area->x2;
-  const uint16_t ly2 = area->y2;
-  const uint16_t lw = lx2 - lx1 + 1;  ///< landscape width of this area
-  const uint16_t lh = ly2 - ly1 + 1;  ///< landscape height of this area
-
+void LvglFlushCallback(lv_display_t* disp, const lv_area_t* /*area*/, uint8_t* px_map) {
+  /// Full-refresh mode: LVGL gives us the entire 640×180 landscape framebuffer.
+  /// Transpose 90° CW to 180×640 portrait, byte-swap RGB565, bounce via DMA to SPI.
   const auto* src = reinterpret_cast<const uint16_t*>(px_map);
 
-  /// Transposed panel window:
-  ///   panel_col = ly1 .. ly2   (landscape Y → panel X)
-  ///   panel_row = (kVRes-1-lx2) .. (kVRes-1-lx1)  (landscape X → panel Y, flipped)
-  const uint16_t pcol1 = ly1;
-  const uint16_t pcol2 = ly2;
-  const uint16_t prow1 = (kVRes - 1) - lx2;
-  const uint16_t prow2 = (kVRes - 1) - lx1;
-  const uint16_t pw = pcol2 - pcol1 + 1;  ///< = lh
-  const uint16_t ph = prow2 - prow1 + 1;  ///< = lw
+  LcdSetWindow(0, 0, kHRes - 1, kVRes - 1);
 
-  /// Transpose pixel data: src is lw×lh row-major (landscape)
-  /// dst needs to be pw×ph row-major (portrait panel)
-  /// dst[pr][pc] = src[(kVRes-1-lx1) - (prow1+pr)][pc - pcol1 + ly1]
-  /// Simplified: dst row pr corresponds to landscape x = lx2 - pr (top-to-bottom flip)
-  for (uint16_t pr = 0; pr < ph; ++pr) {
-    const uint16_t lx = lx2 - pr;  ///< landscape x, scanning right-to-left
-    for (uint16_t pc = 0; pc < pw; ++pc) {
-      const uint16_t ly = ly1 + pc;  ///< landscape y
-      _transpose_buf[pr * pw + pc] = src[(ly - ly1) * lw + (lx - lx1)];
+  /// Panel receives pixels in row-major order: 640 rows × 180 cols.
+  /// Panel pixel (row, col) ← landscape pixel (lx=639-row, ly=col) ← src[ly * kVRes + lx].
+  static constexpr uint32_t kTotalPixels = kHRes * kVRes;  ///< 180 × 640 = 115200
+  static constexpr uint32_t kBounceCap = kSendBufSize;     ///< 12800 pixels
+  uint32_t pixels_done = 0;
+  bool first = true;
+
+  CsLow();
+  while (pixels_done < kTotalPixels) {
+    uint32_t chunk = kTotalPixels - pixels_done;
+    if (chunk > kBounceCap) chunk = kBounceCap;
+
+    /// Transpose chunk: convert linear panel index → landscape source pixel
+    for (uint32_t i = 0; i < chunk; ++i) {
+      const uint32_t p = pixels_done + i;
+      const uint32_t prow = p / kHRes;            ///< panel row [0..639]
+      const uint32_t pcol = p % kHRes;            ///< panel col [0..179]
+      const uint32_t lx = (kVRes - 1) - prow;     ///< landscape x
+      const uint32_t ly = pcol;                   ///< landscape y
+      const uint16_t px = src[ly * kVRes + lx];   ///< stride = kVRes (640)
+      _transpose_buf[i] = (px << 8) | (px >> 8);  ///< byte-swap for panel
     }
+
+    spi_transaction_ext_t t{};
+    if (first) {
+      t.base.flags = SPI_TRANS_MODE_QIO;
+      t.base.cmd = 0x32;
+      t.base.addr = 0x002C00;
+      first = false;
+    } else {
+      t.base.flags = SPI_TRANS_MODE_QIO | SPI_TRANS_VARIABLE_CMD | SPI_TRANS_VARIABLE_ADDR | SPI_TRANS_VARIABLE_DUMMY;
+      t.command_bits = 0;
+      t.address_bits = 0;
+      t.dummy_bits = 0;
+    }
+    t.base.tx_buffer = _transpose_buf;
+    t.base.length = chunk * 16;
+    spi_device_polling_transmit(_spi, reinterpret_cast<spi_transaction_t*>(&t));
+
+    pixels_done += chunk;
   }
-
-  /// Fix byte order: ESP32 little-endian → panel big-endian RGB565
-  lv_draw_sw_rgb565_swap(_transpose_buf, (uint32_t)pw * ph);
-
-  ESP_LOGI(TAG, "flush: lvgl(%u,%u)-(%u,%u) %ux%u → panel col(%u-%u) row(%u-%u) %ux%u px=%u", lx1, ly1, lx2, ly2, lw,
-           lh, pcol1, pcol2, prow1, prow2, pw, ph, (unsigned)(pw * ph));
-
-  LcdSetWindow(pcol1, prow1, pcol2, prow2);
-  LcdPushPixels(_transpose_buf, (uint32_t)pw * ph);
+  CsHigh();
 
   lv_display_flush_ready(disp);
 }
@@ -289,8 +279,6 @@ bool LvglFlushReadyCallback(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event
   lv_display_flush_ready(disp);
   return false;
 }
-
-void LvglTouchCallback(lv_indev_t* /*indev*/, lv_indev_data_t* data) { data->state = LV_INDEV_STATE_RELEASED; }
 
 void GetDisplayDimensions(uint16_t& width, uint16_t& height) {
   width = kHRes;
@@ -329,17 +317,17 @@ void ShowBootScreen() {
   lv_screen_load(scr);
 }
 
-void Backlight() {
-  esp_timer_handle_t timer = nullptr;
-  const esp_timer_create_args_t args = {.callback = BacklightTimerCallback, .arg = nullptr, .name = "bl_timer"};
-  ESP_ERROR_CHECK(esp_timer_create(&args, &timer));
-  ESP_ERROR_CHECK(esp_timer_start_once(timer, 100000));
-}
+// void Backlight() {
+//   esp_timer_handle_t timer = nullptr;
+//   const esp_timer_create_args_t args = {.callback = BacklightTimerCallback, .arg = nullptr, .name = "bl_timer"};
+//   ESP_ERROR_CHECK(esp_timer_create(&args, &timer));
+//   ESP_ERROR_CHECK(esp_timer_start_once(timer, 100000));
+// }
 
-void BacklightTimerCallback(void* arg) {
-  gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT);
-  gpio_set_level(kLcdBacklightPin, 1);
-}
+// void BacklightTimerCallback(void* arg) {
+//   gpio_set_direction(kLcdBacklightPin, GPIO_MODE_OUTPUT);
+//   gpio_set_level(kLcdBacklightPin, 1);
+// }
 
 void TestPanelGeometry() {
   /// Draw colored bands to verify panel geometry — bypasses LVGL
