@@ -114,6 +114,15 @@ esp_err_t I2cManager::Write(i2c_master_dev_handle_t dev_handle, const uint8_t* d
   return i2c_master_transmit(dev_handle, data, len, kTimeoutMs);
 }
 
+esp_err_t I2cManager::TransmitReceive(i2c_master_dev_handle_t dev_handle, const uint8_t* tx_data, size_t tx_len,
+                                      uint8_t* rx_data, size_t rx_len) {
+  std::lock_guard<std::mutex> lock(_mutex);
+  if (!_initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  return i2c_master_transmit_receive(dev_handle, tx_data, tx_len, rx_data, rx_len, kTimeoutMs);
+}
+
 esp_err_t I2cManager::Scan() {
   FLOG_INFO("Scanning I2C bus for devices...");
   std::lock_guard<std::mutex> lock(_mutex);

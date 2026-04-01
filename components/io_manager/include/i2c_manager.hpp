@@ -173,6 +173,16 @@ class I2cManager {
   /// @return @ref ESP_OK on success, error code otherwise
   esp_err_t Write(i2c_master_dev_handle_t dev_handle, const uint8_t* data, size_t len);
 
+  /// @brief Transmit data to a device and then receive data from it
+  /// @param dev_handle Device handle gotten from @ref I2cManager::AddDevice()
+  /// @param tx_data Pointer to buffer containing data to transmit
+  /// @param tx_len Length of data to transmit
+  /// @param rx_data  Pointer to buffer to store received data
+  /// @param rx_len Length of data to receive
+  /// @return @ref ESP_OK on success, error code otherwise
+  esp_err_t TransmitReceive(i2c_master_dev_handle_t dev_handle, const uint8_t* tx_data, size_t tx_len, uint8_t* rx_data,
+                            size_t rx_len);
+
   /// @brief Scan the I2C bus for all clients
   /// @return @ref ESP_OK on success, error code otherwise
   esp_err_t Scan();

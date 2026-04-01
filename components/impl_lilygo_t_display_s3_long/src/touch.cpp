@@ -33,15 +33,12 @@ static constexpr size_t kTouchResponseLen = 14;
 // Touch data helpers
 // ---------------------------------------------------------------------------
 
-/// Read raw touch data via I2cManager.
+/// Read raw touch data via atomic I2C transmit-receive.
 /// Returns number of active touch points (0 = none).
-static uint8_t TouchGetDataBlocking(int16_t* x, int16_t* y) {
+static uint8_t TouchGetData(int16_t* x, int16_t* y) {
   uint8_t buf[kTouchResponseLen] = {};
 
-  if (_i2c->Write(_touch_dev, kTouchReadCmd, sizeof(kTouchReadCmd)) != ESP_OK) {
-    return 0;
-  }
-  if (_i2c->Read(_touch_dev, buf, kTouchResponseLen) != ESP_OK) {
+  if (_i2c->TransmitReceive(_touch_dev, kTouchReadCmd, sizeof(kTouchReadCmd), buf, kTouchResponseLen) != ESP_OK) {
     return 0;
   }
 
@@ -66,7 +63,7 @@ void LvglTouchCallback(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
   int16_t raw_x = 0;
   int16_t raw_y = 0;
 
-  if (TouchGetDataBlocking(&raw_x, &raw_y) > 0) {
+  if (TouchGetData(&raw_x, &raw_y) > 0) {
     /// Panel reports x on long axis (0-639), y on short axis (0-179).
     /// LVGL landscape display is 640 wide x 180 tall.
     /// Match flush rotation: lvgl_x = (639 - raw_x), lvgl_y = raw_y
