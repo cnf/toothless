@@ -68,6 +68,11 @@ static const char* kWelcomePage = R"rawliteral(
       <div class="nav-title">Status API</div>
       <div class="nav-desc">JSON status info</div>
     </a>
+    <a href="/logs" class="nav-button">
+      <div class="nav-icon">🪵</div>
+      <div class="nav-title">Logs</div>
+      <div class="nav-desc">Live log output</div>
+    </a>
     <a href="#" onclick="reboot(); return false;" class="nav-button">
       <div class="nav-icon">🔄</div>
       <div class="nav-title">Reboot</div>
@@ -186,6 +191,88 @@ static const char* kOTAUploadPage = R"rawliteral(
 </html>
 )rawliteral";
 
+static const char* kLogPage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <title>Toothless Log</title>
+  <style>
+    body { font-family: monospace; background: #0d0d0d; color: #ccc; margin: 0; padding: 10px; }
+    h1 { color: #ff6b6b; font-family: sans-serif; margin: 0 0 8px 0; }
+    #controls { font-family: sans-serif; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
+    button { background: #16213e; color: #eee; border: 1px solid #4ecdc4; padding: 6px 14px;
+             border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0f3460; }
+    #log { background: #111; border: 1px solid #333; padding: 8px; height: calc(100vh - 90px);
+           overflow-y: auto; white-space: pre-wrap; word-break: break-all; font-size: 13px; }
+    .E { color: #ff6b6b; }
+    .W { color: #ffd93d; }
+    .I { color: #c3c3c3; }
+    .D { color: #6bcbff; }
+  </style>
+</head>
+<body>
+  <h1>🪵 Log</h1>
+  <div id="controls">
+    <button onclick="togglePause()">⏸ Pause</button>
+    <button onclick="clearLog()">🗑 Clear</button>
+    <button onclick="window.location='/'">🏠 Home</button>
+    <span id="status" style="color:#aaa; font-size:13px"></span>
+  </div>
+  <div id="log"></div>
+  <script>
+    let since = 0, paused = false, count = 0;
+    const el = document.getElementById('log');
+    const levelClass = { 1:'E', 2:'W', 3:'I', 4:'D', 5:'D' };
+    const levelLabel = { 1:'E', 2:'W', 3:'I', 4:'D', 5:'V' };
+    function togglePause() {
+      paused = !paused;
+      document.querySelector('button').textContent = paused ? '▶ Resume' : '⏸ Pause';
+    }
+    function clearLog() { el.innerHTML = ''; count = 0; }
+    function appendLines(entries) {
+      const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 40;
+      entries.forEach(e => {
+        const cls = levelClass[e.level] || 'I';
+        const lbl = levelLabel[e.level] || '?';
+        const line = document.createElement('span');
+        line.className = cls;
+        line.textContent = '[' + lbl + '][' + e.tag + '] ' + e.msg + '\n';
+        el.appendChild(line);
+        count++;
+      });
+      if (count > 2000) {
+        while (el.children.length > 1500) el.removeChild(el.firstChild);
+        count = 1500;
+      }
+      if (atBottom) el.scrollTop = el.scrollHeight;
+    }
+    async function poll() {
+      if (!paused) {
+        try {
+          const r = await fetch('/api/logs?since=' + since);
+          if (r.ok) {
+            const d = await r.json();
+            if (d.entries && d.entries.length) appendLines(d.entries);
+            since = d.next_seq;
+            document.getElementById('status').textContent =
+              'seq:' + since + ' | ' + new Date().toLocaleTimeString();
+          }
+        } catch(e) {
+          document.getElementById('status').textContent = 'error: ' + e.message;
+        }
+      }
+      setTimeout(poll, 2000);
+    }
+    poll();
+  </script>
+</body>
+</html>
+)rawliteral";
+
 HttpServer::HttpServer() { _instance = this; }
 
 HttpServer::~HttpServer() {
@@ -295,6 +382,11 @@ bool HttpServer::RegisterHandlers() {
 
   err = httpd_register_uri_handler(_server, &reboot);
   if (err != ESP_OK) return false;
+
+  httpd_uri_t log_page = {.uri = "/logs", .method = HTTP_GET, .handler = LogPageHandler, .user_ctx = nullptr};
+  httpd_uri_t log_api = {.uri = "/api/logs", .method = HTTP_GET, .handler = LogApiHandler, .user_ctx = nullptr};
+  httpd_register_uri_handler(_server, &log_page);
+  httpd_register_uri_handler(_server, &log_api);
 
   return true;
 }
@@ -560,6 +652,101 @@ esp_err_t HttpServer::FileDownloadHandler(httpd_req_t* req) {
   }
   httpd_resp_send_chunk(req, nullptr, 0);
   fclose(f);
+  return ESP_OK;
+}
+
+void HttpServer::EnableLogStreaming(size_t ring_size) {
+  _log_ring_max = ring_size;
+  _log_ring.resize(ring_size);
+  _log_mutex = xSemaphoreCreateMutex();
+  funlog_set_net_fun_log(&HttpServer::NetLogHook);
+  FLOG_INFO("Log streaming enabled, ring size: %d", static_cast<int>(ring_size));
+}
+
+// static
+int HttpServer::NetLogHook(int level, const char* tag, const char* fmt, va_list args) {
+  if (!_instance || !_instance->_log_mutex) return 0;
+  char buf[192];
+  vsnprintf(buf, sizeof(buf), fmt, args);
+  _instance->PushLogEntry(level, tag, buf);
+  return 0;
+}
+
+void HttpServer::PushLogEntry(int level, const char* tag, const char* msg) {
+  if (xSemaphoreTake(_log_mutex, 0) != pdTRUE) return;  // drop on contention
+  LogEntry& e = _log_ring[_log_ring_head % _log_ring_max];
+  e.seq = ++_log_seq;
+  e.level = level;
+  snprintf(e.tag, sizeof(e.tag), "%s", tag ? tag : "");
+  snprintf(e.msg, sizeof(e.msg), "%s", msg ? msg : "");
+  _log_ring_head++;
+  xSemaphoreGive(_log_mutex);
+}
+
+esp_err_t HttpServer::LogPageHandler(httpd_req_t* req) {
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_send(req, kLogPage, strlen(kLogPage));
+  return ESP_OK;
+}
+
+esp_err_t HttpServer::LogApiHandler(httpd_req_t* req) {
+  if (!_instance || !_instance->_log_mutex) {
+    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Log streaming not enabled");
+    return ESP_FAIL;
+  }
+
+  char since_buf[16] = "0";
+  if (httpd_req_get_url_query_len(req) > 0) {
+    char query[32];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
+      httpd_query_key_value(query, "since", since_buf, sizeof(since_buf));
+    }
+  }
+  const uint32_t since_seq = static_cast<uint32_t>(strtoul(since_buf, nullptr, 10));
+
+  char* out = static_cast<char*>(malloc(4096));
+  if (!out) {
+    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
+    return ESP_FAIL;
+  }
+
+  xSemaphoreTake(_instance->_log_mutex, portMAX_DELAY);
+
+  const size_t max = _instance->_log_ring_max;
+  const size_t head = _instance->_log_ring_head;
+  const auto cur_seq = static_cast<unsigned int>(_instance->_log_seq);
+
+  size_t start = (head >= max) ? head - max : 0;
+  int out_pos = snprintf(out, 4096, "{\"next_seq\":%u,\"entries\":[", cur_seq);
+
+  bool first = true;
+  char safe_msg[384];  // 2x LogEntry::msg size
+
+  for (size_t i = start; i < head && out_pos < 3900; i++) {
+    const LogEntry& e = _instance->_log_ring[i % max];
+    if (e.seq <= since_seq) continue;
+    if (!first) out[out_pos++] = ',';
+    first = false;
+
+    // Escape " and \ for JSON
+    int sm = 0;
+    for (const char* p = e.msg; *p && sm < static_cast<int>(sizeof(safe_msg)) - 2; p++) {
+      if (*p == '"' || *p == '\\') safe_msg[sm++] = '\\';
+      safe_msg[sm++] = *p;
+    }
+    safe_msg[sm] = '\0';
+
+    out_pos += snprintf(out + out_pos, 4096 - out_pos, "{\"seq\":%u,\"level\":%d,\"tag\":\"%s\",\"msg\":\"%s\"}",
+                        static_cast<unsigned int>(e.seq), e.level, e.tag, safe_msg);
+  }
+
+  xSemaphoreGive(_instance->_log_mutex);
+
+  snprintf(out + out_pos, 4096 - out_pos, "]}");
+
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_send(req, out, strlen(out));
+  free(out);
   return ESP_OK;
 }
 

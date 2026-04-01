@@ -33,7 +33,7 @@ static constexpr uint8_t kMeterRegInternalTemperatureFahrenheitString = 0x60;
 static constexpr uint8_t kMeterRegFirmwareVersion = 0xFE;
 static constexpr uint8_t kMeterRegI2CAddress = 0xFF;
 
-static constexpr uint32_t kTemperatureReadIntervalMs = 250;
+static constexpr uint32_t kTemperatureReadIntervalMs = 500;
 static constexpr BusType kM5KMeterBusType = BusType::kI2C;
 static constexpr char kM5KMeterName[] = "M5 K-Meter";
 

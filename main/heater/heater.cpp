@@ -103,6 +103,12 @@ void Heater::Loop() {
     // AssertOff();
     return;
   }
+
+  // Always update rate before safety check, regardless of mode
+  if (_state == heater::kStateOn && _previous_temperature != std::numeric_limits<int32_t>::max()) {
+    _rate_of_change = _temperature - _previous_temperature;
+  }
+
   switch (_mode) {
     case heater::Mode::kModeTune:
       AutotuneStep();
@@ -123,6 +129,9 @@ void Heater::Loop() {
     HeaterOn(_power_setting);
   } else {
     if (_element->IsOn()) HeaterOff();
+  }
+  if (_state == heater::kStateOn) {
+    _previous_temperature = _temperature;
   }
 }
 
@@ -258,7 +267,8 @@ esp_err_t Heater::CheckSafety() {
   float rate_deg_per_sec = (_rate_of_change * 1000.0f) / (100.0f * _time_slice);
 
   // 3. Stall detection: power high but no heating
-  // TODO: use pid? make configurable? a big oven heats a lot slower than a hotplate
+  // TODO: use pid? make configurable? a big oven heats a lot slower than a hotplate, this triggers on every device i
+  // have before i can do a tune, even
   uint64_t time_since_start = (esp_timer_get_time() / 1000) - _start_time_ms;
   // Skip during warmup period
   if (time_since_start < _limits->stall_warmup_period_ms) {
@@ -628,7 +638,8 @@ void Heater::Tune() {
 
   // Convert to °C for intuitive PID gains
   float error_degC = (_target.value() - _temperature) / 100.0f;
-  float rate_degC_per_sec = ((_temperature - _previous_temperature) / 100.0f) / (_time_slice / 1000.0f);
+  // float rate_degC_per_sec = ((_temperature - _previous_temperature) / 100.0f) / (_time_slice / 1000.0f);
+  float rate_degC_per_sec = (_rate_of_change / 100.0f) / (_time_slice / 1000.0f);
 
   // Integral in °C×seconds
   _temperature_integral += error_degC * (_time_slice / 1000.0f);
@@ -644,7 +655,6 @@ void Heater::Tune() {
   _power_setting = (_kp * error_degC) - (_kd * rate_degC_per_sec) + (_ki * _temperature_integral);
 
   _power_setting = std::clamp(_power_setting, 0.0f, 100.0f);
-  _previous_temperature = _temperature;
 
   FLOG_TRACE("PID: err=%.1f°C rate=%.2f°C/s I=%.1f pwr=%.1f%%", error_degC, rate_degC_per_sec, _temperature_integral,
              _power_setting);
@@ -760,8 +770,10 @@ esp_err_t Heater::CompleteAutotune() {
 esp_err_t Heater::StateToOn() {
   FLOG_DEBUG("StateToOn called");
   _stall_counter = 0;
+  _rate_of_change = 0;
   if (_state == heater::kStateOff) {
     _start_time_ms = esp_timer_get_time() / 1000;
+    _previous_temperature = _temperature;  // snapshot current state as baseline
   }
   // TODO: centralize safety checks before allowing ON state
   if (!_element) {

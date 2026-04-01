@@ -39,6 +39,7 @@ void NetworkManager::Init() {
   _subscription = ps_new_subscriber(10, PS_STRLIST("network"));
 
   ApplySettings();
+  _http->EnableLogStreaming(200);
 }
 
 void NetworkManager::Loop() {

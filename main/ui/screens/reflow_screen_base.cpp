@@ -107,7 +107,7 @@ void ReflowScreen::UpdateChart() {
       last_scale_update = now;
     }
   }
-  FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
+  // FLOG_DEBUG("Chart update took %u us", (uint32_t)(esp_timer_get_time() - starter));
 }
 
 esp_err_t ReflowScreen::Temperature(lv_obj_t* parent) {
